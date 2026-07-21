@@ -16,6 +16,7 @@ import {
   masterStatusGuard,
   masterPendingGuard,
   masterNoProfileGuard,
+  roleFreshnessGuard,
 } from '@/router/guards'
 import { waitUntilReady } from '@/composables/useAuth'
 import type { ReadyResult } from '@/composables/useAuth'
@@ -553,11 +554,20 @@ router.beforeEach(async (to) => {
     }
   }
 
+  // T21-4/T21-5 (ПРОМТ №546): keeps role/master-application state fresh
+  // across in-app navigation (debounced inside), and catches an unseen
+  // rejection verdict on ANY route -- not just a fresh app boot landing on
+  // '/', which is all roleRedirect's own rejection branch ever covered.
+  // See guards.ts for the full reasoning; kept as a separate exported guard
+  // (like every other guard here) so it's directly testable.
+  const freshnessResult = await roleFreshnessGuard(to)
+  if (freshnessResult !== true) return freshnessResult
+
+  const auth = useAuthStore()
+
   if (to.name !== 'user-dashboard' && to.path !== '/user' && to.path !== '/user/') {
     return true
   }
-
-  const auth = useAuthStore()
 
   if (auth.role === 'master' || auth.role === 'admin') {
     const uiStore = useUiStore()

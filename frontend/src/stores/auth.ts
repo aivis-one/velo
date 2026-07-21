@@ -163,6 +163,12 @@ export const useAuthStore = defineStore('auth', () => {
     const { useMasterStore } = await import('@/stores/master')
     useMasterStore().$reset()
 
+    // T21-4/T21-5 (ПРОМТ №546): stop the foreground role-freshness poll so it
+    // doesn't keep ticking a fetchMe() against a session that's about to be
+    // cleared. Dynamic import, same circular-dep reasoning as above.
+    const { stopRoleFreshnessPoll } = await import('@/composables/useRoleFreshness')
+    stopRoleFreshnessPoll()
+
     // In Telegram, "logout" closes the Mini App (product decision): on the
     // next open it starts fresh -> LoadingView -> auto re-login via initData.
     // Arm the logging-out gate FIRST so the App.vue gate shows LoadingView
