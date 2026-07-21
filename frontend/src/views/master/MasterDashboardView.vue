@@ -169,11 +169,18 @@
               </span>
             </div>
           </article>
-          <!-- Like the user dashboard: left = Zoom (1-click launch; stub toast
-               until Zoom ships), right = Check-ins. Edit/delete moved to the
-               practice screen, reached by tapping the card (openPractice). -->
+          <!-- Like the user dashboard: left = Zoom (D3 ladder, T21-1), right
+               = Check-ins. Edit/delete moved to the practice screen, reached
+               by tapping the card (openPractice). -->
           <div class="master-dashboard__practice-actions">
-            <VButton variant="secondary" block @click="onZoom(practice)">Zoom</VButton>
+            <VButton
+              variant="secondary"
+              block
+              :disabled="zoomLinkFor(practice).kind === 'pending'"
+              @click="onZoom(practice)"
+            >
+              Zoom
+            </VButton>
             <VButton
               variant="primary"
               block
@@ -182,6 +189,13 @@
               Check-ins
             </VButton>
           </div>
+          <VBadge
+            v-if="zoomLinkFor(practice).kind === 'manual'"
+            variant="warning"
+            class="master-dashboard__zoom-note"
+          >
+            Ручная ссылка — посещение не засчитается автоматически
+          </VBadge>
         </div>
       </template>
 
@@ -214,7 +228,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { VButton, VLoader, VStatCard, VCard, VMenuRow, VSegmentTrack } from '@/components/ui'
+import { VButton, VLoader, VStatCard, VCard, VMenuRow, VSegmentTrack, VBadge } from '@/components/ui'
 import { IconBellPlain, IconGroup, IconCheckin, IconRepeat, IconHourglass } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { useAuthStore } from '@/stores/auth'
@@ -227,6 +241,7 @@ import { platform } from '@/platform'
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { checkinLabel, recurrenceLabel, remainingSessionsLabel } from '@/utils/practiceCardMeta'
 import { practiceHasEnded } from '@/utils/practiceStatus'
+import { resolveZoomLink, type ZoomLinkResolution } from '@/utils/zoomLink'
 import { getMasterStats } from '@/api/masters'
 import type { PracticeResponse, MasterStatsResponse } from '@/api/types'
 
@@ -332,15 +347,20 @@ function onStudents(): void {
 function openPractice(p: PracticeResponse): void {
   router.push({ name: 'master-practice-detail', params: { id: p.id } })
 }
-// Zoom — open the practice's link via the platform abstraction (routes
-// Telegram-SDK openLink vs window.open). Master screens carry the full
-// PracticeResponse, so zoom_link is available; guard for a real https URL
-// (mirrors PracticeLiveView's hasValidZoom), else nudge the master to add one.
+// Zoom — D3 ladder (T21-1, ПРОМТ №541): the master's own host registrant
+// link first, else the manual practice.zoom_link (marked in the template),
+// else nudge -- via the platform abstraction (Telegram-SDK openLink vs
+// window.open).
+function zoomLinkFor(p: PracticeResponse): ZoomLinkResolution {
+  return resolveZoomLink(p.zoom_host_join_url, p.zoom_link)
+}
+
 function onZoom(p: PracticeResponse): void {
-  if (p.zoom_link && p.zoom_link.startsWith('https://')) {
-    platform.openLink(p.zoom_link)
+  const resolved = zoomLinkFor(p)
+  if (resolved.url) {
+    platform.openLink(resolved.url)
   } else {
-    toast.info('Добавьте ссылку на Zoom в настройках практики')
+    toast.info('Ссылка на Zoom ещё готовится')
   }
 }
 
@@ -646,6 +666,13 @@ onUnmounted(() => {
   /* Side inset so the buttons land at the design width (~145px) instead of
      full-bleed to the rail (design «1 Dashboard»). */
   padding: 0 var(--space-4);
+}
+
+.master-dashboard__zoom-note {
+  display: block;
+  width: fit-content;
+  margin: var(--space-2) auto 0;
+  text-align: center;
 }
 
 /* Card action buttons: 20px label (design); secondary action is a light glass

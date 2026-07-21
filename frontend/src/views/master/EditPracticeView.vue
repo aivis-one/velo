@@ -163,11 +163,18 @@
             autogrow
           />
 
-          <!-- Zoom (реш. В: сохранена по ЛОГИКЕ — авто-ссылки-бэка ещё нет, и Edit
-               сейчас единственное место задать ссылку подключения; в SVG её нет). -->
+          <!-- Zoom (T21-1, ПРОМТ №541, owner decision D1): the backend now
+               ALWAYS creates a real Zoom meeting automatically on publish --
+               this field is an EMERGENCY fallback only (Zoom's daily creation
+               quota can fail it), kept so a master is never left with no way
+               to run the session. Honest label states the cost of using it. -->
+          <p class="edit-practice__hint">
+            Ссылка создаётся автоматически. Указывайте свою только как запасной
+            вариант — посещение по ней не засчитается автоматически.
+          </p>
           <VInput
             v-model="form.zoom_link"
-            label="Zoom ссылка"
+            label="Запасная Zoom ссылка"
             type="url"
             :error="errors.zoom_link"
           />
@@ -692,6 +699,14 @@ async function remove(): Promise<void> {
   font-size: var(--text-base);
   color: var(--velo-text-primary);
   margin-bottom: var(--space-2);
+}
+
+/* T21-1 (ПРОМТ №541): honest caption for the now-fallback Zoom field. */
+.edit-practice__hint {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+  line-height: 1.4;
 }
 
 .edit-practice__picker {

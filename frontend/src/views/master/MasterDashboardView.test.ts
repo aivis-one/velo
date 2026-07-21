@@ -984,22 +984,30 @@ describe('MasterDashboardView', () => {
       expect(toastInfo).not.toHaveBeenCalled()
     })
 
-    it('nudges the master instead of opening nothing when there is no link', async () => {
+    it('T21-1: with no link on either rung, the Zoom button is disabled (not just a nudge on click)', async () => {
       mount()
       await flush()
 
-      actionIn(blocks()[1]!, 'Zoom')?.click()
+      // blocks()[1] carries no zoom_link and no host registrant link (T21-1
+      // ПРОМТ №541 supersedes the old "click a live button, get a toast"
+      // behaviour -- the button itself is now disabled, same posture as the
+      // user-facing screens).
+      const zoomBtn = actionIn(blocks()[1]!, 'Zoom')
+      expect(zoomBtn?.disabled).toBe(true)
+      zoomBtn?.click() // a disabled <button> fires no click handler in happy-dom
       await flush()
-
       expect(platformState.openLink).not.toHaveBeenCalled()
-      expect(toastInfo).toHaveBeenCalledWith('Добавьте ссылку на Zoom в настройках практики')
     })
 
-    it('refuses a non-https link rather than handing it to the platform', async () => {
-      // `startsWith('https://')` (.vue:340). A stored `http://` or a
-      // `javascript:` string must never reach openLink -- the guard is the point.
+    it('T21-1: a personal host registrant link takes priority over the manual zoom_link', async () => {
       vi.mocked(mastersApi.getMyPractices).mockResolvedValue(
-        page([practice('bad', { title: 'Плохая ссылка', zoom_link: 'http://zoom.us/j/222' })]),
+        page([
+          practice('withHost', {
+            title: 'С хост-ссылкой',
+            zoom_link: 'https://zoom.us/j/manual',
+            zoom_host_join_url: 'https://zoom.us/w/host?tk=xyz',
+          }),
+        ]),
       )
       mount()
       await flush()
@@ -1007,8 +1015,34 @@ describe('MasterDashboardView', () => {
       actionIn(blocks()[0]!, 'Zoom')?.click()
       await flush()
 
+      expect(platformState.openLink).toHaveBeenCalledWith('https://zoom.us/w/host?tk=xyz')
+    })
+
+    it('T21-1: no host link but a valid manual zoom_link -- button enabled, "not counted" mark shown', async () => {
+      mount()
+      await flush()
+
+      // blocks()[0] is P_SOON: https zoom_link, no host link set.
+      expect(actionIn(blocks()[0]!, 'Zoom')?.disabled).toBe(false)
+      expect(host?.textContent).toContain('посещение не засчитается')
+    })
+
+    it('refuses a non-https link on EITHER rung rather than handing it to the platform', async () => {
+      // resolveZoomLink's https guard (utils/zoomLink.ts). A stored `http://`
+      // or a `javascript:` string must never reach openLink on either rung --
+      // the guard is the point.
+      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(
+        page([practice('bad', { title: 'Плохая ссылка', zoom_link: 'http://zoom.us/j/222' })]),
+      )
+      mount()
+      await flush()
+
+      const zoomBtn = actionIn(blocks()[0]!, 'Zoom')
+      expect(zoomBtn?.disabled).toBe(true)
+      zoomBtn?.click()
+      await flush()
+
       expect(platformState.openLink).not.toHaveBeenCalled()
-      expect(toastInfo).toHaveBeenCalledWith('Добавьте ссылку на Zoom в настройках практики')
     })
 
     it('tapping Zoom does not also open the practice', async () => {

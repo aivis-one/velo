@@ -561,7 +561,7 @@ describe('CreatePracticeView', () => {
       typeInto(textareaByPlaceholder('Расскажите подробее о вашей практике'), 'Описание')
       typeInto(textareaByPlaceholder('Противопоказания'), 'Травмы спины')
       typeInto(textareaByPlaceholder('Что подготовить'), 'Коврик')
-      typeInto(inputByPlaceholder('Ссылка на Zoom'), 'https://zoom.us/j/7')
+      typeInto(inputByPlaceholder('Запасная ссылка на Zoom'), 'https://zoom.us/j/7')
       await flush()
 
       submitForm()

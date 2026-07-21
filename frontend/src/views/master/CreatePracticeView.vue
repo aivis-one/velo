@@ -338,14 +338,22 @@
       </div>
 
       <!-- ================================================================
-           Подключение  (ручной ввод Zoom-ссылки, необязательно; пусто = бэк
-           сгенерит ссылку сам — operator 2026-06-18 Q3=А; авто-генерация → Зоду)
+           Подключение (T21-1, ПРОМТ №541, owner decision D1): the backend
+           ALWAYS creates a real Zoom meeting automatically on publish -- this
+           field is now an EMERGENCY fallback only (Zoom's daily creation quota
+           can fail it), not the primary link. Kept because a master must
+           never be left with no way to run the session; the honest label
+           says what using it costs.
            ================================================================ -->
       <div class="create-practice__section">
         <h2 class="velo-section-title">Подключение</h2>
+        <p class="create-practice__hint">
+          Ссылка на Zoom создаётся автоматически. Указывайте свою только как запасной
+          вариант — посещение по ней не засчитается автоматически.
+        </p>
 
         <div class="create-practice__railed">
-          <VInput v-model="form.zoom_link" placeholder="Ссылка на Zoom" @focus="onFieldFocus" />
+          <VInput v-model="form.zoom_link" placeholder="Запасная ссылка на Zoom" @focus="onFieldFocus" />
         </div>
       </div>
 
@@ -924,6 +932,14 @@ async function submit(): Promise<void> {
    tight (one step, not the doubled gap + margin) (operator CP-A1). */
 .create-practice__section--desc :deep(.v-textarea) {
   margin-bottom: 0;
+}
+
+/* T21-1 (ПРОМТ №541): honest caption for the now-fallback Zoom field. */
+.create-practice__hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+  line-height: 1.4;
 }
 
 /* Required-fields legend banner (DS, Phase-3) — pink glass plate, rose seal. */
