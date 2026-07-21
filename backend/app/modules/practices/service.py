@@ -313,7 +313,16 @@ async def _validate_taxonomy(
     style: str | None,
     session: AsyncSession,
 ) -> None:
-    """Validate a direction + optional style pair against the union."""
+    """Validate a direction + optional style pair against the GLOBAL union
+    (config + active catalog). Deliberately does NOT check whether the
+    CALLING MASTER is confirmed for this direction/style -- that is a
+    separate, narrower question (see _assert_master_confirmed_taxonomy
+    below), checked explicitly at each call site that has a `user` to check
+    against. Kept separate rather than folded in here so this function keeps
+    its existing, reusable "is this a real taxonomy value at all" meaning
+    (master onboarding's own picker legitimately needs the unfiltered
+    catalog, and must never route through the master-confirmation check --
+    T21-6, ПРОМТ №546)."""
     if direction not in settings.practice_allowed_directions:
         if not await _direction_in_catalog(direction, session):
             raise BadRequestError(
@@ -321,6 +330,121 @@ async def _validate_taxonomy(
                 f"{settings.practice_allowed_directions}, got '{direction}'"
             )
     await _validate_style_choice(direction, style, session)
+
+
+# T21-6 (ПРОМТ №546): flat "Направление — Вид" join, byte-for-byte identical
+# to the frontend's methodTaxonomy.ts SEP -- MasterProfile.data.profile.
+# methods is a list of these frozen strings (see admin/masters/service.py's
+# approve_method_change, which copies proposed_methods verbatim with no
+# server-side value<->label resolution at all until now).
+_METHOD_LABEL_SEP = " — "
+
+
+async def _label_for_direction_value(
+    direction: str,
+    session: AsyncSession,
+) -> str | None:
+    """Current active-catalog label for a direction value, or None if it
+    isn't (or is no longer) an active catalog row."""
+    stmt = select(TaxonomyDirection.label).where(
+        TaxonomyDirection.value == direction,
+        TaxonomyDirection.is_active.is_(True),
+    )
+    return (await session.execute(stmt)).scalar_one_or_none()
+
+
+async def _label_for_style_value(
+    direction: str,
+    style: str,
+    session: AsyncSession,
+) -> str | None:
+    """Current active-catalog label for a style value under a direction, or
+    None if it isn't (or is no longer) an active catalog row."""
+    stmt = (
+        select(TaxonomyStyle.label)
+        .join(TaxonomyDirection, TaxonomyStyle.direction_id == TaxonomyDirection.id)
+        .where(
+            TaxonomyDirection.value == direction,
+            TaxonomyDirection.is_active.is_(True),
+            TaxonomyStyle.value == style,
+            TaxonomyStyle.is_active.is_(True),
+        )
+    )
+    return (await session.execute(stmt)).scalar_one_or_none()
+
+
+async def _assert_master_confirmed_taxonomy(
+    master_id: UUID,
+    direction: str,
+    style: str | None,
+    session: AsyncSession,
+) -> None:
+    """Reject a direction/style the calling master has not been CONFIRMED
+    for (T21-6). Confirmed = MasterProfile.data.profile.methods -- the live
+    field, overwritten only on admin approval (approve_method_change).
+    Deliberately does NOT read method_change_request.proposed_methods: a
+    pending, unapproved request must never unlock a practice in that
+    direction, or the "up to 3 working days" review the UI advertises would
+    mean nothing.
+
+    FAILS OPEN (does not restrict) when the master's confirmed methods list
+    is EMPTY -- not a loophole, a reflection of reality: a real verified
+    master always has at least one confirmed method (masters/schemas.py's
+    MasterApplicationRequest requires min_length=1 at application time), so
+    an empty list here means either a test fixture that never set up
+    profile.methods at all, or a data state that should not be reachable in
+    production. Restricting THAT case would be enforcing a rule against
+    data that predates the rule, not the rule itself.
+
+    Resolves the direction/style VALUES being validated into their CURRENT
+    catalog labels and checks for that flat string among the stored
+    (frozen-at-approval-time) labels -- mirrors the frontend's parseMethods/
+    directionLabel resolution, including its one known limitation: if an
+    admin renames a direction/style's label after a master's confirmation
+    was frozen, the stored label and the freshly-resolved label can drift
+    apart. Pre-existing characteristic of storing frozen labels rather than
+    stable ids -- not introduced by this check, and out of scope to fix here.
+    """
+    profile = (
+        await session.execute(
+            select(MasterProfile).where(MasterProfile.user_id == master_id)
+        )
+    ).scalar_one_or_none()
+    methods: list[str] = (
+        (profile.data or {}).get("profile", {}).get("methods", [])
+        if profile
+        else []
+    )
+    if not methods:
+        return
+
+    dir_label = await _label_for_direction_value(direction, session)
+    if dir_label is None:
+        # Not an active catalog row at all -- _validate_taxonomy already
+        # accepted it via the config-only allow-list (a seed direction with
+        # no catalog row), which no master's stored methods can reference
+        # either (methods are only ever built from catalog labels). Nothing
+        # to confirm against; let the config-level validation's own verdict
+        # stand rather than raising a second, redundant error here.
+        return
+
+    if style is None:
+        if dir_label in methods:
+            return
+        raise BadRequestError(
+            f"direction '{direction}' is not among your confirmed methods"
+        )
+
+    style_label = await _label_for_style_value(direction, style, session)
+    if style_label is None:
+        return
+    expected = f"{dir_label}{_METHOD_LABEL_SEP}{style_label}"
+    if expected in methods:
+        return
+    raise BadRequestError(
+        f"style '{style}' for direction '{direction}' is not among your "
+        f"confirmed methods"
+    )
 
 
 async def _has_active_bookings(
@@ -491,8 +615,16 @@ async def create_practice(
     are required by the schema, style is optional. direction/style membership
     (T2, 2026-07-15) is validated here against the config+catalog union --
     difficulty stays schema-validated (config only, no catalog table).
+
+    T21-6 (ПРОМТ №546): ALSO validated against the calling master's own
+    CONFIRMED methods (_assert_master_confirmed_taxonomy) -- a master may
+    only create a practice in a direction/style their profile has been
+    approved for. This is separate from the global catalog check above and
+    does not apply anywhere master onboarding picks methods (a different
+    endpoint entirely, which correctly shows the unfiltered catalogue).
     """
     await _validate_taxonomy(body.direction, body.style, session)
+    await _assert_master_confirmed_taxonomy(user.id, body.direction, body.style, session)
     price_cents = _enforce_pricing(body.is_free, body.price_cents)
 
     practice = Practice(
@@ -785,10 +917,15 @@ async def update_practice(
         # here, against the config+catalog union.
         if "direction" in taxonomy_updates:
             new_direction = taxonomy_updates["direction"]
+            new_style = taxonomy_updates.get("style")
             # Style paired with this same request validates against the NEW
             # direction (None if style isn't part of this update -- a no-op).
-            await _validate_taxonomy(
-                new_direction, taxonomy_updates.get("style"), session,
+            await _validate_taxonomy(new_direction, new_style, session)
+            # T21-6 (ПРОМТ №546): same master-confirmation check as
+            # create_practice -- an update can equally smuggle in a
+            # direction/style the master was never confirmed for.
+            await _assert_master_confirmed_taxonomy(
+                user.id, new_direction, new_style, session,
             )
         elif "style" in taxonomy_updates:
             # W-1: style changed WITHOUT direction in the same request --
@@ -800,8 +937,10 @@ async def update_practice(
             # before T2.
             stored_taxonomy = (practice.data or {}).get("taxonomy", {})
             stored_direction = stored_taxonomy.get("direction")
-            await _validate_style_choice(
-                stored_direction, taxonomy_updates["style"], session,
+            new_style = taxonomy_updates["style"]
+            await _validate_style_choice(stored_direction, new_style, session)
+            await _assert_master_confirmed_taxonomy(
+                user.id, stored_direction, new_style, session,
             )
 
         data = copy.deepcopy(practice.data) if practice.data else {}

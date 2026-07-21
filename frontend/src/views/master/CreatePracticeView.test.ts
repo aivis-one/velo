@@ -82,7 +82,7 @@ import { createApp, nextTick, type App } from 'vue'
 import CreatePracticeView from '@/views/master/CreatePracticeView.vue'
 import * as practicesApi from '@/api/practices'
 import { ApiResponseError } from '@/api/client'
-import type { CreatePracticeRequest, PracticeResponse, UserResponse } from '@/api/types'
+import type { CreatePracticeRequest, MasterProfileResponse, PracticeResponse, UserResponse } from '@/api/types'
 
 vi.mock('@/api/practices')
 
@@ -110,16 +110,24 @@ vi.mock('@/composables/useToast', () => ({
 
 // Both stores are DEPENDENCIES. Getters over a mutable object so tests mutate
 // state instead of re-mocking (velo-idiom §5).
-const masterState: { practices: PracticeResponse[] } = { practices: [] }
+const masterState: { practices: PracticeResponse[]; profile: MasterProfileResponse | null } = {
+  practices: [],
+  profile: null,
+}
 const fetchMyPractices = vi.fn()
 const refreshMyPractices = vi.fn()
+const fetchMyProfile = vi.fn()
 vi.mock('@/stores/master', () => ({
   useMasterStore: () => ({
     get practices() {
       return masterState.practices
     },
+    get profile() {
+      return masterState.profile
+    },
     fetchMyPractices,
     refreshMyPractices,
+    fetchMyProfile,
   }),
 }))
 
@@ -341,7 +349,16 @@ beforeEach(() => {
   vi.setSystemTime(NOW)
   localStorage.clear()
   masterState.practices = []
+  // Seeded with every direction/style this file's tests actually pick
+  // (T21-6, ПРОМТ №546) -- the confirmed-methods filter is real from here
+  // down, not bypassed by the fail-open (no-profile) path. The two tests
+  // that specifically exercise "profile hasn't loaded" / "profile narrows
+  // to fewer directions" override this per-test.
+  masterState.profile = {
+    methods: ['Йога', 'Йога — Хатха-йога', 'Дыхательные практики', 'Круги', 'Круги — Женский круг'],
+  } as MasterProfileResponse
   authState.user = { id: 'u1', timezone: 'Europe/Moscow' } as Partial<UserResponse>
+  fetchMyProfile.mockReset().mockResolvedValue(undefined)
   vi.mocked(ensureTaxonomyCatalog).mockReset().mockResolvedValue(null)
   vi.mocked(practicesApi.createPractice).mockReset().mockResolvedValue(practice({ id: 'p_new' }))
   vi.mocked(practicesApi.updatePractice)
@@ -397,9 +414,15 @@ describe('CreatePracticeView', () => {
       expect(selectByPlaceholder('Направление практики')).toBeDefined()
     })
 
-    it('a COLD taxonomy catalog still offers the hardcoded directions', async () => {
+    it('a COLD taxonomy catalog still offers the hardcoded directions when the master profile has not loaded yet (T21-6, ПРОМТ №546)', async () => {
       // practiceOptions.ts:268-271. An empty Направление picker is an unusable
       // form -- the field is required and there would be nothing to choose.
+      // Explicitly null (overriding the file's seeded default) -- fetchMyProfile
+      // is mocked and never actually populates the store on its own, so this
+      // models the real gap between mount and the profile fetch resolving.
+      // directionOptions/styleOptionsForForm fail OPEN to the full catalog
+      // until a confirmed-methods list actually arrives.
+      masterState.profile = null
       mount()
       await flush()
 
@@ -408,6 +431,25 @@ describe('CreatePracticeView', () => {
       )
       expect(opts).toContain('Йога')
       expect(opts).toContain('Медитация')
+    })
+
+    it('narrows to the master\'s own confirmed methods once the profile has loaded (T21-6, ПРОМТ №546)', async () => {
+      // Same cold catalog as above (ensureTaxonomyCatalog mocked to null) --
+      // the filter is driven by MasterProfileResponse.methods, resolved via
+      // parseMethods against the hardcoded DIRECTION_OPTIONS fallback, not by
+      // the taxonomy catalog. A master confirmed for "Йога" only must never
+      // be offered "Медитация" from the create-practice picker (T21-6): that
+      // would let them create a practice in a direction they were never
+      // verified for.
+      masterState.profile = { methods: ['Йога'] } as MasterProfileResponse
+      mount()
+      await flush()
+
+      const opts = Array.from(selectByPlaceholder('Направление практики')?.options ?? []).map((o) =>
+        o.textContent?.trim(),
+      )
+      expect(opts).toContain('Йога')
+      expect(opts).not.toContain('Медитация')
     })
 
     it('«Вид практики» appears only for a direction that HAS styles', async () => {

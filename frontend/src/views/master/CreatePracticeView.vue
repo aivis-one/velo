@@ -416,7 +416,7 @@ import UseTemplateBlock from '@/components/shared/UseTemplateBlock.vue'
 import Banner from '@/components/shared/Banner.vue'
 import { ApiResponseError } from '@/api/client'
 import { DURATION_OPTIONS, catalogDirectionOptions, catalogStylesForDirection } from '@/utils/practiceOptions'
-import { ensureTaxonomyCatalog } from '@/utils/methodTaxonomy'
+import { ensureTaxonomyCatalog, parseMethods } from '@/utils/methodTaxonomy'
 import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 import type { TaxonomyListResponse } from '@/api/taxonomy'
 import type { RecurrenceSpec, PracticeResponse } from '@/api/types'
@@ -454,6 +454,11 @@ onMounted(() => {
   void ensureTaxonomyCatalog().then((c) => {
     catalog.value = c
   })
+  // T21-6 (ПРОМТ №546): needed to filter the direction/style pickers down to
+  // this master's OWN confirmed methods (see directionOptions/
+  // styleOptionsForForm below). No-op if already loaded elsewhere this
+  // session (fetchMyProfile's own cache, same as fetchMyPractices above).
+  void masterStore.fetchMyProfile()
 })
 
 const submitting = ref(false)
@@ -555,15 +560,48 @@ const templatePractices = computed((): PracticeResponse[] =>
   [...masterStore.practices].sort((a, b) => b.created_at.localeCompare(a.created_at)),
 )
 
-// Direction options, catalog-first (T2 stage 2) -- falls back to the
-// hardcoded DIRECTION_OPTIONS while catalog.value is cold/unreachable.
-const directionOptions = computed(() => catalogDirectionOptions(catalog.value))
+// T21-6 (ПРОМТ №546): this master's OWN CONFIRMED methods (MasterProfile.
+// methods -- the live field, only overwritten on admin approval), parsed
+// into direction/style VALUES via the same resolver every other screen
+// uses. Deliberately reads masterStore.profile?.methods, NEVER
+// method_change_request.proposed_methods -- a pending, unapproved request
+// must not unlock a direction before the "up to 3 working days" review the
+// profile screen itself advertises. null while the profile hasn't loaded
+// yet (fail toward showing the full catalogue rather than flashing "no
+// options" for a frame -- the backend is the actual gate regardless).
+const confirmedMethods = computed(() => {
+  const methods = masterStore.profile?.methods
+  if (!methods) return null
+  return parseMethods(methods)
+})
 
-// Direction-conditional style options. When the direction has no styles
-// (e.g. breathwork, somatic, tantra, ...) the VSelect is hidden by v-if.
-// Catalog-first (T2 stage 2) -- falls back to the hardcoded
-// STYLE_OPTIONS_BY_DIRECTION while catalog.value is cold/unreachable.
-const styleOptionsForForm = computed(() => catalogStylesForDirection(catalog.value, form.direction))
+// Direction options, filtered to the master's own confirmed directions.
+// Falls back to the FULL catalog-first list (unfiltered) in two cases,
+// both deliberate: the profile hasn't loaded yet (see confirmedMethods
+// above), or it loaded with zero confirmed methods at all -- a state a real
+// verified master can't be in (application requires >=1 method), so
+// restricting it would only ever hit a test fixture or pre-feature data,
+// never a genuine master with something to hide directions from.
+const directionOptions = computed(() => {
+  const all = catalogDirectionOptions(catalog.value)
+  const confirmed = confirmedMethods.value
+  if (!confirmed || !confirmed.directions.length) return all
+  return all.filter((opt) => confirmed.directions.includes(opt.value))
+})
+
+// Direction-conditional style options, same confirmed-methods filter. A
+// direction confirmed WITHOUT a specific style (bare "Направление", no " —
+// Вид" half) offers NO styles here -- matches the backend's equally strict
+// check (practices/service.py's _assert_master_confirmed_taxonomy): picking
+// any style under a bare-confirmed direction would be rejected on submit,
+// so the picker must not offer it in the first place.
+const styleOptionsForForm = computed(() => {
+  const all = catalogStylesForDirection(catalog.value, form.direction)
+  const confirmed = confirmedMethods.value
+  if (!confirmed || !confirmed.directions.length) return all
+  const confirmedStyleValues = confirmed.styles[form.direction as string] ?? []
+  return all.filter((opt) => confirmedStyleValues.includes(opt.value))
+})
 
 /** Reset style when direction changes — the previous value is likely
  *  invalid for the new direction. */
