@@ -211,11 +211,11 @@ async def test_zoom_tracked_practice_defers_instead_of_deciding_immediately(
     _finalize_practice_core does NOT decide the booking -- it stays
     CONFIRMED, practice still completes.
 
-    ПРОМТ №530: this scenario is now gated on settings.is_zoom_stub, which
-    is True on every test server (no real Zoom credentials anywhere) --
-    without forcing it False here, this test would exercise the OPPOSITE of
-    what its name and assertions claim (a stub-mode active meeting is no
-    longer treated as tracked; see
+    ПРОМТ №530: this scenario is gated on settings.is_zoom_stub. ПРОМТ №543
+    pinned the suite to stub mode by default (conftest.py) -- without
+    forcing it False here, this test would exercise the OPPOSITE of what
+    its name and assertions claim (a stub-mode active meeting is no longer
+    treated as tracked; see
     test_stub_mode_active_meeting_decides_immediately_not_deferred below
     for THAT case). The credential fields are patched directly (not the
     is_zoom_stub property itself, which is read-only) so this genuinely
@@ -245,13 +245,18 @@ async def test_stub_mode_active_meeting_decides_immediately_not_deferred(
     client: AsyncClient, db_session: AsyncSession,
 ) -> None:
     """ПРОМТ №530 regression pin, at the _finalize_practice_core unit level:
-    an ACTIVE ZoomMeeting under settings.is_zoom_stub (the default and only
-    state on every server today, no monkeypatch needed) must NOT defer --
-    it is decided immediately via the legacy proxy, exactly like a practice
+    an ACTIVE ZoomMeeting under settings.is_zoom_stub must NOT defer -- it
+    is decided immediately via the legacy proxy, exactly like a practice
     with no ZoomMeeting row at all. This is the counterpart to
     test_zoom_tracked_practice_defers_instead_of_deciding_immediately above,
     which forces real credentials to prove the deferral still exists for
     that case.
+
+    ПРОМТ №543: no monkeypatch needed HERE specifically because
+    conftest.py's session-scoped setup_infrastructure pins
+    settings.zoom_client_secret = "TEST" for the whole suite -- this test
+    relies on that suite-level pin, not on any server's actual credential
+    state (which this file previously and wrongly claimed to know).
     """
     master_id = await _make_master(client, db_session, 79306)
     practice = await _create_practice(db_session, master_id)
@@ -316,10 +321,11 @@ async def test_diary_is_hidden_stays_false_after_zoom_driven_no_show(
     asserted is_hidden for a practice_outcome event. Turns it into an
     enforced guarantee for the Zoom-decided path specifically.
 
-    Uses stub mode (no real Zoom credentials in any test env): the report
-    call returns zero participants, so the registrant's booking is decided
-    NO_SHOW via zoom_report with genuinely zero segments -- exercising the
-    real ingest_report_for_meeting code path, not a mocked shortcut.
+    Relies on the suite's stub-mode pin (conftest.py, ПРОМТ №543): the
+    report call returns zero participants, so the registrant's booking is
+    decided NO_SHOW via zoom_report with genuinely zero segments --
+    exercising the real ingest_report_for_meeting code path, not a mocked
+    shortcut.
     """
     master_id = await _make_master(client, db_session, 79304)
     practice = await _create_practice(

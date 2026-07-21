@@ -371,10 +371,11 @@ async def test_finalize_decides_immediately_in_stub_mode_no_deferral(
     """A stub-mode "active" meeting can never produce a real Zoom report --
     treating it as Zoom-tracked would defer attendance for the full
     settings.zoom_attendance_decision_deadline_minutes (120) before the
-    deadline fallback finally decided it, on every server today (no server
-    has real Zoom credentials). Pins the fix directly: the ZoomMeeting row
-    IS still created and ACTIVE (stub mode's normal, unchanged behavior --
-    see test_host_registrant_created_once_no_booking_id above), but finalize
+    deadline fallback finally decided it. Relies on the suite's stub-mode
+    pin (conftest.py, ПРОМТ №543), not on any server's actual credential
+    state. Pins the fix directly: the ZoomMeeting row IS still created and
+    ACTIVE (stub mode's normal, unchanged behavior -- see
+    test_host_registrant_created_once_no_booking_id above), but finalize
     must decide attendance IMMEDIATELY via the legacy proxy anyway, and
     project the diary outcome right away -- no deferral.
     """

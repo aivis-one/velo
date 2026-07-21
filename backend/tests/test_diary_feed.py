@@ -127,15 +127,17 @@ async def _create_scheduled_practice(
 ) -> str:
     """Create a draft practice and move it to scheduled. Returns practice id.
 
-    ПРОМТ №530: no fail_zoom_create workaround needed anymore -- stub mode
-    (settings.is_zoom_stub, true on every test/dev/prod server today) now
-    skips ZoomMeeting creation entirely (zoom/service.py
-    create_meeting_for_practice), so a practice built the plain way here is
-    never Zoom-tracked and always decided via the legacy proxy at finalize,
-    same as before E21 shipped. The №529 fail_zoom_create parameter added
-    here to work around the opposite (briefly true) behavior has been
-    reverted -- carrying it forward would have been a workaround for a
-    condition that no longer exists.
+    ПРОМТ №530: no fail_zoom_create workaround needed anymore -- a stub-mode
+    ZoomMeeting row is still created (zoom/service.py create_meeting_for_
+    practice creates it unconditionally), but bookings/service.py's
+    zoom_tracked check ANDs meeting-exists with `not settings.is_zoom_stub`,
+    so a practice built the plain way here is never treated as Zoom-tracked
+    while the suite's stub-mode pin (conftest.py, ПРОМТ №543) holds -- always
+    decided via the legacy proxy at finalize, same as before E21 shipped.
+    The №529 fail_zoom_create parameter added here to work around the
+    opposite (briefly true) behavior has been reverted -- carrying it
+    forward would have been a workaround for a condition that no longer
+    exists.
     """
     headers = auth_headers(master_auth["session_token"])
     resp = await client.post(
@@ -468,12 +470,15 @@ async def test_finalize_projects_outcome_for_attended_and_no_show(
 ) -> None:
     """Finalize projects practice_outcome to both attended and no-show users.
 
-    ПРОМТ №530 reverted the №529 fail_zoom_create workaround: stub mode
-    (every test server) now skips ZoomMeeting creation entirely
-    (zoom/service.py create_meeting_for_practice), so a plain
-    _create_scheduled_practice is never Zoom-tracked and is decided via the
-    legacy proxy immediately at finalize -- back to this test's original
-    form and intent.
+    ПРОМТ №530 reverted the №529 fail_zoom_create workaround: a stub-mode
+    ZoomMeeting is still created (zoom/service.py create_meeting_for_
+    practice creates it unconditionally), but bookings/service.py's
+    zoom_tracked = zoom_meeting is not None and not settings.is_zoom_stub
+    means it is never treated as tracked while stub mode is on, so a plain
+    _create_scheduled_practice is decided via the legacy proxy immediately
+    at finalize -- back to this test's original form and intent. Relies on
+    the suite's stub-mode pin (conftest.py, ПРОМТ №543), not on any
+    server's actual credential state.
     """
     master = await _make_verified_master(client, db_session)
     pid = await _create_scheduled_practice(client, master)
