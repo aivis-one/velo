@@ -35,7 +35,6 @@ export type {
   AuthResponse,
   BookingDetailResponse,
   BookingResponse,
-  BookingWithPracticeResponse,
   CancelBookingRequest,
   CheckinMetricResponse,
   CheckinRequest,
@@ -99,7 +98,6 @@ export type {
   PayoutDetails,
   PayoutDetailsUpdate,
   PracticeInsightsResponse,
-  PracticeResponse,
   PracticeSummary,
   PreviewPurchaseRequest,
   PreviewPurchaseResponse,
@@ -141,6 +139,32 @@ export type {
   WaitlistWithPracticeResponse,
   WithdrawalResponse,
 } from './generated'
+
+// -- T21-1 bridge: two fields the backend already returns, ahead of the next
+// `generated.ts` regen (velo-manage.sh regenerates it from a live backend on
+// deploy; never hand-edited -- see file header). Remove this block once a
+// regen picks up `zoom_registrant_join_url` / `zoom_host_join_url` natively
+// and switch these two back to the plain re-export above.
+import type {
+  BookingWithPracticeResponse as GeneratedBookingWithPracticeResponse,
+  PracticeResponse as GeneratedPracticeResponse,
+} from './generated'
+
+export interface BookingWithPracticeResponse extends GeneratedBookingWithPracticeResponse {
+  /** This booking's own Zoom registrant link (the personal ?tk= URL), or
+   * null/undefined if not yet confirmed/attended or not yet created by
+   * Zoom. Optional (not just nullable): existing test fixtures built before
+   * this field existed omit it entirely, and the ladder treats a missing
+   * field the same as an explicit null. */
+  zoom_registrant_join_url?: string | null
+}
+
+export interface PracticeResponse extends GeneratedPracticeResponse {
+  /** The practice owner's own Zoom host-registrant link. Populated only on
+   * owner-facing responses; null/undefined otherwise. Optional for the same
+   * fixture-compatibility reason as above. */
+  zoom_host_join_url?: string | null
+}
 
 // =============================================================================
 // Frontend-only types (no backend counterpart)

@@ -355,6 +355,61 @@ describe('PracticeLiveView', () => {
   })
 
   // ===========================================================================
+  describe('D3 link ladder (T21-1, ПРОМТ №541): personal link first, manual marked, else pending', () => {
+    it('a personal registrant link takes priority over the manual zoom_link -- opens the PERSONAL one', async () => {
+      practicesState.selected = practice({ zoom_link: 'https://zoom.us/j/manual' })
+      bookingsState.bookings = [
+        booking({ joined_at: '2026-07-20T10:01:00Z', zoom_registrant_join_url: 'https://zoom.us/w/personal?tk=abc' }),
+      ]
+      mount()
+
+      enterBtn()?.click()
+      await flush()
+
+      expect(openLink).toHaveBeenCalledWith('https://zoom.us/w/personal?tk=abc')
+    })
+
+    it('no personal link, but a valid manual zoom_link: Войти is enabled and shows the "not counted" mark', () => {
+      practicesState.selected = practice({ zoom_link: 'https://zoom.us/j/manual' })
+      bookingsState.bookings = [booking()] // no zoom_registrant_join_url in the fixture
+      mount()
+
+      expect(enterBtn()?.disabled).toBe(false)
+      expect(text()).toContain('посещение не засчитается')
+    })
+
+    it('a personal link present: the "not counted" mark does NOT show', () => {
+      practicesState.selected = practice({ zoom_link: 'https://zoom.us/j/manual' })
+      bookingsState.bookings = [booking({ zoom_registrant_join_url: 'https://zoom.us/w/personal?tk=abc' })]
+      mount()
+
+      expect(text()).not.toContain('посещение не засчитается')
+    })
+
+    it('neither link exists: Войти is disabled and reads "Ссылка готовится", not the default label', () => {
+      practicesState.selected = practice({ zoom_link: null })
+      bookingsState.bookings = [booking({ zoom_registrant_join_url: null, joined_at: null })]
+      mount()
+
+      expect(enterBtn()?.disabled).toBe(true)
+      expect(text()).toContain('Ссылка готовится')
+    })
+
+    it('a non-https personal link is never opened -- falls through to the manual link instead', async () => {
+      practicesState.selected = practice({ zoom_link: 'https://zoom.us/j/manual' })
+      bookingsState.bookings = [
+        booking({ joined_at: '2026-07-20T10:01:00Z', zoom_registrant_join_url: 'http://insecure.example/tk=abc' }),
+      ]
+      mount()
+
+      enterBtn()?.click()
+      await flush()
+
+      expect(openLink).toHaveBeenCalledWith('https://zoom.us/j/manual')
+    })
+  })
+
+  // ===========================================================================
   describe('join flow', () => {
     it('a fresh booking (never joined): calls joinBooking, then haptic + openLink on success', async () => {
       practicesState.selected = practice()
