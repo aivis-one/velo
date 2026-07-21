@@ -371,6 +371,7 @@ export interface BookingWithPracticeResponse {
   has_feedback: boolean
   has_checkin: boolean
   practice: PracticeSummary
+  zoom_registrant_join_url?: string | null
 }
 
 /** DELETE /api/v1/bookings/{id} -- optional body. */
@@ -1023,6 +1024,7 @@ export interface PracticeResponse {
   is_paid?: boolean
   created_at: string
   updated_at: string | null
+  zoom_host_join_url?: string | null
 }
 
 /** Compact practice representation for embedding in related responses. Used inside BookingWithPracticeResponse, WaitlistWithPracticeResponse, and PurchaseWithPracticeResponse to give the frontend enough data for list-view cards without a separate GET /practices/{id} call. CR-01: timezone added -- Practice ORM has timezone as NOT NULL, model_validate() picks it up automatically via from_attributes. Without this field, frontend fell back to Europe/Berlin for all practices regardless of actual timezone. status added -- lets list views (my bookings, dashboard nearest card) tell a live practice from a scheduled one without a separate GET /practices/{id} call. Picked up automatically via from_attributes (Practice ORM status is NOT NULL with a default). */
