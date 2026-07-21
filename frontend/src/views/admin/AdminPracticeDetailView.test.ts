@@ -451,4 +451,88 @@ describe('AdminPracticeDetailView', () => {
       expect(statValue('Свободно')).toBe('0')
     })
   })
+
+  // ===========================================================================
+  // T21-1 (ПРОМТ №541): the Zoom section was built to close ПРОМТ №540's audit
+  // finding -- the endpoint and its unmatched bucket existed with ZERO
+  // frontend consumers. Fetched separately from the main practice detail
+  // (own try/catch, own ref) so a failure here never blocks the roster/stats
+  // that already worked before this section existed.
+  describe('Zoom section (T21-1)', () => {
+    function zoomAttendance(
+      overrides: Partial<adminApi.AdminZoomAttendanceResponse> = {},
+    ): adminApi.AdminZoomAttendanceResponse {
+      return {
+        practice_id: 'p_upcoming',
+        zoom_meeting_status: 'active',
+        report_ingested: false,
+        bookings: [],
+        unmatched: [],
+        unmatched_count: 0,
+        ...overrides,
+      }
+    }
+
+    it('does not render at all when the fetch fails -- never blocks the rest of the page', async () => {
+      vi.mocked(adminApi.getAdminZoomAttendance).mockRejectedValue(new Error('network down'))
+      mount('p_upcoming')
+      await flush()
+
+      expect(text()).not.toContain('Статус встречи')
+      // the rest of the page is unaffected
+      expect(statValue('Записалось')).not.toBe('')
+    })
+
+    it('active meeting: shows the "Активна" badge', async () => {
+      vi.mocked(adminApi.getAdminZoomAttendance).mockResolvedValue(zoomAttendance({ zoom_meeting_status: 'active' }))
+      mount('p_upcoming')
+      await flush()
+
+      expect(text()).toContain('Статус встречи')
+      expect(text()).toContain('Активна')
+    })
+
+    it('no ZoomMeeting row at all (null status): shows "Не создана", not blank', async () => {
+      vi.mocked(adminApi.getAdminZoomAttendance).mockResolvedValue(
+        zoomAttendance({ zoom_meeting_status: null }),
+      )
+      mount('p_upcoming')
+      await flush()
+
+      expect(text()).toContain('Не создана')
+    })
+
+    it('create_failed: shows "Ошибка создания", distinguishable from a healthy meeting', async () => {
+      vi.mocked(adminApi.getAdminZoomAttendance).mockResolvedValue(
+        zoomAttendance({ zoom_meeting_status: 'create_failed' }),
+      )
+      mount('p_upcoming')
+      await flush()
+
+      expect(text()).toContain('Ошибка создания')
+      expect(text()).not.toContain('Активна')
+    })
+
+    it('the unmatched bucket is VISIBLE as a count, not hidden -- both zero and non-zero', async () => {
+      vi.mocked(adminApi.getAdminZoomAttendance).mockResolvedValue(
+        zoomAttendance({ unmatched_count: 0 }),
+      )
+      mount('p_upcoming')
+      await flush()
+
+      expect(text()).toContain('Нераспознанные участники')
+      expect(text()).toContain('0')
+    })
+
+    it('a non-zero unmatched count is shown plainly, the whole point of the design (E21 step G)', async () => {
+      vi.mocked(adminApi.getAdminZoomAttendance).mockResolvedValue(
+        zoomAttendance({ unmatched_count: 4 }),
+      )
+      mount('p_upcoming')
+      await flush()
+
+      expect(text()).toContain('Нераспознанные участники')
+      expect(text()).toContain('4')
+    })
+  })
 })

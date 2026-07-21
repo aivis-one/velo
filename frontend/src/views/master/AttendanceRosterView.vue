@@ -55,6 +55,14 @@
           <VStatCard :value="attendance.no_show" label="Не пришли" value-tone="rose" />
         </div>
 
+        <!-- T21-1 (ПРОМТ №541): the unmatched bucket, made VISIBLE here too --
+             backend has computed unmatched_count since E21 step G with no
+             consumer until now (ПРОМТ №540 audit). Shown only when non-zero:
+             this is a heads-up for the master, not a permanent stat card. -->
+        <VBadge v-if="attendance.unmatched_count > 0" variant="warning" class="roster__unmatched-note">
+          {{ attendance.unmatched_count }} участник(а) Zoom не удалось сопоставить с записью
+        </VBadge>
+
         <!-- Empty (no bookings at all) -->
         <VEmptyState
           v-if="attendedItems.length === 0 && noShowItems.length === 0"
@@ -101,7 +109,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { getPractice, getAttendance } from '@/api/practices'
 import { ApiResponseError } from '@/api/client'
-import { VStatCard, VButton, VLoader, VEmptyState } from '@/components/ui'
+import { VStatCard, VButton, VLoader, VEmptyState, VBadge } from '@/components/ui'
 import VShowMore from '@/components/shared/VShowMore.vue'
 import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
 import { VHeader } from '@/components/layout'
@@ -225,6 +233,12 @@ onMounted(load)
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--space-3);
+}
+
+.roster__unmatched-note {
+  display: block;
+  width: fit-content;
+  text-align: center;
 }
 
 /* ===== Section ===== */

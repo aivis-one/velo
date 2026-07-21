@@ -402,4 +402,26 @@ describe('AttendanceRosterView', () => {
       expect(text()).toContain('75 мин')
     })
   })
+
+  // ===========================================================================
+  // T21-1 (ПРОМТ №541): backend has computed unmatched_count since E21 step G
+  // (ПРОМТ №521) with zero frontend consumers until now (ПРОМТ №540 audit).
+  describe('unmatched bucket note (T21-1)', () => {
+    it('shows nothing when unmatched_count is 0 or absent (old fixtures without the field)', async () => {
+      vi.mocked(practicesApi.getAttendance).mockResolvedValue(attendanceResponse({ unmatched_count: 0 }))
+      mount()
+      await flush()
+
+      expect(text()).not.toContain('не удалось сопоставить')
+    })
+
+    it('shows a plain count when Zoom left unmatched participants, the whole point of the design', async () => {
+      vi.mocked(practicesApi.getAttendance).mockResolvedValue(attendanceResponse({ unmatched_count: 3 }))
+      mount()
+      await flush()
+
+      expect(text()).toContain('3')
+      expect(text()).toContain('не удалось сопоставить')
+    })
+  })
 })
