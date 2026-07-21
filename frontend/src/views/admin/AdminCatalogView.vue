@@ -336,6 +336,12 @@ onMounted(load)
   display: flex;
   gap: var(--space-2);
   align-items: center;
+  /* T21-9 (ПРОМТ №546): the input can shrink to 0 (min-width:0 below) but
+     VButton is white-space:nowrap with no min-width override, so on a narrow
+     card it cannot shrink below "+ Добавить"'s full width and pokes out past
+     the card edge. Same escape hatch already used at .admin-catalog__dir-head
+     (Bug 6b, ПРОМТ №408) -- let the button drop to its own line instead. */
+  flex-wrap: wrap;
 }
 
 .admin-catalog__add-input {
