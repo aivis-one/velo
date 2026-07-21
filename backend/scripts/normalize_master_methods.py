@@ -45,6 +45,17 @@
 #   apply) -- matches how every other repair script in this directory scopes
 #   its own idempotency/rollback story.
 #
+#   ПРОМТ №549/550: --rollback checks the row's CURRENT value against BOTH
+#   "before" and "after", not just "before" -- current==before means already
+#   rolled back (skip), current==after means untouched since normalization
+#   (safe to revert), and current matching NEITHER means the row changed for
+#   some other, legitimate reason since (e.g. an admin approved a real
+#   method-change request) -- reverting that to "before" would silently
+#   discard the real change. That case is REFUSED loudly (printed, naming the
+#   master and all three values), never silently skipped and never
+#   overwritten -- a rollback that discards a real approval is worse than no
+#   rollback at all, and this runs against production.
+#
 # IDEMPOTENCY:
 #   A row already in target form has computed "after" == current methods --
 #   skipped, no write, no audit entry, safe to re-run any number of times.
@@ -233,6 +244,7 @@ async def _run_rollback(session: AsyncSession, dry_run: bool) -> None:
 
     reverted = 0
     skipped = 0
+    refused = 0
 
     for user_id, entry in latest_by_master.items():
         profile = await session.get(MasterProfile, user_id)
@@ -242,11 +254,40 @@ async def _run_rollback(session: AsyncSession, dry_run: bool) -> None:
             continue
 
         before = entry.data.get("before")
+        after = entry.data.get("after")
         current = (profile.data or {}).get("profile", {}).get("methods", [])
+
         if current == before:
+            # Already rolled back (a prior --rollback run, or coincidentally
+            # already at that value) -- nothing to do, safe to re-run.
             skipped += 1
             continue
 
+        if current != after:
+            # ПРОМТ №549/550: current is NEITHER what we recorded as the
+            # pre-normalize value NOR what we wrote -- something else
+            # legitimately changed this row since normalization (e.g. an
+            # admin approved a real method-change request). Deciding on
+            # `current == before` alone cannot distinguish "not yet rolled
+            # back" from "changed for an unrelated reason", and reverting to
+            # `before` here would silently discard that real change.
+            # REFUSE loudly instead of guessing either way -- named, with all
+            # three values, so this is impossible to miss in the operator's
+            # relayed output.
+            err(
+                f"  REFUSED: master {user_id} -- current methods match "
+                f"neither the recorded 'before' nor 'after' value. This row "
+                f"changed for some other reason since normalization; "
+                f"rolling back would discard that change.\n"
+                f"    recorded before: {before!r}\n"
+                f"    recorded after:  {after!r}\n"
+                f"    current (live):  {current!r}"
+            )
+            refused += 1
+            continue
+
+        # current == after: exactly what normalize wrote, untouched since --
+        # safe to restore to the pre-normalize value.
         log(
             f"  {'[DRY] Would revert' if dry_run else 'Reverting'} "
             f"master {user_id}:\n"
@@ -263,7 +304,8 @@ async def _run_rollback(session: AsyncSession, dry_run: bool) -> None:
 
     log(
         f"\nSummary: {reverted} profile(s) {'would be ' if dry_run else ''}reverted, "
-        f"{skipped} already at their recorded 'before' value or missing."
+        f"{skipped} already at their recorded 'before' value or missing, "
+        f"{refused} REFUSED (changed for another reason since normalization)."
     )
 
 
