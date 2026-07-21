@@ -86,7 +86,21 @@ def _valid_apply_body() -> dict:
             "email": "master@test.com",
         },
         "experience": {
-            "methods": ["meditation"],
+            # T21-6/T21-7 (ПРОМТ №547/548): _assert_master_confirmed_taxonomy
+            # requires the calling master to hold the exact direction/style
+            # being created or updated. Widened to cover exactly what THIS
+            # file's own tests exercise (bare yoga + its 3 styles used here,
+            # bare breathwork) -- raw VALUES, matching this fixture's own
+            # pre-existing style and the value-canonical comparison chosen in
+            # ПРОМТ №547, not "every direction in the catalog".
+            "methods": [
+                "meditation",
+                "yoga",
+                "yoga — kundalini",
+                "yoga — hatha",
+                "yoga — vinyasa",
+                "breathwork",
+            ],
             "experience_years": 5,
             "bio": "Experienced practitioner",
         },
