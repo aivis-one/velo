@@ -965,33 +965,51 @@ async def update_practice(
         # T2 (2026-07-15): direction/style membership is no longer checked by
         # Pydantic (it can't reach the async catalog), so both are validated
         # here, against the config+catalog union.
+        #
+        # T21-8 (ПРОМТ №547): EditPracticeView resends BOTH direction and
+        # style on EVERY save (not only when the master actually changes
+        # them), and exclude_unset only tells us they were PRESENT, not that
+        # they changed -- so gating re-validation on presence alone re-ran
+        # _assert_master_confirmed_taxonomy on every title-only save too,
+        # blocking a master from editing ANY field of a practice the instant
+        # their confirmed methods no longer covered its (unchanged) taxonomy.
+        # Compare against the practice's currently-stored taxonomy instead:
+        # object only when a value ACTUALLY CHANGES to something unconfirmed.
+        stored_taxonomy = (practice.data or {}).get("taxonomy", {})
+        stored_direction = stored_taxonomy.get("direction")
+        stored_style = stored_taxonomy.get("style")
+
         if "direction" in taxonomy_updates:
             new_direction = taxonomy_updates["direction"]
-            new_style = taxonomy_updates.get("style")
             # Style paired with this same request validates against the NEW
-            # direction (None if style isn't part of this update -- a no-op).
-            await _validate_taxonomy(new_direction, new_style, session)
-            # T21-6 (ПРОМТ №546): same master-confirmation check as
-            # create_practice -- an update can equally smuggle in a
-            # direction/style the master was never confirmed for.
-            await _assert_master_confirmed_taxonomy(
-                user.id, new_direction, new_style, session,
+            # direction (None if style isn't part of this update -- a no-op,
+            # unchanged from before T21-8: a direction-only change does not
+            # re-check the existing stored style against the new direction).
+            new_style = taxonomy_updates.get("style")
+            direction_changed = new_direction != stored_direction
+            style_changed = (
+                "style" in taxonomy_updates and new_style != stored_style
             )
+            if direction_changed or style_changed:
+                await _validate_taxonomy(new_direction, new_style, session)
+                # T21-6 (ПРОМТ №546): same master-confirmation check as
+                # create_practice -- an update can equally smuggle in a
+                # direction/style the master was never confirmed for.
+                await _assert_master_confirmed_taxonomy(
+                    user.id, new_direction, new_style, session,
+                )
         elif "style" in taxonomy_updates:
             # W-1: style changed WITHOUT direction in the same request --
             # validate against the direction actually STORED on the practice
             # (a style valid for a DIFFERENT direction, e.g. "silence" -- a
             # meditation style -- on a stored yoga practice, must still be
-            # rejected). A direction change alone, without a style in the same
-            # request, does not re-check the stored style -- unchanged from
-            # before T2.
-            stored_taxonomy = (practice.data or {}).get("taxonomy", {})
-            stored_direction = stored_taxonomy.get("direction")
+            # rejected).
             new_style = taxonomy_updates["style"]
-            await _validate_style_choice(stored_direction, new_style, session)
-            await _assert_master_confirmed_taxonomy(
-                user.id, stored_direction, new_style, session,
-            )
+            if new_style != stored_style:
+                await _validate_style_choice(stored_direction, new_style, session)
+                await _assert_master_confirmed_taxonomy(
+                    user.id, stored_direction, new_style, session,
+                )
 
         data = copy.deepcopy(practice.data) if practice.data else {}
         taxonomy = data.get("taxonomy", {})
