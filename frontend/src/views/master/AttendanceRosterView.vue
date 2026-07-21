@@ -59,7 +59,7 @@
              backend has computed unmatched_count since E21 step G with no
              consumer until now (ПРОМТ №540 audit). Shown only when non-zero:
              this is a heads-up for the master, not a permanent stat card. -->
-        <VBadge v-if="attendance.unmatched_count > 0" variant="warning" class="roster__unmatched-note">
+        <VBadge v-if="(attendance.unmatched_count ?? 0) > 0" variant="warning" class="roster__unmatched-note">
           {{ attendance.unmatched_count }} участник(а) Zoom не удалось сопоставить с записью
         </VBadge>
 
