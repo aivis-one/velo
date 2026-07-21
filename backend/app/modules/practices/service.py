@@ -374,6 +374,7 @@ def practice_to_response(
     attended: int | None = None,
     no_show: int | None = None,
     zoom_link_visible: bool = False,
+    zoom_host_join_url: str | None = None,
 ) -> PracticeResponse:
     """Build PracticeResponse from ORM object with master_name and master_methods.
 
@@ -423,6 +424,10 @@ def practice_to_response(
     # not in a schema model_validator: FastAPI re-validates the response and
     # would re-run such a validator, wiping the value set here.
     resp.zoom_link = practice.zoom_link if zoom_link_visible else None
+
+    # T21-1: host join_url -- caller decides whether to fetch/pass it (owner-
+    # facing responses only); everyone else gets the schema default (None).
+    resp.zoom_host_join_url = zoom_host_join_url
 
     return resp
 
@@ -641,6 +646,13 @@ async def get_practice_detail(
                 .limit(1)
             )
         ).first() is not None
+    # T21-1: host join_url, owner-only -- same is_owner gate as the
+    # attendance counts above (a non-owner must never see the master's
+    # personal link either).
+    host_join_url = None
+    if is_owner:
+        from app.modules.zoom.service import get_host_join_url
+        host_join_url = await get_host_join_url(practice.id, session)
     return practice_to_response(
         practice,
         master_name,
@@ -649,6 +661,7 @@ async def get_practice_detail(
         is_booked=is_booked,
         is_paid=is_paid,
         zoom_link_visible=zoom_visible,
+        zoom_host_join_url=host_join_url,
         **series_meta_kwargs(series_meta.get(practice.id)),
         **attendance_counts_kwargs(attendance.get(practice.id)),
     )

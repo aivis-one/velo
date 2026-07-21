@@ -42,6 +42,7 @@
 # =============================================================================
 
 from datetime import UTC
+from uuid import UUID
 
 import structlog
 from sqlalchemy import select
@@ -552,3 +553,70 @@ async def delete_meeting_for_practice(
             practice_id=str(practice.id),
             status_code=exc.status_code,
         )
+
+
+# ---------------------------------------------------------------------------
+# T21-1: read-only host-link lookups for owner-facing PracticeResponse.zoom_
+# host_join_url. Never used for a student's own link (that's the booking's
+# own registrant, looked up by booking_id in bookings/service.py) -- these
+# two only ever resolve the role='host' row, the master's own personal link.
+# ---------------------------------------------------------------------------
+
+
+async def get_host_join_url(
+    practice_id: UUID,
+    session: AsyncSession,
+) -> str | None:
+    """This practice's host registrant join_url, or None if there is no
+    USABLE one -- meeting not created yet, Zoom hasn't returned a link yet
+    (see ZoomRegistrant.join_url docstring), or the meeting was since
+    deleted (ZoomMeetingStatus.DELETED -- the registrant row itself is not
+    touched on delete, only the meeting, so status must be checked here
+    rather than trusting the registrant row alone)."""
+    zoom_meeting_id = (
+        await session.execute(
+            select(ZoomMeeting.id).where(
+                ZoomMeeting.practice_id == practice_id,
+                ZoomMeeting.status == ZoomMeetingStatus.ACTIVE.value,
+            )
+        )
+    ).scalar_one_or_none()
+    if zoom_meeting_id is None:
+        return None
+    return (
+        await session.execute(
+            select(ZoomRegistrant.join_url).where(
+                ZoomRegistrant.zoom_meeting_id == zoom_meeting_id,
+                ZoomRegistrant.role == ZoomRegistrantRole.HOST.value,
+                ZoomRegistrant.status != ZoomRegistrantStatus.CANCELLED.value,
+            )
+        )
+    ).scalar_one_or_none()
+
+
+async def get_host_join_urls(
+    practice_ids: list[UUID],
+    session: AsyncSession,
+) -> dict[UUID, str]:
+    """Batched form of get_host_join_url for a list endpoint (master's own
+    practice list) -- one query, no N+1, same pattern as
+    bookings/service.py's feedback/checkin set-membership lookups."""
+    if not practice_ids:
+        return {}
+    rows = (
+        await session.execute(
+            select(ZoomMeeting.practice_id, ZoomRegistrant.join_url)
+            .join(
+                ZoomRegistrant,
+                ZoomRegistrant.zoom_meeting_id == ZoomMeeting.id,
+            )
+            .where(
+                ZoomMeeting.practice_id.in_(practice_ids),
+                ZoomMeeting.status == ZoomMeetingStatus.ACTIVE.value,
+                ZoomRegistrant.role == ZoomRegistrantRole.HOST.value,
+                ZoomRegistrant.status != ZoomRegistrantStatus.CANCELLED.value,
+                ZoomRegistrant.join_url.is_not(None),
+            )
+        )
+    ).all()
+    return {row[0]: row[1] for row in rows}

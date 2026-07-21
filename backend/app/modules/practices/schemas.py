@@ -604,6 +604,14 @@ class PracticeResponse(BaseModel):
     created_at: datetime
     updated_at: datetime | None
 
+    # T21-1: the practice OWNER's own Zoom host-registrant join_url (role=
+    # 'host' on ZoomRegistrant) -- never a student's. Populated by the
+    # service only on owner-facing responses (create/update/delete/cancel,
+    # the owner's own detail view, the master's own list); every other
+    # caller leaves it at the default None, same posture as checkin_count/
+    # attended/no_show above.
+    zoom_host_join_url: str | None = None
+
     # zoom_link (M-3 access gate) is handled at the response-building layer,
     # NOT with a model_validator: FastAPI re-validates the returned model
     # against response_model, which would re-run an "after" validator and wipe

@@ -88,6 +88,11 @@ async def list_master_practices(
     # unconditionally here -- the owner-only gate lives on the shared public
     # detail endpoint (get_practice_detail) instead.
     attendance = await attendance_counts_for_practices(page_practices, session)
+    # T21-1: host join_url for this page (one batched query, same owner-only
+    # posture as zoom_link_visible=True below -- every row here is the
+    # requester's own).
+    from app.modules.zoom.service import get_host_join_urls
+    host_join_urls = await get_host_join_urls([p.id for p in page_practices], session)
 
     return PaginatedPracticesResponse(
         items=[
@@ -99,6 +104,7 @@ async def list_master_practices(
                 # rule get_practice_detail applies). The master dashboard's
                 # "Войти" button reads zoom_link from this list.
                 zoom_link_visible=True,
+                zoom_host_join_url=host_join_urls.get(p.id),
                 **series_meta_kwargs(series_meta.get(p.id)),
                 **attendance_counts_kwargs(attendance.get(p.id)),
             )

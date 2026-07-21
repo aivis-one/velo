@@ -207,7 +207,15 @@ async def create_practice_endpoint(
     # F1 (№263): this endpoint is owner-only (master guard + ownership check),
     # so the response returns the caller's OWN zoom_link — consistent with the
     # owner-always-sees rule on the detail (M-3) and the master list (Z-6).
-    return practice_to_response(practice, user.first_name, zoom_link_visible=True)
+    # T21-1: same owner-only posture for the host's own join_url. A freshly
+    # created practice has no ZoomMeeting yet (that happens on publish, not
+    # here) -- get_host_join_url returns None until then, which is correct.
+    from app.modules.zoom.service import get_host_join_url
+    host_join_url = await get_host_join_url(practice.id, session)
+    return practice_to_response(
+        practice, user.first_name,
+        zoom_link_visible=True, zoom_host_join_url=host_join_url,
+    )
 
 
 # ------------------------------------------------------------------
@@ -254,7 +262,14 @@ async def update_practice_endpoint(
     # F1 (№263): this endpoint is owner-only (master guard + ownership check),
     # so the response returns the caller's OWN zoom_link — consistent with the
     # owner-always-sees rule on the detail (M-3) and the master list (Z-6).
-    return practice_to_response(practice, user.first_name, zoom_link_visible=True)
+    # T21-1: same owner-only posture for the host's own join_url (may become
+    # non-None here if this update is the draft->scheduled publish).
+    from app.modules.zoom.service import get_host_join_url
+    host_join_url = await get_host_join_url(practice.id, session)
+    return practice_to_response(
+        practice, user.first_name,
+        zoom_link_visible=True, zoom_host_join_url=host_join_url,
+    )
 
 
 # ------------------------------------------------------------------
@@ -283,7 +298,15 @@ async def delete_practice_endpoint(
     # F1 (№263): this endpoint is owner-only (master guard + ownership check),
     # so the response returns the caller's OWN zoom_link — consistent with the
     # owner-always-sees rule on the detail (M-3) and the master list (Z-6).
-    return practice_to_response(practice, user.first_name, zoom_link_visible=True)
+    # T21-1: soft-deleted drafts never had a meeting created (E21 fires on
+    # publish only), so this is always None here -- fetched anyway for
+    # consistency with the other three owner-only sites.
+    from app.modules.zoom.service import get_host_join_url
+    host_join_url = await get_host_join_url(practice.id, session)
+    return practice_to_response(
+        practice, user.first_name,
+        zoom_link_visible=True, zoom_host_join_url=host_join_url,
+    )
 
 
 # ------------------------------------------------------------------
@@ -320,4 +343,12 @@ async def cancel_practice_endpoint(
     # F1 (№263): this endpoint is owner-only (master guard + ownership check),
     # so the response returns the caller's OWN zoom_link — consistent with the
     # owner-always-sees rule on the detail (M-3) and the master list (Z-6).
-    return practice_to_response(practice, user.first_name, zoom_link_visible=True)
+    # T21-1: cancel_practice deletes the Zoom meeting (zoom/service.py
+    # delete_meeting_for_practice) -- get_host_join_url returns None once that
+    # row's status flips, which is correct (nothing to join anymore).
+    from app.modules.zoom.service import get_host_join_url
+    host_join_url = await get_host_join_url(practice.id, session)
+    return practice_to_response(
+        practice, user.first_name,
+        zoom_link_visible=True, zoom_host_join_url=host_join_url,
+    )

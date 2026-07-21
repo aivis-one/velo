@@ -205,8 +205,15 @@ async def list_my_bookings_endpoint(
                         booking.status in ZOOM_VISIBLE_BOOKING_STATUSES
                     ),
                 ),
+                # T21-1: same M-3 gate as zoom_link above -- this booking is
+                # already this user's own (query is scoped to Booking.user_id).
+                zoom_registrant_join_url=(
+                    zoom_join_url
+                    if booking.status in ZOOM_VISIBLE_BOOKING_STATUSES
+                    else None
+                ),
             )
-            for booking, practice, has_feedback, has_checkin in items
+            for booking, practice, has_feedback, has_checkin, zoom_join_url in items
         ],
         total=total,
         limit=limit,
@@ -268,8 +275,13 @@ async def list_my_upcoming_bookings_endpoint(
                     booking.status in ZOOM_VISIBLE_BOOKING_STATUSES
                 ),
             ),
+            zoom_registrant_join_url=(
+                zoom_join_url
+                if booking.status in ZOOM_VISIBLE_BOOKING_STATUSES
+                else None
+            ),
         )
-        for booking, practice, has_feedback, has_checkin in items
+        for booking, practice, has_feedback, has_checkin, zoom_join_url in items
     ]
 
 
