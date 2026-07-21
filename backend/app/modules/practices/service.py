@@ -396,14 +396,51 @@ async def _assert_master_confirmed_taxonomy(
     production. Restricting THAT case would be enforcing a rule against
     data that predates the rule, not the rule itself.
 
-    Resolves the direction/style VALUES being validated into their CURRENT
-    catalog labels and checks for that flat string among the stored
-    (frozen-at-approval-time) labels -- mirrors the frontend's parseMethods/
-    directionLabel resolution, including its one known limitation: if an
-    admin renames a direction/style's label after a master's confirmation
-    was frozen, the stored label and the freshly-resolved label can drift
-    apart. Pre-existing characteristic of storing frozen labels rather than
-    stable ids -- not introduced by this check, and out of scope to fix here.
+    STORED FORMAT IS MIXED (T21-7, ПРОМТ №547, MEASURED on prod): a method
+    entry is a frozen catalog LABEL ("Йога — Кундалини-йога") when it was
+    written by the wizard (flattenMethods/approve_method_change), but a raw
+    catalog VALUE ("yoga") when it was written directly against the API --
+    every seed-based master, ~30 backend test fixtures, and at least one live
+    prod master (no wizard round-trip ever touched their profile) all store
+    values, not labels. The original label-only check treated every entry as
+    a label, so it rejected every real, correctly-confirmed direction a
+    value-stored master holds.
+
+    Canonical form = VALUE, not label: `direction`/`style` here are ALREADY
+    values (the wire format for practice taxonomy), labels are just a
+    renamable display string with no version pin, and a value-stored entry
+    (the common case: raw seed/API data) needs zero catalog round-trip to
+    compare -- only a label-stored entry needs one reverse lookup (label ->
+    is this the CURRENT label for the direction/style being requested?).
+    So each stored entry is compared against BOTH representations of the
+    SAME requested (direction, style): the raw value, and -- if the
+    requested direction/style currently has an active catalog row -- its
+    current label. Mirrors the frontend's parseMethods split (same SEP,
+    same "both halves must resolve" rule for a composite entry) but compares
+    toward values instead of building a label to search for, which also
+    sidesteps parseMethods' label-drift limitation on this comparison (we
+    never resolve a STORED label into a value; we only ever check whether it
+    still equals the CURRENT label of the specific direction/style being
+    requested).
+
+    A composite entry ("Направление — Вид") is confirmation for that EXACT
+    style only -- it does NOT also confirm the bare parent direction (no
+    style), and a bare-direction entry does NOT confirm any specific style
+    under it. Deliberate, unchanged from before this fix, and matches
+    CreatePracticeView.vue's confirmedMethods filter (directionOptions/
+    styleOptionsForForm), which already documents and relies on this same
+    strict split.
+
+    A STORED entry that resolves to nothing recognizable (neither half
+    matches the requested value or label representation -- a stale/custom
+    entry, or one written against a since-deactivated/renamed catalog row)
+    simply confirms nothing: it is skipped, not an error, and does not by
+    itself cause a reject -- the request is rejected only if NO entry in the
+    whole list confirms it. If the REQUESTED direction itself has no active
+    catalog row at all (dir_label is None below), this still fails OPEN
+    exactly as before this fix -- unrelated to the mixed-format bug and
+    deliberately not touched here (out of scope for T21-7; see the fail-open
+    branch below for the original rationale).
     """
     profile = (
         await session.execute(
@@ -422,25 +459,38 @@ async def _assert_master_confirmed_taxonomy(
     if dir_label is None:
         # Not an active catalog row at all -- _validate_taxonomy already
         # accepted it via the config-only allow-list (a seed direction with
-        # no catalog row), which no master's stored methods can reference
-        # either (methods are only ever built from catalog labels). Nothing
-        # to confirm against; let the config-level validation's own verdict
-        # stand rather than raising a second, redundant error here.
+        # no catalog row). Every direction in today's config is in fact
+        # mirrored into the catalog as an active row (R5 seed migration), so
+        # this only fires if a direction is later deactivated -- a separate,
+        # pre-existing gap (not introduced or widened by T21-7). Nothing to
+        # resolve a label-side match against; let the config-level
+        # validation's own verdict stand rather than raising a second,
+        # redundant error here.
         return
+    style_label = (
+        await _label_for_style_value(direction, style, session)
+        if style is not None
+        else None
+    )
+
+    for raw in methods:
+        sep_idx = raw.find(_METHOD_LABEL_SEP)
+        entry_dir = raw if sep_idx == -1 else raw[:sep_idx]
+        entry_style = None if sep_idx == -1 else raw[sep_idx + len(_METHOD_LABEL_SEP):]
+
+        if (entry_style is None) != (style is None):
+            continue  # bare vs composite -- never cross-confirm (see above).
+        if entry_dir != direction and entry_dir != dir_label:
+            continue
+        if style is None or entry_style == style or (
+            style_label is not None and entry_style == style_label
+        ):
+            return
 
     if style is None:
-        if dir_label in methods:
-            return
         raise BadRequestError(
             f"direction '{direction}' is not among your confirmed methods"
         )
-
-    style_label = await _label_for_style_value(direction, style, session)
-    if style_label is None:
-        return
-    expected = f"{dir_label}{_METHOD_LABEL_SEP}{style_label}"
-    if expected in methods:
-        return
     raise BadRequestError(
         f"style '{style}' for direction '{direction}' is not among your "
         f"confirmed methods"
