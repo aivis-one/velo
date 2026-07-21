@@ -382,5 +382,40 @@ describe('router/guards', () => {
       setAuthUser({ role: 'master' })
       expect(await roleFreshnessGuard({ name: 'master-dashboard' })).toBe(true)
     })
+
+    // -- ПРОМТ №550: guard cost fix -- refreshRoleIfStale is fire-and-forget,
+    // and its scope stays every-role (not gated to role='user'). ------------
+    it('still refreshes for a master role, not only role=user -- a revoked master must keep learning about it', async () => {
+      __setReadyForTest(true)
+      setAuthUser({ role: 'master' })
+      await roleFreshnessGuard({ name: 'master-dashboard' })
+      expect(refreshRoleIfStale).toHaveBeenCalledTimes(1)
+    })
+
+    it('resolves without waiting for refreshRoleIfStale to settle -- navigation is never blocked on the network round trip', async () => {
+      __setReadyForTest(true)
+      setAuthUser({ role: 'user' })
+
+      // A refresh that is still pending 50ms after this guard is awaited --
+      // if roleFreshnessGuard still `await`ed refreshRoleIfStale (the
+      // reverted behavior), its own returned promise could not settle before
+      // this slow mock does, and `refreshSettled` would already be true by
+      // the time `result` is assigned below.
+      let refreshSettled = false
+      refreshRoleIfStale.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            setTimeout(() => {
+              refreshSettled = true
+              resolve()
+            }, 50)
+          }),
+      )
+
+      const result = await roleFreshnessGuard({ name: 'user-dashboard' })
+
+      expect(result).toBe(true)
+      expect(refreshSettled).toBe(false)
+    })
   })
 })
