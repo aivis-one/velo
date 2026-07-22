@@ -37,7 +37,7 @@
     <!-- Scrolling feed: top fog-mask dissolves content at the header edge (reuses
          the dashboard/diary island gradient). Tap-to-dismiss keyboard is
          app-global now (useKeyboardDismiss, B1). -->
-    <div class="apply-view__content velo-kbd-scroll">
+    <div ref="contentEl" class="apply-view__content velo-kbd-scroll">
       <!-- ================================================================
            STEP 1: Профиль
            ================================================================ -->
@@ -214,7 +214,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import {
@@ -244,6 +244,18 @@ const authStore = useAuthStore()
 // -- Step state --
 const step = ref(1)
 const submitting = ref(false)
+
+// ПРОМТ №565 (T23-2): .apply-view__content is ONE persistent scrolling
+// container across all 3 steps (the v-if/v-else-if chain swaps only its
+// children, never the container itself, .vue:460-479) -- so whatever
+// scrollTop a step was left at carries straight into the next one. All FOUR
+// transitions share this same code path (goToStep2 1->2, goToStep3 2->3,
+// onBack's step.value-- covers both 3->2 and 2->1), so a single watch here
+// -- not a per-button scrollTo -- covers every direction at once.
+const contentEl = ref<HTMLElement | null>(null)
+watch(step, () => {
+  if (contentEl.value) contentEl.value.scrollTop = 0
+})
 
 // -- Experience years options: label -> integer value mapping --
 const EXPERIENCE_OPTIONS = [
