@@ -8,13 +8,14 @@
 #   60900-60999 -- admin users
 # =============================================================================
 
+import asyncio
 from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.users.models import User, UserRole
@@ -396,6 +397,74 @@ async def test_create_practice_invalid_duration(
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# POST /practices -- concurrent double-submit (A4 V7 / ПРОМТ №571)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_concurrent_duplicate_creates_yield_exactly_one_practice(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A4 V7: two genuinely CONCURRENT POST /practices for the same
+    (master, title, scheduled_at, recurrence) -- the double-tap / two-tabs
+    shape -- must yield exactly one Practice row, not two.
+
+    Before the fix, create_practice's dedup check
+    (_find_recent_duplicate_practice) is a pure in-app SELECT-then-INSERT:
+    both requests' SELECT can run before either commits, so both see
+    nothing and both INSERT -- each independently triggering Zoom meeting
+    creation under the single shared S2S host identity (A4 finding #1,
+    platform-wide Zoom-quota blast radius). This discriminates the real
+    break specifically: it is indifferent to the window-check's own
+    time-based logic (both requests fire in the same instant, trivially
+    inside any window) and fails ONLY if the concurrency itself -- not the
+    dedup key matching -- is left open. A sequential double-call (await
+    then await) would stay green even on the broken code, because the
+    second call's SELECT would see the first call's already-committed row;
+    this test relies on asyncio.gather to make the two requests genuinely
+    overlap.
+
+    asyncio.gather against the SAME AsyncClient genuinely races at the DB
+    level: each request resolves get_db_session independently (a fresh
+    session/transaction per request, see core/database.py), so neither
+    request's SELECT can see the other's uncommitted INSERT -- this is not
+    a serialized double-call dressed up as concurrent.
+    """
+    master = await _make_verified_master(client, db_session, telegram_id=60051)
+    body = _valid_practice_body(title="Concurrent Race Practice")
+
+    responses = await asyncio.gather(
+        client.post(
+            PRACTICES_URL, json=body, headers=auth_headers(master["session_token"]),
+        ),
+        client.post(
+            PRACTICES_URL, json=body, headers=auth_headers(master["session_token"]),
+        ),
+    )
+    for resp in responses:
+        assert resp.status_code == 201, resp.text
+
+    practice_ids = {r.json()["id"] for r in responses}
+    assert len(practice_ids) == 1, (
+        f"expected both concurrent creates to resolve to the SAME practice "
+        f"id, got {len(practice_ids)} distinct ids -- the TOCTOU race was "
+        f"not closed"
+    )
+
+    count = (
+        await db_session.execute(
+            select(func.count()).select_from(Practice).where(
+                Practice.master_id == UUID(master["user"]["id"]),
+                Practice.title == "Concurrent Race Practice",
+            )
+        )
+    ).scalar_one()
+    assert count == 1, (
+        f"expected exactly one Practice row after the concurrent double-"
+        f"submit, found {count}"
+    )
 
 
 # ---------------------------------------------------------------------------

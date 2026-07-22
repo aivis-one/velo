@@ -78,6 +78,7 @@ from uuid import UUID
 
 import structlog
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -655,6 +656,46 @@ async def user_flags_for_practices(
 # ===================================================================
 
 
+async def _find_duplicate_practice(
+    user_id: UUID,
+    body: CreatePracticeRequest,
+    session: AsyncSession,
+    *,
+    since: datetime | None,
+) -> Practice | None:
+    """Shared match logic behind _find_recent_duplicate_practice (the
+    pre-insert, WINDOWED check below) and create_practice's post-race
+    lookup (A4 V7, since=None -- called only after losing the INSERT race
+    to uq_practice_master_title_scheduled_recurrence, where a matching row
+    is now guaranteed to exist regardless of when it was created, so no
+    window applies).
+
+    Match key: (master_id, title, scheduled_at, recurrence). Compared in
+    Python (not a JSONB query) since recurrence needs a value-equality
+    check against a Pydantic model, not a string match.
+    """
+    stmt = select(Practice).where(
+        Practice.master_id == user_id,
+        Practice.title == body.title,
+        Practice.scheduled_at == body.scheduled_at,
+        Practice.status != PracticeStatus.DELETED.value,
+    )
+    if since is not None:
+        stmt = stmt.where(Practice.created_at >= since)
+    candidates = (
+        await session.execute(stmt.order_by(Practice.created_at.desc()))
+    ).scalars().all()
+
+    incoming_recurrence = (
+        body.recurrence.model_dump(mode="json") if body.recurrence is not None else None
+    )
+    for candidate in candidates:
+        stored_recurrence = (candidate.data or {}).get("recurrence")
+        if stored_recurrence == incoming_recurrence:
+            return candidate
+    return None
+
+
 async def _find_recent_duplicate_practice(
     user_id: UUID,
     body: CreatePracticeRequest,
@@ -676,10 +717,18 @@ async def _find_recent_duplicate_practice(
     time, is early enough to prevent the duplicate before any of that work
     starts.
 
+    A4 V7: this SELECT-then-INSERT shape is TOCTOU-safe only up to the
+    point of the actual insert -- two genuinely CONCURRENT requests (double-
+    tap, two tabs) both run this SELECT before either commits, so both see
+    nothing and both proceed to insert. create_practice below closes that
+    gap at the DB level (uq_practice_master_title_scheduled_recurrence),
+    same pattern as ensure_host_registrant (zoom/service.py, ПРОМТ №525).
+    This windowed check remains the fast, common-case path (a retry inside
+    the window returns immediately, no INSERT attempted at all); the DB
+    constraint is the backstop for the race this check cannot see.
+
     Match key is (master_id, title, scheduled_at, recurrence) -- exactly
-    what the owner specified. Compared in Python (not a JSONB query) since
-    recurrence needs a value-equality check against a Pydantic model, not a
-    string match.
+    what the owner specified.
 
     DOES NOT COVER:
       - Two GENUINELY separate series/practices with an identical title,
@@ -699,26 +748,7 @@ async def _find_recent_duplicate_practice(
     window_start = datetime.now(UTC) - timedelta(
         minutes=settings.practice_duplicate_submit_window_minutes,
     )
-    candidates = (
-        await session.execute(
-            select(Practice).where(
-                Practice.master_id == user_id,
-                Practice.title == body.title,
-                Practice.scheduled_at == body.scheduled_at,
-                Practice.status != PracticeStatus.DELETED.value,
-                Practice.created_at >= window_start,
-            ).order_by(Practice.created_at.desc())
-        )
-    ).scalars().all()
-
-    incoming_recurrence = (
-        body.recurrence.model_dump(mode="json") if body.recurrence is not None else None
-    )
-    for candidate in candidates:
-        stored_recurrence = (candidate.data or {}).get("recurrence")
-        if stored_recurrence == incoming_recurrence:
-            return candidate
-    return None
+    return await _find_duplicate_practice(user_id, body, session, since=window_start)
 
 
 async def create_practice(
@@ -746,6 +776,19 @@ async def create_practice(
     see that function's docstring for exactly what this does and does not
     cover. No new validation runs in that case; there is nothing new to
     validate.
+
+    A4 V7: the window check above is a fast-path optimization, not the
+    actual guarantee -- uq_practice_master_title_scheduled_recurrence (see
+    the practices table migration) is what excludes two concurrent
+    requests for the same (master, title, scheduled_at, recurrence) at the
+    DB level. The insert below runs inside session.begin_nested() (a
+    SAVEPOINT) for the same reason as ensure_host_registrant (zoom/
+    service.py, ПРОМТ №525): a plain try/except around the flush is not
+    enough by itself to keep the CALLER's own transaction usable after a
+    database-level abort (PendingRollbackError) -- something has to roll
+    back TO. On IntegrityError, the race was LOST: look up the winning row
+    (unwindowed -- it is guaranteed to exist and match exactly) and return
+    it, exactly like the window check's own duplicate-return path.
     """
     duplicate = await _find_recent_duplicate_practice(user.id, body, session)
     if duplicate is not None:
@@ -796,7 +839,26 @@ async def create_practice(
         data["recurrence"] = body.recurrence.model_dump(mode="json")
     practice.set_jsonb("data", data)
 
-    session.add(practice)
+    try:
+        async with session.begin_nested():
+            session.add(practice)
+            await session.flush()
+    except IntegrityError:
+        winner = await _find_duplicate_practice(user.id, body, session, since=None)
+        if winner is not None:
+            logger.info(
+                "practice_create_race_lost",
+                master_id=str(user.id),
+                existing_practice_id=str(winner.id),
+                title=body.title,
+            )
+            return winner
+        # Practically unreachable: uq_practice_master_title_scheduled_
+        # recurrence only fires on an exact (master_id, title,
+        # scheduled_at, recurrence) collision, so the winner must exist.
+        # Re-raise rather than silently returning nothing a caller isn't
+        # prepared to handle.
+        raise
 
     logger.info(
         "practice_created",

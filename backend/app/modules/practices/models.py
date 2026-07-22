@@ -29,9 +29,11 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -106,6 +108,26 @@ class Practice(JSONBMixin, UUIDMixin, TimestampMixin, Base):
     """
 
     __tablename__ = "practices"
+
+    # A4 V7: excludes the practice-creation TOCTOU race (two concurrent
+    # POST /practices for the same master both passing the in-app dedup
+    # SELECT before either commits, see practices/service.py's
+    # create_practice) at the DB level, mirroring
+    # uq_zoom_registrant_meeting_user_active / uq_booking_practice_user_
+    # active. COALESCE(...) is required: a one-off practice has no
+    # data.recurrence key at all, and SQL NULL <> NULL would silently
+    # exempt every non-recurring practice from this guard otherwise.
+    __table_args__ = (
+        Index(
+            "uq_practice_master_title_scheduled_recurrence",
+            "master_id",
+            "title",
+            "scheduled_at",
+            text("(COALESCE(data -> 'recurrence', 'null'::jsonb))"),
+            unique=True,
+            postgresql_where=text("status != 'deleted'"),
+        ),
+    )
 
     # -- Owner --
     # R-07: index=True synced with existing ix_practices_master_id in DB.
