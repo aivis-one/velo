@@ -827,6 +827,14 @@ async def test_list_master_practices_bucket_upcoming_nearest_first(
         db_session, master_id,
         scheduled_at=now + timedelta(days=1), title="Nearest",
     )
+    # The direct inserts above live in db_session's OWN transaction/connection
+    # (tests/conftest.py's db_session fixture is a real, separate AsyncSession
+    # against the real Postgres DB -- not a transaction shared with `client`,
+    # which gets its own session per request via get_db_session()). Without
+    # committing here, "YearsOut" and "Nearest" are invisible to the request
+    # below and only the series root/children (committed inside the API calls
+    # above) come back -- exactly the missing-commit bug this test had.
+    await db_session.commit()
 
     resp = await client.get(
         MY_PRACTICES_URL,
@@ -879,6 +887,10 @@ async def test_list_master_practices_bucket_past_most_recent_first(
         db_session, master_id,
         scheduled_at=now + timedelta(days=30), title="StillUpcoming",
     )
+    # See the "upcoming" bucket test above: db_session is its own real
+    # transaction, separate from the request's session -- without a commit
+    # here the request sees none of these rows (total would read 0).
+    await db_session.commit()
 
     resp = await client.get(
         MY_PRACTICES_URL,

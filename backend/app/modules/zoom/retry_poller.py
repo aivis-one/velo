@@ -274,6 +274,7 @@ async def _attempt_create(
             )
             return
 
+        row.status = ZoomMeetingStatus.CREATE_FAILED.value
         row.retry_count += 1
         at_cap = row.retry_count >= settings.zoom_meeting_create_max_retries
         suffix = " (retry cap reached, no further attempts)" if at_cap else ""
