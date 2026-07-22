@@ -92,6 +92,7 @@ import { setActivePinia, createPinia, type Pinia } from 'pinia'
 import MasterDashboardView from '@/views/master/MasterDashboardView.vue'
 import * as mastersApi from '@/api/masters'
 import * as usersApi from '@/api/users'
+import * as practicesApi from '@/api/practices'
 import { useMasterStore } from '@/stores/master'
 import { useAuthStore } from '@/stores/auth'
 import { ApiResponseError } from '@/api/client'
@@ -108,14 +109,25 @@ import type {
 vi.mock('@/api/masters')
 vi.mock('@/api/users')
 
+// ПРОМТ №565: "Zoom", for kind==='personal', now goes through the same
+// ticket flow "Начать" used before the two buttons merged -- only
+// createZoomStartTicket is a network call worth mocking. zoomStartRedirectUrl
+// is left REAL (a pure function over import.meta.env.VITE_API_BASE_URL,
+// stubbed per-test via vi.stubEnv where the exact url matters).
+vi.mock('@/api/practices', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/practices')>()
+  return { ...actual, createZoomStartTicket: vi.fn() }
+})
+
 const push = vi.fn()
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push, back: vi.fn() }),
 }))
 
 const toastInfo = vi.fn()
+const toastError = vi.fn()
 vi.mock('@/composables/useToast', () => ({
-  useToast: () => ({ info: toastInfo, success: vi.fn(), error: vi.fn() }),
+  useToast: () => ({ info: toastInfo, success: vi.fn(), error: toastError }),
 }))
 
 // The Zoom button routes through the platform abstraction (.vue:339-345), not
@@ -514,10 +526,13 @@ beforeEach(() => {
 
   push.mockReset()
   toastInfo.mockReset()
+  toastError.mockReset()
   platformState.openLink.mockReset()
+  vi.mocked(practicesApi.createZoomStartTicket).mockReset()
 })
 
 afterEach(() => {
+  vi.unstubAllEnvs()
   app?.unmount()
   host?.remove()
   app = null
@@ -1037,7 +1052,13 @@ describe('MasterDashboardView', () => {
       expect(platformState.openLink).not.toHaveBeenCalled()
     })
 
-    it('T21-1: a personal host registrant link takes priority over the manual zoom_link', async () => {
+    it('T21-1/ПРОМТ №565: a personal host registrant link (kind===personal) takes priority over the manual zoom_link, and starts the meeting as host via the ticket flow -- NOT by opening the raw registrant link', async () => {
+      // zoom_host_join_url is a plain Zoom REGISTRANT join_url (see
+      // MasterDashboardView.vue's onZoom comment) -- opening it directly, as
+      // this test used to assert, lands the master on Zoom's "waiting for
+      // the host" screen. kind==='personal' must now go through
+      // createZoomStartTicket + zoomStartRedirectUrl instead.
+      vi.stubEnv('VITE_API_BASE_URL', 'https://velo-backend.test')
       vi.mocked(mastersApi.getMyPractices).mockResolvedValue(
         page([
           practice('withHost', {
@@ -1047,13 +1068,78 @@ describe('MasterDashboardView', () => {
           }),
         ]),
       )
+      vi.mocked(practicesApi.createZoomStartTicket).mockResolvedValue({ ticket: 'tkt_abc' })
       mount()
       await flush()
 
       actionIn(blocks()[0]!, 'Zoom')?.click()
       await flush()
 
-      expect(platformState.openLink).toHaveBeenCalledWith('https://zoom.us/w/host?tk=xyz')
+      expect(practicesApi.createZoomStartTicket).toHaveBeenCalledWith('withHost')
+      expect(platformState.openLink).not.toHaveBeenCalledWith('https://zoom.us/w/host?tk=xyz')
+      expect(platformState.openLink).toHaveBeenCalledWith(
+        'https://velo-backend.test/api/v1/practices/zoom/start?ticket=tkt_abc',
+      )
+    })
+
+    it('ПРОМТ №565: kind===personal, but no active meeting anymore (zoom_meeting_not_active) -- honest error, no crash', async () => {
+      vi.stubEnv('VITE_API_BASE_URL', 'https://velo-backend.test')
+      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(
+        page([practice('withHost', { zoom_host_join_url: 'https://zoom.us/w/host?tk=xyz' })]),
+      )
+      vi.mocked(practicesApi.createZoomStartTicket).mockRejectedValue(
+        new ApiResponseError(400, 'No active Zoom meeting for this practice', 'zoom_meeting_not_active'),
+      )
+      mount()
+      await flush()
+
+      actionIn(blocks()[0]!, 'Zoom')?.click()
+      await flush()
+
+      expect(toastError).toHaveBeenCalledWith('Встреча Zoom для этой практики недоступна')
+      expect(platformState.openLink).not.toHaveBeenCalled()
+    })
+
+    it('ПРОМТ №565/№557: kind===personal, VITE_API_BASE_URL not configured -- fails closed, no foreign redirect', async () => {
+      vi.stubEnv('VITE_API_BASE_URL', '')
+      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(
+        page([practice('withHost', { zoom_host_join_url: 'https://zoom.us/w/host?tk=xyz' })]),
+      )
+      vi.mocked(practicesApi.createZoomStartTicket).mockResolvedValue({ ticket: 'tkt_abc' })
+      mount()
+      await flush()
+
+      actionIn(blocks()[0]!, 'Zoom')?.click()
+      await flush()
+
+      expect(toastError).toHaveBeenCalledWith('Функция временно недоступна')
+      expect(platformState.openLink).not.toHaveBeenCalled()
+    })
+
+    it('ПРОМТ №565: the Zoom button is disabled while a start-ticket request is in flight', async () => {
+      vi.stubEnv('VITE_API_BASE_URL', 'https://velo-backend.test')
+      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(
+        page([practice('withHost', { zoom_host_join_url: 'https://zoom.us/w/host?tk=xyz' })]),
+      )
+      let resolveTicket!: (v: { ticket: string }) => void
+      vi.mocked(practicesApi.createZoomStartTicket).mockReturnValue(
+        new Promise((resolve) => {
+          resolveTicket = resolve
+        }),
+      )
+      mount()
+      await flush()
+
+      const zoomBtn = actionIn(blocks()[0]!, 'Zoom')
+      zoomBtn?.click()
+      await flush()
+
+      expect(actionIn(blocks()[0]!, 'Zoom')?.disabled).toBe(true)
+
+      resolveTicket({ ticket: 'tkt_abc' })
+      await flush()
+
+      expect(actionIn(blocks()[0]!, 'Zoom')?.disabled).toBe(false)
     })
 
     it('T21-1: no host link but a valid manual zoom_link -- button enabled, "not counted" mark shown', async () => {

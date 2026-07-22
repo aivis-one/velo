@@ -169,14 +169,27 @@
               </span>
             </div>
           </article>
-          <!-- Like the user dashboard: left = Zoom (D3 ladder, T21-1), right
-               = Check-ins. Edit/delete moved to the practice screen, reached
-               by tapping the card (openPractice). -->
+          <!-- Like the user dashboard: left = Zoom, right = Check-ins.
+               Edit/delete moved to the practice screen, reached by tapping
+               the card (openPractice).
+               ПРОМТ №565 (T23-1): there used to be a SEPARATE "Начать"
+               button next to "Zoom" for kind==='personal' -- pressing "Zoom"
+               itself opened zoom_host_join_url (a plain Zoom REGISTRANT
+               join_url, see zoomLinkFor below) and landed the master on
+               Zoom's "waiting for the host" screen, because a registrant
+               join_url carries no host authority in Zoom's own system
+               regardless of our own DB labelling the row role='host'
+               (zoom/service.py's ensure_host_registrant creates it via the
+               exact same create_registrant() call used for a participant).
+               Only start_url actually starts a meeting as host, and that is
+               exactly what "Начать" already redeemed via the ticket flow
+               (ПРОМТ №556/557). Owner decision: no second button -- "Zoom"
+               itself now does what "Начать" did, for kind==='personal'. -->
           <div class="master-dashboard__practice-actions">
             <VButton
               variant="secondary"
               block
-              :disabled="zoomLinkFor(practice).kind === 'pending'"
+              :disabled="zoomLinkFor(practice).kind === 'pending' || startingId === practice.id"
               @click="onZoom(practice)"
             >
               Zoom
@@ -189,22 +202,6 @@
               Check-ins
             </VButton>
           </div>
-          <!-- "Начать" (ПРОМТ №556, OWNER-1 option В): only when a real Zoom
-               meeting exists (kind==='personal' -- the same signal the "Zoom"
-               button already uses to mean "there is a host registrant link",
-               which only exists once create_meeting_for_practice succeeded).
-               kind==='manual' means no real meeting, just the master's own
-               pasted fallback link -- nothing for this action to start. -->
-          <VButton
-            v-if="zoomLinkFor(practice).kind === 'personal'"
-            variant="secondary"
-            block
-            :disabled="startingId === practice.id"
-            class="master-dashboard__start-button"
-            @click="onStart(practice)"
-          >
-            Начать
-          </VButton>
           <VBadge
             v-if="zoomLinkFor(practice).kind === 'manual'"
             variant="warning"
@@ -376,23 +373,30 @@ function zoomLinkFor(p: PracticeResponse): ZoomLinkResolution {
   return resolveZoomLink(p.zoom_host_join_url, p.zoom_link)
 }
 
-function onZoom(p: PracticeResponse): void {
-  const resolved = zoomLinkFor(p)
-  if (resolved.url) {
-    platform.openLink(resolved.url)
-  } else {
-    toast.info('Ссылка на Zoom ещё готовится')
-  }
-}
-
-// "Начать" (ПРОМТ №556, OWNER-1 option В): the master starts their own
-// meeting as host. start_url itself never reaches this frontend -- we ask
-// the backend for a one-time ticket, then open a plain link to the
-// backend's redirect endpoint (platform.openLink), which redeems the
-// ticket and 302s the browser straight to Zoom. Never fetch() that URL.
+// ПРОМТ №565 (T23-1): "Zoom" for the master's OWN practice (every card on
+// this dashboard is the current master's own -- masterStore.practicesUpcoming
+// is already scoped server-side to this master) means START the meeting as
+// host, not join via the host-role registrant's join_url -- see the template
+// comment above zoomLinkFor's kind==='personal' branch for why that link
+// never actually granted host authority. start_url itself never reaches this
+// frontend -- we ask the backend for a one-time ticket, then open a plain
+// link to the backend's redirect endpoint (platform.openLink), which
+// redeems the ticket and 302s the browser straight to Zoom. Never fetch()
+// that URL. kind==='manual' has no real meeting to start -- the master's
+// own pasted fallback link opens directly, exactly as before.
 const startingId = ref<string | null>(null)
 
-async function onStart(p: PracticeResponse): Promise<void> {
+async function onZoom(p: PracticeResponse): Promise<void> {
+  const resolved = zoomLinkFor(p)
+  if (resolved.kind === 'manual') {
+    platform.openLink(resolved.url as string)
+    return
+  }
+  if (resolved.kind === 'pending') {
+    toast.info('Ссылка на Zoom ещё готовится')
+    return
+  }
+  // kind === 'personal' -- start as host via the ticket flow.
   if (startingId.value) return
   startingId.value = p.id
   try {
@@ -726,12 +730,6 @@ onUnmounted(() => {
   width: fit-content;
   margin: var(--space-2) auto 0;
   text-align: center;
-}
-
-.master-dashboard__start-button {
-  margin: var(--space-3) var(--space-4) 0;
-  font-size: var(--text-lg);
-  background: var(--velo-glass-blue-200-15);
 }
 
 /* Card action buttons: 20px label (design); secondary action is a light glass
