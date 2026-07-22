@@ -1031,7 +1031,12 @@ async def list_user_bookings(
     # Local import keeps the bookings -> diary dependency one-way and avoids
     # any import-order surprise (diary.projections imports bookings lazily).
     from app.modules.diary.models import Checkin, CheckType, Feedback
-    from app.modules.zoom.models import ZoomRegistrant, ZoomRegistrantStatus
+    from app.modules.zoom.models import (
+        ZoomMeeting,
+        ZoomMeetingStatus,
+        ZoomRegistrant,
+        ZoomRegistrantStatus,
+    )
 
     base = (
         select(Booking, Practice)
@@ -1096,15 +1101,30 @@ async def list_user_bookings(
     # same no-N+1 pattern as the two diary flags above). role='student' is
     # implicit -- booking_id is NULL for the master's own host row (see
     # ZoomRegistrant model docstring).
+    #
+    # ПРОМТ №563: joined to ZoomMeeting.status == ACTIVE, same posture as the
+    # host path (zoom/service.py's get_host_join_url[s]). Without this, a
+    # registrant row whose join_url was set while the meeting was active
+    # keeps being handed out after the meeting is deleted outside the normal
+    # cancel flow (get_host_join_url's own docstring: the registrant row is
+    # not touched on delete, only the meeting -- status must be checked
+    # here). A PENDING_CREATION series child is unaffected either way: its
+    # registrant row (if any) has join_url IS NULL until the poller actually
+    # succeeds (zoom/service.py's create_registrant_for_booking queues it as
+    # PENDING with no join_url), so it was already excluded by the
+    # `join_url.is_not(None)` filter and still reads as the honest "ссылка
+    # готовится" empty state, not broken by this join.
     join_urls: dict[UUID, str] = {}
     if booking_ids:
         rows = (
             await session.execute(
                 select(ZoomRegistrant.booking_id, ZoomRegistrant.join_url)
+                .join(ZoomMeeting, ZoomRegistrant.zoom_meeting_id == ZoomMeeting.id)
                 .where(
                     ZoomRegistrant.booking_id.in_(booking_ids),
                     ZoomRegistrant.status != ZoomRegistrantStatus.CANCELLED.value,
                     ZoomRegistrant.join_url.is_not(None),
+                    ZoomMeeting.status == ZoomMeetingStatus.ACTIVE.value,
                 )
             )
         ).all()
@@ -1148,7 +1168,12 @@ async def list_upcoming_bookings(
     reuses one response builder.
     """
     from app.modules.diary.models import Checkin, CheckType, Feedback
-    from app.modules.zoom.models import ZoomRegistrant, ZoomRegistrantStatus
+    from app.modules.zoom.models import (
+        ZoomMeeting,
+        ZoomMeetingStatus,
+        ZoomRegistrant,
+        ZoomRegistrantStatus,
+    )
 
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(minutes=settings.practice_max_duration_minutes)
@@ -1200,15 +1225,19 @@ async def list_upcoming_bookings(
             ).scalars().all()
         )
 
+    # ПРОМТ №563: same meeting-state join as list_user_bookings above -- see
+    # that function's comment for the full reasoning.
     join_urls: dict[UUID, str] = {}
     if booking_ids:
         rows = (
             await session.execute(
                 select(ZoomRegistrant.booking_id, ZoomRegistrant.join_url)
+                .join(ZoomMeeting, ZoomRegistrant.zoom_meeting_id == ZoomMeeting.id)
                 .where(
                     ZoomRegistrant.booking_id.in_(booking_ids),
                     ZoomRegistrant.status != ZoomRegistrantStatus.CANCELLED.value,
                     ZoomRegistrant.join_url.is_not(None),
+                    ZoomMeeting.status == ZoomMeetingStatus.ACTIVE.value,
                 )
             )
         ).all()
