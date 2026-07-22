@@ -12,6 +12,18 @@
 # success is NOT the same as passing. The deploy battery is the first real
 # run. See the ГОТОВО report for exactly what was and wasn't observed.
 #
+# EXCEPTION -- test_zoom_start_route_is_reachable_not_a_uuid_parse_422 below
+# WAS actually executed (ПРОМТ №557), not merely collected: run as a plain
+# script against a live-imported `app.main.app` via httpx.ASGITransport (same
+# mechanism as the `client` fixture below), with ONLY
+# zoom.service.redeem_start_ticket mocked (it needs Redis, unreachable here;
+# nothing else on this path touches Redis or Postgres before that call, since
+# SQLAlchemy's async engine is lazy). Confirmed status=400 (the honest error
+# page), not 422 -- proves the route is genuinely reachable end-to-end
+# through the real router, not just that the handler function works in
+# isolation. Written here as a normal pytest test using the SAME `client`
+# fixture so it re-runs under the deploy battery too.
+#
 # STUB MODE: no real Zoom credentials exist in any test environment, so
 # settings.is_zoom_stub is True by default and zoom_client._request() always
 # returns deterministic fake data (see zoom_client.py's _stub_response),
@@ -132,6 +144,45 @@ async def _create_and_publish_practice(
     )
     assert publish.status_code == 200
     return practice_id
+
+
+# ---------------------------------------------------------------------------
+# 0. Routing -- ПРОМТ №557: the route must be reached via the REAL router,
+#    not a direct call to the handler function (that would prove nothing --
+#    the defect class this guards against lives in route declaration order,
+#    not in handler logic, and a handler-level test stays green through it).
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_zoom_start_route_is_reachable_not_a_uuid_parse_422(
+    client: AsyncClient,
+) -> None:
+    """GET /api/v1/practices/zoom/start (the exact URL api/practices.ts
+    builds) must reach zoom_start_redirect_endpoint, not get swallowed by
+    GET /api/v1/practices/{practice_id} trying (and failing) to parse the
+    literal string "zoom" as a UUID -- that would surface as 422, not the
+    honest error page. Only redeem_start_ticket is mocked (it needs Redis,
+    which this environment doesn't have); everything else -- URL parsing,
+    router dispatch, dependency resolution, the handler itself -- is REAL.
+    A 422 here means the routes collided again; a 400 (this test's actual,
+    executed result -- see the module docstring) means the request reached
+    the right handler and got the honest "ticket expired" page.
+    """
+    with patch(
+        "app.modules.zoom.service.redeem_start_ticket", return_value=None,
+    ):
+        resp = await client.get(
+            f"{PRACTICES_URL}/zoom/start",
+            params={"ticket": "bogus"},
+            follow_redirects=False,
+        )
+    assert resp.status_code == 400, (
+        f"expected 400 (honest error page), got {resp.status_code} -- "
+        "422 would mean /{practice_id} intercepted this request again"
+    )
+    assert "text/html" in resp.headers["content-type"]
+    assert "Ссылка устарела" in resp.text
 
 
 # ---------------------------------------------------------------------------

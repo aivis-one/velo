@@ -154,8 +154,6 @@ export function getAttendance(id: string): Promise<AttendanceResponse> {
 // backend (GET .../zoom/start), reached via a PLAIN browser navigation
 // (platform.openLink), not this authenticated fetch client.
 
-const ZOOM_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.talentir.info'
-
 /**
  * Request a one-time, 30s ticket authorizing a single Zoom start_url fetch
  * for this practice's meeting. Throws ApiResponseError (e.g. code
@@ -170,9 +168,22 @@ export function createZoomStartTicket(practiceId: string): Promise<{ ticket: str
  * navigation to our backend, which redeems the ticket and 302s straight to
  * Zoom. Never fetch() this URL: that would not navigate the browser, and
  * the point of the redirect is that the frontend never touches start_url.
+ *
+ * FAILS CLOSED (ПРОМТ №557): no hardcoded fallback domain. If
+ * VITE_API_BASE_URL is not configured, returns null rather than a URL --
+ * the caller must show an honest "unavailable" message and navigate
+ * nowhere. A foreign fallback domain here would mean a plain browser
+ * navigation carrying the one-time start-ticket to a THIRD PARTY'S server
+ * (api.talentir.info, per the open-issues registry, belongs to a different
+ * project entirely) -- unlike TopupView.vue's checkout_url (validated
+ * against an allowlist before navigating, and the value itself comes from
+ * Stripe, not from us), there is no allowlist check possible here: this
+ * ticket must only ever reach OUR OWN backend.
  */
-export function zoomStartRedirectUrl(ticket: string): string {
-  return `${ZOOM_API_BASE_URL}/api/v1/practices/zoom/start?ticket=${encodeURIComponent(ticket)}`
+export function zoomStartRedirectUrl(ticket: string): string | null {
+  const base = import.meta.env.VITE_API_BASE_URL
+  if (!base) return null
+  return `${base}/api/v1/practices/zoom/start?ticket=${encodeURIComponent(ticket)}`
 }
 
 /**

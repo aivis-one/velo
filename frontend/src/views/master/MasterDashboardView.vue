@@ -394,7 +394,15 @@ async function onStart(p: PracticeResponse): Promise<void> {
   startingId.value = p.id
   try {
     const { ticket } = await createZoomStartTicket(p.id)
-    platform.openLink(zoomStartRedirectUrl(ticket))
+    // ПРОМТ №557: FAILS CLOSED -- zoomStartRedirectUrl returns null when
+    // VITE_API_BASE_URL is not configured (no foreign-domain fallback). A
+    // one-time start-ticket must never be navigated to some other server.
+    const url = zoomStartRedirectUrl(ticket)
+    if (!url) {
+      toast.error('Функция временно недоступна')
+      return
+    }
+    platform.openLink(url)
   } catch (e) {
     if (e instanceof ApiResponseError && e.code === 'zoom_meeting_not_active') {
       toast.error('Встреча Zoom для этой практики недоступна')
