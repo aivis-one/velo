@@ -280,6 +280,7 @@ export interface AdminZoomUnmatchedRow {
 /** POST /admin/masters/{user_id}/method-change-request/approve -- body. R5 stage 4 (operator decision 3=Б): promote is OPTIONAL and defaults to empty, so a bare `{}` body (every caller before this stage, and every approval where the admin didn't pick "add to catalog") behaves exactly as before -- no catalog write. Each entry becomes a new custom direction in the taxonomy catalog (deduped against existing rows). */
 export interface ApproveMethodChangeRequest {
   promote?: string[]
+  master_only?: string[]
 }
 
 /** POST /admin/withdrawals/{id}/approve -- optional admin note. */
@@ -1400,6 +1401,7 @@ export interface UserUpdate {
 export interface VerifyMasterRequest {
   notes?: string | null
   promote?: string[]
+  master_only?: string[]
 }
 
 /** Response from POST /waitlist/{id}/confirm. Returns both the converted waitlist entry and the new booking id. */
