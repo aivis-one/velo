@@ -1453,3 +1453,8 @@ export interface WithdrawalResponse {
   created_at: string
   updated_at: string | null
 }
+
+/** POST /api/v1/practices/{id}/zoom/start-ticket (ПРОМТ №556, OWNER-1). Deliberately carries a one-time ticket, never a start_url -- see zoom/service.py's ticket-issuance docstring for why. */
+export interface ZoomStartTicketResponse {
+  ticket: string
+}
