@@ -38,12 +38,27 @@ _FEED_STATUSES = {
 }
 
 
+# T22-3/T22-5 (ПРОМТ №561): the two master-list tabs ask fundamentally
+# different questions ("what's next" vs "what happened"), each wanting the
+# OPPOSITE ordering -- one shared futures-first cursor can never answer both
+# without one tab drowning in the other's rows. "upcoming" = draft/scheduled/
+# live, nearest first; "past" = completed only, most-recent first. Cancelled
+# practices are excluded from BOTH (they didn't happen -- matches the prior
+# client-side behavior, now enforced server-side).
+_UPCOMING_STATUSES = (
+    PracticeStatus.DRAFT.value,
+    PracticeStatus.SCHEDULED.value,
+    PracticeStatus.LIVE.value,
+)
+
+
 async def list_master_practices(
     user: User,
     session: AsyncSession,
     limit: int = 20,
     offset: int = 0,
     status: str | None = None,
+    bucket: Literal["upcoming", "past"] | None = None,
 ) -> PaginatedPracticesResponse:
     """List practices owned by the current master.
 
@@ -54,14 +69,31 @@ async def list_master_practices(
 
     E3a: optional exact-status filter (draft/scheduled/live/completed/
     cancelled), mirroring list_public_practices' explicit `status` param.
-    None (default) keeps the prior behavior -- every non-deleted status.
+    None (default) keeps the prior behavior -- every non-deleted status,
+    futures-first.
+
+    bucket (T22-3/T22-5, ПРОМТ №561): the tab-shaped alternative to `status`.
+    "upcoming" filters to draft/scheduled/live and orders NEAREST FIRST
+    (ascending); "past" filters to completed and orders MOST RECENT FIRST
+    (descending). When given, `bucket` OWNS both the filter and the
+    ordering and `status` is ignored -- the two params serve different
+    callers (bucket: the two-tab master list; status: exact-match tooling)
+    and are not meant to compose.
     """
     base_filter = (
         Practice.master_id == user.id,
         Practice.status != PracticeStatus.DELETED.value,
     )
-    if status is not None:
-        base_filter = (*base_filter, Practice.status == status)
+    if bucket == "upcoming":
+        base_filter = (*base_filter, Practice.status.in_(_UPCOMING_STATUSES))
+        order_clause = Practice.scheduled_at.asc()
+    elif bucket == "past":
+        base_filter = (*base_filter, Practice.status == PracticeStatus.COMPLETED.value)
+        order_clause = Practice.scheduled_at.desc()
+    else:
+        if status is not None:
+            base_filter = (*base_filter, Practice.status == status)
+        order_clause = Practice.scheduled_at.desc()
 
     # -- Total count --
     count_query = select(func.count(Practice.id)).where(*base_filter)
@@ -73,7 +105,7 @@ async def list_master_practices(
         select(Practice, User.first_name, User.last_name)
         .join(User, Practice.master_id == User.id)
         .where(*base_filter)
-        .order_by(Practice.scheduled_at.desc())
+        .order_by(order_clause)
         .limit(limit)
         .offset(offset)
     )

@@ -39,11 +39,12 @@
 //
 // THE RUNNER'S TIMEZONE CANNOT LEAK either, and that is a property of the
 // FIXTURES, not of the config: this screen renders each practice in the
-// practice's OWN zone (`formatDateShort(p.scheduled_at, p.timezone)`, .vue:319-320)
-// and sorts on `localSortKey(a.scheduled_at, a.timezone)` (.vue:312), so every
-// fixture below carries an explicit `timezone` and no formatter is ever left to
-// default to the host. TZ_SORT_A / TZ_SORT_B deliberately carry NON-UTC zones,
-// which is the only way the CR-1 local-order sort is observable at all.
+// practice's OWN zone (`formatDateShort(p.scheduled_at, p.timezone)`, .vue:319-320),
+// so every fixture below carries an explicit `timezone` and no formatter is
+// ever left to default to the host. TZ_SORT_A / TZ_SORT_B deliberately carry
+// NON-UTC zones whose local-wall-clock order disagrees with their absolute
+// order -- the only way to prove ordering is server-owned (T22-3, ПРОМТ №561:
+// the old client-side localSortKey re-sort is retired) rather than re-derived.
 //
 // v-if, not v-show (SC-14): grepped -- this template has no v-show, so a pane
 // that is not on screen is genuinely absent from the DOM and host.textContent
@@ -329,6 +330,33 @@ function page(items: PracticeResponse[], total = items.length, offset = 0) {
   return { items, total, limit: 20, offset }
 }
 
+// T22-3 (ПРОМТ №561): the server now owns both the filter AND the ordering
+// per bucket -- nearestPractices no longer re-sorts client-side (.vue), so
+// the fake server must actually behave like one. Mirrors
+// listing_service.py's bucket semantics: "upcoming" = draft/scheduled/live,
+// nearest first BY ABSOLUTE INSTANT (not local wall-clock -- that re-sort is
+// retired, see the CR-1 test below); "past" = completed only, most-recent
+// first. fetchMyPractices() fetches BOTH buckets, so every test that mocks
+// getMyPractices needs a bucket-aware response regardless of which bucket
+// the test cares about.
+function mockBucketedPractices(items: PracticeResponse[]): void {
+  vi.mocked(mastersApi.getMyPractices).mockImplementation(
+    async (bucket: 'upcoming' | 'past', limit = 20, offset = 0) => {
+      const filtered = items
+        .filter((p) =>
+          bucket === 'upcoming'
+            ? p.status === 'draft' || p.status === 'scheduled' || p.status === 'live'
+            : p.status === 'completed',
+        )
+        .sort((a, b) => {
+          const diff = new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
+          return bucket === 'upcoming' ? diff : -diff
+        })
+      return page(filtered.slice(offset, offset + limit), filtered.length, offset)
+    },
+  )
+}
+
 // -----------------------------------------------------------------------------
 // Mount
 // -----------------------------------------------------------------------------
@@ -473,9 +501,8 @@ beforeEach(() => {
   setActivePinia(pinia)
 
   vi.mocked(mastersApi.getMyMasterProfile).mockReset().mockResolvedValue(PROFILE)
-  vi.mocked(mastersApi.getMyPractices)
-    .mockReset()
-    .mockResolvedValue(page([P_LATER, P_SOON, P_THIRD]))
+  vi.mocked(mastersApi.getMyPractices).mockReset()
+  mockBucketedPractices([P_LATER, P_SOON, P_THIRD])
   vi.mocked(mastersApi.getMasterStats)
     .mockReset()
     .mockImplementation(async (period) => (period === 'month' ? STATS_MONTH : STATS_WEEK))
@@ -541,7 +568,7 @@ describe('MasterDashboardView', () => {
     })
 
     it('empty: a brand-new master gets the zero state, not an empty list', async () => {
-      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(page([]))
+      mockBucketedPractices([])
       mount()
       await flush()
 
@@ -584,7 +611,7 @@ describe('MasterDashboardView', () => {
     })
 
     it('content: a series adds its weekday list and its remaining-sessions row', async () => {
-      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(page([P_SERIES]))
+      mockBucketedPractices([P_SERIES])
       mount()
       await flush()
 
@@ -639,9 +666,7 @@ describe('MasterDashboardView', () => {
   // ===========================================================================
   describe('nearestPractices -- which practices survive the filter', () => {
     it('keeps only scheduled and live, dropping draft / cancelled / completed', async () => {
-      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(
-        page([P_DRAFT, P_CANCELLED, P_COMPLETED, P_SOON]),
-      )
+      mockBucketedPractices([P_DRAFT, P_CANCELLED, P_COMPLETED, P_SOON])
       mount()
       await flush()
 
@@ -649,7 +674,7 @@ describe('MasterDashboardView', () => {
     })
 
     it('keeps a LIVE practice and sorts it ahead of the next scheduled one', async () => {
-      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(page([P_SOON, P_LIVE]))
+      mockBucketedPractices([P_SOON, P_LIVE])
       mount()
       await flush()
 
@@ -659,27 +684,40 @@ describe('MasterDashboardView', () => {
     it('drops a practice the instant it ends -- boundary is inclusive', async () => {
       // P_JUST_ENDED ends at EXACTLY the frozen instant. practiceHasEnded is
       // `now >= end`, so it is over; P_LIVE ends 45 min later and stays.
-      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(page([P_JUST_ENDED, P_LIVE]))
+      mockBucketedPractices([P_JUST_ENDED, P_LIVE])
       mount()
       await flush()
 
       expect(titles()).toEqual(['Идёт сейчас'])
     })
 
-    it('sorts by LOCAL wall clock, not by the absolute instant (CR-1)', async () => {
-      // The visible times are 21 July 18:00 (Нью-Йорк) and 22 July 05:00 (Токио);
-      // in UTC the Tokyo one is EARLIER. Order must match what the cards show.
-      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(page([TZ_SORT_A, TZ_SORT_B]))
+    it('renders the SERVER order verbatim -- no client re-sort (T22-3, ПРОМТ №561)', async () => {
+      // Was CR-1 ("sorts by LOCAL wall clock, not by the absolute instant"):
+      // nearestPractices used to re-derive its own order via localSortKey. That
+      // client-side re-sort is gone by owner decision -- the server now owns
+      // ordering entirely (listing_service.py's bucket ordering), so this
+      // proves the negative: the two practices' absolute (UTC) order and their
+      // local-wall-clock order DISAGREE, and the dashboard renders whatever
+      // order the (correctly UTC-ascending) server response gave it.
+      //   TZ_SORT_A (Токио)     20:00Z -> local wall-clock 22 July 05:00
+      //   TZ_SORT_B (Нью-Йорк)  22:00Z -> local wall-clock 21 July 18:00
+      // By local wall-clock, Нью-Йорк would sort first (21 July before 22 July)
+      // -- the old CR-1 assertion. The server orders ascending by the absolute
+      // instant instead (TZ_SORT_A 20:00Z < TZ_SORT_B 22:00Z), and the
+      // dashboard must preserve exactly that order.
+      mockBucketedPractices([TZ_SORT_A, TZ_SORT_B])
       mount()
       await flush()
 
-      expect(titles()).toEqual(['Нью-Йорк', 'Токио'])
-      expect(subOf(blocks()[0]!)).toBe('Завтра, 18:00 • 1 час')
-      expect(subOf(blocks()[1]!)).toBe('22 июля, 05:00 • 1 час')
+      expect(titles()).toEqual(['Токио', 'Нью-Йорк'])
+      // Proof the premise holds -- the rendered times really are the ones the
+      // local-wall-clock ordering (now retired) would have disagreed on.
+      expect(subOf(blocks()[0]!)).toBe('22 июля, 05:00 • 1 час')
+      expect(subOf(blocks()[1]!)).toBe('Завтра, 18:00 • 1 час')
     })
 
     it('caps the preview at 2, regardless of how many are upcoming', async () => {
-      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(page([P_THIRD, P_LATER, P_SOON]))
+      mockBucketedPractices([P_THIRD, P_LATER, P_SOON])
       mount()
       await flush()
 
@@ -693,7 +731,7 @@ describe('MasterDashboardView', () => {
       // (.vue:302-303,384-386) rather than a value read once at setup: a master
       // who leaves the dashboard open must not keep seeing a finished practice.
       // P_LIVE ends at 12:45Z.
-      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(page([P_LIVE, P_LATER]))
+      mockBucketedPractices([P_LIVE, P_LATER])
       mount()
       await flush()
       expect(titles()).toEqual(['Идёт сейчас', 'Вечерняя практика'])
@@ -706,7 +744,7 @@ describe('MasterDashboardView', () => {
     })
 
     it('the heading follows the count: singular for one, plural for two', async () => {
-      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(page([P_SOON]))
+      mockBucketedPractices([P_SOON])
       mount()
       await flush()
       expect(sectionTitles()).toEqual(['Саммари недели', 'Ближайшая практика'])
@@ -716,7 +754,7 @@ describe('MasterDashboardView', () => {
       pinia = createPinia()
       setActivePinia(pinia)
       useAuthStore().user = user()
-      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(page([P_SOON, P_LATER]))
+      mockBucketedPractices([P_SOON, P_LATER])
       mount()
       await flush()
 
@@ -746,7 +784,7 @@ describe('MasterDashboardView', () => {
     it('but still offers «Создать практику» -- the CTA tracks UPCOMING, not ever', async () => {
       // .vue:87-88: shown whenever there is no upcoming practice, not only to
       // brand-new masters. The «первую» wording was dropped for exactly this.
-      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(page([P_COMPLETED]))
+      mockBucketedPractices([P_COMPLETED])
       mount()
       await flush()
 
@@ -755,7 +793,7 @@ describe('MasterDashboardView', () => {
     })
 
     it('a brand-new master gets «Моя статистика» and an inert summary card', async () => {
-      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(page([]))
+      mockBucketedPractices([])
       mount()
       await flush()
 
@@ -922,7 +960,7 @@ describe('MasterDashboardView', () => {
     })
 
     it('«Создать практику» opens the create form', async () => {
-      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(page([]))
+      mockBucketedPractices([])
       mount()
       await flush()
 

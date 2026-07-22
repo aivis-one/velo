@@ -111,7 +111,7 @@
         <h2 class="velo-section-title">Прошедшие практики</h2>
 
         <div
-          v-if="masterStore.practicesLoading && pastPractices.length === 0"
+          v-if="masterStore.practicesPastLoading && pastPractices.length === 0"
           class="analytics__loader"
         >
           <VLoader />
@@ -160,8 +160,8 @@
             noun="практик"
             @click="pastExpanded = true"
           />
-          <div v-else-if="pastExpanded && masterStore.practicesHasMore" class="analytics__more">
-            <VButton variant="ghost" :loading="masterStore.practicesLoading" @click="onLoadMore">
+          <div v-else-if="pastExpanded && masterStore.practicesPastHasMore" class="analytics__more">
+            <VButton variant="ghost" :loading="masterStore.practicesPastLoading" @click="onLoadMore">
               Показать ещё
             </VButton>
           </div>
@@ -293,11 +293,10 @@ const PERIOD_OPTIONS: ReadonlyArray<{ value: 'week' | 'month'; label: string }> 
 // Past practices (completed, newest first)
 // =========================================================================
 
-const pastPractices = computed(() =>
-  masterStore.practices
-    .filter((p) => p.status === 'completed')
-    .sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime()),
-)
+// T22-5 (ПРОМТ №561): the server now owns the completed-only, most-recent-
+// first ordering -- no client-side filter/sort left to hide the next
+// ordering bug.
+const pastPractices = computed(() => masterStore.practicesPast)
 
 // Period scoping (#1, fork В): until a period-scoped reviews API exists, filter
 // the loaded past practices client-side (Неделя = 7 days, Месяц = 30) so the
@@ -526,7 +525,7 @@ function loadVisibleInsights(): Promise<void[]> {
 }
 
 async function onLoadMore(): Promise<void> {
-  await masterStore.loadMorePractices()
+  await masterStore.loadMorePastPractices()
   await loadVisibleInsights()
 }
 
@@ -542,7 +541,9 @@ function openReviews(practiceId: string): void {
 onMounted(async () => {
   void loadPayments()
   void loadReviews()
-  await masterStore.fetchMyPractices()
+  // T22-5 (ПРОМТ №561): this tab only ever needs "Прошедшие" -- fetching the
+  // combined bucket here would warm "Предстоящие" for no reason.
+  await masterStore.fetchPastPractices()
   await loadVisibleInsights()
 })
 </script>

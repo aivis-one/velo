@@ -117,7 +117,7 @@
         {{ nearestPractices.length > 1 ? 'Ближайшие практики' : 'Ближайшая практика' }}
       </h2>
 
-      <template v-if="masterStore.practicesLoading && nearestPractices.length === 0">
+      <template v-if="masterStore.practicesUpcomingLoading && nearestPractices.length === 0">
         <div class="master-dashboard__loading-row">
           <VLoader size="sm" />
         </div>
@@ -252,7 +252,7 @@ import { useSafeArea } from '@/composables/useSafeArea'
 import MasterOnboardingView from '@/views/master/MasterOnboardingView.vue'
 import { isMasterOnboardingCompleted, shouldShowMasterOnboarding } from '@/utils/masterOnboarding'
 import { useToast } from '@/composables/useToast'
-import { formatDateShort, formatTime, formatDuration, formatParticipants, localSortKey } from '@/utils/format'
+import { formatDateShort, formatTime, formatDuration, formatParticipants } from '@/utils/format'
 import { platform } from '@/platform'
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { checkinLabel, recurrenceLabel, remainingSessionsLabel } from '@/utils/practiceCardMeta'
@@ -335,14 +335,17 @@ const unreadCount = computed((): number => 0)
 const now = ref(Date.now())
 let clockInterval: ReturnType<typeof setInterval> | null = null
 
+// T22-3 (ПРОМТ №561): practicesUpcoming is already server-ordered nearest
+// first (draft/scheduled/live) -- no client re-sort left to hide the next
+// ordering bug. Draft and already-ended occurrences are filtered out of the
+// (small, already-in-order) loaded window; a genuinely correct "nearest 2"
+// no longer depends on how many pages happen to be loaded, the way the old
+// single futures-first cursor did.
 const nearestPractices = computed((): PracticeResponse[] =>
-  masterStore.practices
+  masterStore.practicesUpcoming
     .filter(
       (p) => (p.status === 'scheduled' || p.status === 'live') && !practiceHasEnded(p, now.value),
     )
-    // LOCAL wall-clock order (each card renders in its own p.timezone), so the
-    // top-2 slice matches the times shown across differing timezones (CR-1/CR-2).
-    .sort((a, b) => localSortKey(a.scheduled_at, a.timezone) - localSortKey(b.scheduled_at, b.timezone))
     .slice(0, 2),
 )
 

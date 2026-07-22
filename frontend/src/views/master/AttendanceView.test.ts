@@ -302,7 +302,7 @@ describe('AttendanceView', () => {
     })
 
     it('a cached practice in masterStore.practices is used directly -- getPractice is never called', async () => {
-      useMasterStore().practices = [practice({ id: 'p_1', title: 'Кэшированная практика' })]
+      useMasterStore().practicesUpcoming = [practice({ id: 'p_1', title: 'Кэшированная практика' })]
       mount()
       await flush()
 

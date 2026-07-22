@@ -47,7 +47,7 @@
 
     <!-- Loading -->
     <div
-      v-if="masterStore.practicesLoading && masterStore.practices.length === 0"
+      v-if="currentLoading && currentItems.length === 0"
       class="master-practices__loader"
     >
       <VLoader size="lg" />
@@ -57,13 +57,13 @@
          must not replace the pages already on screen; mirrors the loading rung
          above and MyBookingsView.vue:28) -->
     <div
-      v-else-if="masterStore.practicesError && masterStore.practices.length === 0"
+      v-else-if="currentError && currentItems.length === 0"
       class="master-practices__content"
     >
       <VEmptyState
         icon="warning"
         title="Не удалось загрузить практики"
-        :description="masterStore.practicesError"
+        :description="currentError"
       >
         <VButton size="sm" variant="outline" @click="masterStore.refreshMyPractices()">
           Повторить
@@ -162,8 +162,8 @@
       </template>
 
       <!-- Load more -->
-      <div v-if="masterStore.practicesHasMore" class="master-practices__load-more">
-        <VButton variant="ghost" block :loading="masterStore.practicesLoading" @click="onLoadMore">
+      <div v-if="currentHasMore" class="master-practices__load-more">
+        <VButton variant="ghost" block :loading="currentLoading" @click="onLoadMore">
           Показать ещё
         </VButton>
       </div>
@@ -188,7 +188,7 @@ import { useDiaryStore } from '@/stores/diary'
 import { useToast } from '@/composables/useToast'
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { checkinLabel, recurrenceLabel, remainingSessionsLabel } from '@/utils/practiceCardMeta'
-import { formatDateShort, formatShortDate, formatTime, localSortKey } from '@/utils/format'
+import { formatDateShort, formatShortDate, formatTime } from '@/utils/format'
 import type { PracticeResponse } from '@/api/types'
 
 const route = useRoute()
@@ -205,22 +205,26 @@ const insightsCache = diaryStore.insightsCache
 // (otherwise a fresh mount always reset to «Предстоящие»).
 const activeTab = ref<'upcoming' | 'past'>(route.query.tab === 'past' ? 'past' : 'upcoming')
 
-// -- Upcoming: draft + scheduled + live, ascending. Ordered by LOCAL wall-clock
-//    (each card renders in its own p.timezone) so the on-screen order matches the
-//    shown times across differing timezones (CR-1). --
-const upcomingPractices = computed((): PracticeResponse[] =>
-  masterStore.practices
-    .filter((p) => p.status === 'draft' || p.status === 'scheduled' || p.status === 'live')
-    .sort((a, b) => localSortKey(a.scheduled_at, a.timezone) - localSortKey(b.scheduled_at, b.timezone)),
-)
+// T22-3/T22-5 (ПРОМТ №561): the server now owns both the filter AND the
+// ordering per bucket (nearest-first for upcoming, most-recent-first for
+// past) -- no client-side filter/sort left to hide the next ordering bug.
+const upcomingPractices = computed(() => masterStore.practicesUpcoming)
 
-// -- Past: completed ONLY, descending (newest first). Cancelled practices did
-//    not happen, so they appear in NEITHER tab (operator 2026-06-25). Same
-//    LOCAL-wall-clock ordering as upcoming (CR-1). --
-const pastPractices = computed((): PracticeResponse[] =>
-  masterStore.practices
-    .filter((p) => p.status === 'completed')
-    .sort((a, b) => localSortKey(b.scheduled_at, b.timezone) - localSortKey(a.scheduled_at, a.timezone)),
+// -- Past: completed ONLY, most-recent first -- server-side now (T22-5). --
+const pastPractices = computed(() => masterStore.practicesPast)
+
+// Tab-aware state: which bucket's loading/error/hasMore the current tab shows.
+const currentItems = computed(() =>
+  activeTab.value === 'past' ? pastPractices.value : upcomingPractices.value,
+)
+const currentLoading = computed(() =>
+  activeTab.value === 'past' ? masterStore.practicesPastLoading : masterStore.practicesUpcomingLoading,
+)
+const currentError = computed(() =>
+  activeTab.value === 'past' ? masterStore.practicesPastError : masterStore.practicesUpcomingError,
+)
+const currentHasMore = computed(() =>
+  activeTab.value === 'past' ? masterStore.practicesPastHasMore : masterStore.practicesUpcomingHasMore,
 )
 
 const tabOptions = [
@@ -299,27 +303,44 @@ function goDetail(id: string): void {
   router.push({ name: 'master-practice-detail', params: { id } })
 }
 
+/** Lazily fetch the bucket a tab needs -- each tab paginates independently
+ *  and fetches on activation (T22-3/T22-5): "Прошедшие" is never fetched
+ *  until the master actually switches to it. No-op if already loaded. */
+async function ensureBucketLoaded(tab: 'upcoming' | 'past'): Promise<void> {
+  if (tab === 'past') await masterStore.fetchPastPractices()
+  else await masterStore.fetchUpcomingPractices()
+}
+
 async function onLoadMore(): Promise<void> {
-  await masterStore.loadMorePractices()
-  // A failed page-N keeps the list (usePagination routes it away from `error`)
-  // but would be SILENT without this. Toast it, as the six admin lists do.
-  // No manual clearing: the composable resets loadMoreError on the next attempt.
-  if (masterStore.practicesLoadMoreError) {
-    toast.error(masterStore.practicesLoadMoreError)
+  if (activeTab.value === 'past') {
+    await masterStore.loadMorePastPractices()
+    // A failed page-N keeps the list (usePagination routes it away from
+    // `error`) but would be SILENT without this. Toast it, as the six admin
+    // lists do. No manual clearing: the composable resets loadMoreError on
+    // the next attempt.
+    if (masterStore.practicesPastLoadMoreError) {
+      toast.error(masterStore.practicesPastLoadMoreError)
+    }
+  } else {
+    await masterStore.loadMoreUpcomingPractices()
+    if (masterStore.practicesUpcomingLoadMoreError) {
+      toast.error(masterStore.practicesUpcomingLoadMoreError)
+    }
   }
   await loadTabData()
 }
 
-watch(activeTab, (tab) => {
+watch(activeTab, async (tab) => {
   // Persist the tab in the URL so a back-navigation from detail restores it.
   if (route.query.tab !== tab) {
     router.replace({ query: { ...route.query, tab } })
   }
-  loadTabData()
+  await ensureBucketLoaded(tab)
+  await loadTabData()
 })
 
 onMounted(async () => {
-  await masterStore.fetchMyPractices()
+  await ensureBucketLoaded(activeTab.value)
   await loadTabData()
 })
 </script>

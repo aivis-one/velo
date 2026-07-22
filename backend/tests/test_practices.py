@@ -790,6 +790,149 @@ async def test_list_master_practices_status_filter(
     assert scheduled_data["items"][0]["id"] == scheduled_id
 
 
+# ---------------------------------------------------------------------------
+# GET /masters/me/practices -- T22-3/T22-5 bucket ordering (ПРОМТ №561)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_list_master_practices_bucket_upcoming_nearest_first(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """?bucket=upcoming orders NEAREST FIRST -- including against a real
+    series and a standalone occurrence stretching years out (T22-3: the old
+    shared futures-first cursor put the far-future tail on page 1, making a
+    far-future occurrence read as "nearest").
+    """
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+    now = datetime.now(timezone.utc)
+
+    # Real weekly series (cap=40, ~39 weeks out) -- exercises the actual
+    # generation engine, not just direct inserts.
+    await _create_and_publish(
+        client, auth,
+        practice_type="series",
+        direction="yoga",
+        scheduled_at=(now + timedelta(days=30)).isoformat(),
+        recurrence={"period": "weekly", "days": [1], "end": "after_count", "count": 40},
+    )
+    # A standalone occurrence genuinely years out (beyond any series cap),
+    # covering the literal "stretching years out" production shape.
+    await _insert_practice_at(
+        db_session, master_id,
+        scheduled_at=now + timedelta(days=730), title="YearsOut",
+    )
+    # The nearest of everything -- must be item [0].
+    nearest = await _insert_practice_at(
+        db_session, master_id,
+        scheduled_at=now + timedelta(days=1), title="Nearest",
+    )
+
+    resp = await client.get(
+        MY_PRACTICES_URL,
+        params={"bucket": "upcoming", "limit": 100},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+
+    scheduled_ats = [item["scheduled_at"] for item in data["items"]]
+    assert scheduled_ats == sorted(scheduled_ats), "upcoming bucket must be ascending (nearest first)"
+    assert data["items"][0]["id"] == str(nearest.id)
+    # The 2-years-out occurrence is present but sorts LAST, not first.
+    assert data["items"][-1]["title"] == "YearsOut"
+
+
+@pytest.mark.asyncio
+async def test_list_master_practices_bucket_past_most_recent_first(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """?bucket=past orders MOST RECENT FIRST and includes completed only
+    (T22-5: the old shared cursor buried every completed practice behind the
+    whole future backlog, needing many "Показать ещё" taps before any showed).
+    """
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+    now = datetime.now(timezone.utc)
+
+    oldest = await _insert_practice_at(
+        db_session, master_id,
+        scheduled_at=now - timedelta(days=60),
+        status=PracticeStatus.COMPLETED.value,
+        title="Oldest",
+    )
+    most_recent = await _insert_practice_at(
+        db_session, master_id,
+        scheduled_at=now - timedelta(days=1),
+        status=PracticeStatus.COMPLETED.value,
+        title="MostRecent",
+    )
+    await _insert_practice_at(
+        db_session, master_id,
+        scheduled_at=now - timedelta(days=30),
+        status=PracticeStatus.COMPLETED.value,
+        title="Middle",
+    )
+    # A far-future scheduled practice must NEVER appear in "past".
+    await _insert_practice_at(
+        db_session, master_id,
+        scheduled_at=now + timedelta(days=30), title="StillUpcoming",
+    )
+
+    resp = await client.get(
+        MY_PRACTICES_URL,
+        params={"bucket": "past", "limit": 100},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["total"] == 3
+    assert all(item["status"] == "completed" for item in data["items"])
+    assert data["items"][0]["id"] == str(most_recent.id)
+    assert data["items"][-1]["id"] == str(oldest.id)
+
+
+@pytest.mark.asyncio
+async def test_list_master_practices_bucket_excludes_cancelled(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A cancelled practice appears in NEITHER bucket (it did not happen) --
+    server-side enforcement of the rule the client used to apply by omission.
+    """
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+    now = datetime.now(timezone.utc)
+
+    await _insert_practice_at(
+        db_session, master_id,
+        scheduled_at=now + timedelta(days=5),
+        status=PracticeStatus.CANCELLED.value,
+        title="CancelledFuture",
+    )
+    await _insert_practice_at(
+        db_session, master_id,
+        scheduled_at=now - timedelta(days=5),
+        status=PracticeStatus.CANCELLED.value,
+        title="CancelledPast",
+    )
+
+    upcoming = await client.get(
+        MY_PRACTICES_URL,
+        params={"bucket": "upcoming"},
+        headers=auth_headers(auth["session_token"]),
+    )
+    past = await client.get(
+        MY_PRACTICES_URL,
+        params={"bucket": "past"},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert upcoming.json()["total"] == 0
+    assert past.json()["total"] == 0
+
+
 # ===================================================================
 # PHASE 4.3/4.4 TESTS -- PRICING
 # ===================================================================
