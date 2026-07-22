@@ -282,6 +282,37 @@ async def test_ticket_then_redirect_success_never_exposes_start_url_in_json(
 
 
 @pytest.mark.asyncio
+async def test_start_redirect_sets_referrer_policy_no_referrer(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    """A4 V10: the 307 to Zoom must carry Referrer-Policy: no-referrer, so
+    the browser never sends this endpoint's URL (including the -- by then
+    already-consumed -- ticket query param) to zoom.us in a Referer header.
+    Discriminates the real break: before the fix, RedirectResponse is
+    constructed with no headers kwarg at all, so this header is simply
+    absent from the response -- this assertion fails on that exact
+    omission and nothing else (redirect status/location are already
+    covered by test_ticket_then_redirect_success_never_exposes_start_url_in_json
+    above, so this test checks only the one thing that changed)."""
+    master = await _make_verified_master(client, db_session, telegram_id=99607)
+    practice_id = await _create_and_publish_practice(client, master)
+
+    ticket_resp = await client.post(
+        f"{PRACTICES_URL}/{practice_id}/zoom/start-ticket",
+        headers=auth_headers(master["session_token"]),
+    )
+    ticket = ticket_resp.json()["ticket"]
+
+    redirect_resp = await client.get(
+        f"{PRACTICES_URL}/zoom/start",
+        params={"ticket": ticket},
+        follow_redirects=False,
+    )
+    assert redirect_resp.status_code == 307
+    assert redirect_resp.headers["referrer-policy"] == "no-referrer"
+
+
+@pytest.mark.asyncio
 async def test_ticket_is_single_use(
     client: AsyncClient, db_session: AsyncSession,
 ) -> None:

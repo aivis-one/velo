@@ -355,7 +355,17 @@ async def zoom_start_redirect_endpoint(
             "Zoom не вернул ссылку для начала встречи. Попробуйте ещё раз.",
         )
 
-    return RedirectResponse(url=start_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+    return RedirectResponse(
+        url=start_url,
+        status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+        # A4 V10: without this, the browser's Referer header on the hop to
+        # Zoom carries this endpoint's full URL (including the now-consumed
+        # ticket query param) to zoom.us. The ticket is already dead by this
+        # point (redeem_start_ticket already GETDEL'd it above), so this is
+        # not a replay risk -- but there is no reason to hand a third party
+        # our internal route shape either.
+        headers={"Referrer-Policy": "no-referrer"},
+    )
 
 
 def _zoom_start_error_page(message: str) -> HTMLResponse:
