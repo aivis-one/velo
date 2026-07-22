@@ -37,6 +37,10 @@
          populateForm uses centsToEurString() -- no float precision issues.
     W-8: date input has :min="todayDate" to prevent setting past dates
     W-9: commission calc uses COMMISSION_RATE from @/utils/commission
+    A4 V3 (ПРОМТ №571): Направление/Вид options filtered to the master's own
+        CONFIRMED methods (mirrors CreatePracticeView), and the taxonomy
+        rejection codes (direction_not_confirmed/style_not_confirmed) get the
+        same Russian toast translation as CreatePracticeView's submit() catch.
 -->
 
 <template>
@@ -316,7 +320,7 @@ import { formatShortDate, todayLocalISO } from '@/utils/format'
 import { masterPracticeBadge } from '@/utils/practiceStatus'
 import { ApiResponseError } from '@/api/client'
 import { DURATION_OPTIONS, catalogDirectionOptions, catalogStylesForDirection } from '@/utils/practiceOptions'
-import { ensureTaxonomyCatalog } from '@/utils/methodTaxonomy'
+import { ensureTaxonomyCatalog, parseMethods } from '@/utils/methodTaxonomy'
 import { eurStringToCents, centsToEurString } from '@/utils/currency'
 import type { TaxonomyListResponse } from '@/api/taxonomy'
 import type { PracticeResponse } from '@/api/types'
@@ -422,10 +426,43 @@ const isTerminal = computed(
 // W-6: use eurStringToCents() -- avoids parseFloat(raw) * 100 float precision trap.
 const priceCents = computed((): number => eurStringToCents(form.price_eur_raw))
 
-// Direction/style options, catalog-first (T2 stage 2) -- mirrors
-// CreatePracticeView's directionOptions/styleOptionsForForm.
-const directionOptions = computed(() => catalogDirectionOptions(catalog.value))
-const styleOptionsForForm = computed(() => catalogStylesForDirection(catalog.value, form.direction))
+// A4 V3 (ПРОМТ №571): this master's OWN CONFIRMED methods, same resolver
+// and same fail-CLOSED posture as CreatePracticeView (ПРОМТ №556/№546) --
+// this screen shares masterStatusGuard with master-practice-new (router/
+// index.ts), so masterStore.profileLoaded is already true on first render
+// in the normal navigation case; the "not loaded yet" branch below is a
+// defensive fallback, not the master line of defense. Deliberately reads
+// masterStore.profile?.methods, never method_change_request.proposed_
+// methods -- a pending, unapproved request must not unlock a direction
+// early.
+const confirmedMethods = computed(() => {
+  const methods = masterStore.profile?.methods
+  if (!methods) return null
+  return parseMethods(methods)
+})
+
+// Direction/style options, catalog-first (T2 stage 2), filtered to the
+// master's own confirmed methods -- mirrors CreatePracticeView's
+// directionOptions/styleOptionsForForm exactly (ПРОМТ №556/№546). Before
+// this, EditPracticeView offered the WHOLE active catalogue unfiltered,
+// so a master could re-pick (or leave untouched, see populateForm) a
+// direction/style their profile was never confirmed for and only find out
+// from the backend's raw rejection on save -- see the catch block below.
+const directionOptions = computed(() => {
+  if (!masterStore.profileLoaded) return []
+  const confirmed = confirmedMethods.value
+  if (!confirmed) return []
+  const all = catalogDirectionOptions(catalog.value)
+  return all.filter((opt) => confirmed.directions.includes(opt.value))
+})
+const styleOptionsForForm = computed(() => {
+  if (!masterStore.profileLoaded) return []
+  const confirmed = confirmedMethods.value
+  if (!confirmed) return []
+  const all = catalogStylesForDirection(catalog.value, form.direction)
+  const confirmedStyleValues = confirmed.styles[form.direction as string] ?? []
+  return all.filter((opt) => confirmedStyleValues.includes(opt.value))
+})
 
 /** Reset style when direction changes — the previous value is likely
  *  invalid for the new direction (mirrors CreatePracticeView). */
@@ -558,7 +595,17 @@ async function save(): Promise<void> {
     toast.success('Сохранено')
     await masterStore.refreshMyPractices()
   } catch (e) {
-    toast.error(e instanceof ApiResponseError ? e.detail : 'Ошибка сохранения')
+    // A4 V3 (ПРОМТ №571): _assert_master_confirmed_taxonomy's rejection is a
+    // raw, English, API-shaped message (e.detail) -- must never reach a human
+    // directly. Same codes, same translation, same pattern as
+    // CreatePracticeView's submit() catch (ПРОМТ №556, OWNER-2).
+    if (e instanceof ApiResponseError && e.code === 'direction_not_confirmed') {
+      toast.error('Это направление ещё не подтверждено в вашем профиле')
+    } else if (e instanceof ApiResponseError && e.code === 'style_not_confirmed') {
+      toast.error('Этот вид практики ещё не подтверждён в вашем профиле')
+    } else {
+      toast.error(e instanceof ApiResponseError ? e.detail : 'Ошибка сохранения')
+    }
   } finally {
     saving.value = false
   }
