@@ -3,7 +3,12 @@
 # OWNER-1 option В)
 # =============================================================================
 #
-# telegram_id range: 79200-79299 (own band, no overlap with any other suite).
+# telegram_id range: 99600-99699 (ПРОМТ №558 -- moved off 79200-79299 after
+# that band turned out to be test_zoom_registrants.py's ALREADY-CLAIMED band,
+# literal telegram_id for literal telegram_id (both files independently
+# picked 79201-79206 for their masters). Verified 99600-99699 is free by
+# grepping every "telegram_id range" comment AND every literal 996xx value
+# across backend/tests/*.py -- zero hits either way (see ПРОМТ №558 report).
 #
 # ⚠ BACKEND-ONLY, UNPROVEN LOCALLY -- there is no docker/postgres available in
 # this environment (per [[velo_testing]]). These tests were written to be
@@ -38,46 +43,36 @@ from uuid import UUID
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.masters.models import MasterProfile
 from app.modules.users.models import User, UserRole
 from app.modules.zoom.models import ZoomMeeting, ZoomMeetingStatus
 from app.modules.zoom.zoom_client import ZoomAPIError
-from tests.helpers import auth_headers, login_user
+from tests.helpers import auth_headers, full_cleanup_range, login_user
 
 PRACTICES_URL = "/api/v1/practices"
 
-_TID_RANGE = "SELECT id FROM users WHERE telegram_id BETWEEN 79200 AND 79299"
-
-_CLEANUP_QUERIES = [
-    text(
-        f"DELETE FROM zoom_registrants WHERE zoom_meeting_id IN "
-        f"(SELECT id FROM zoom_meetings WHERE practice_id IN "
-        f"(SELECT id FROM practices WHERE master_id IN ({_TID_RANGE})))"
-    ),
-    text(
-        f"DELETE FROM zoom_meetings WHERE practice_id IN "
-        f"(SELECT id FROM practices WHERE master_id IN ({_TID_RANGE}))"
-    ),
-    text(f"DELETE FROM practices WHERE master_id IN ({_TID_RANGE})"),
-    text(f"DELETE FROM master_profiles WHERE user_id IN ({_TID_RANGE})"),
-    text("DELETE FROM users WHERE telegram_id BETWEEN 79200 AND 79299"),
-]
-
-
-async def _full_cleanup(db_session: AsyncSession) -> None:
-    for stmt in _CLEANUP_QUERIES:
-        await db_session.execute(stmt)
-    await db_session.commit()
+_TID_MIN = 99600
+_TID_MAX = 99699
 
 
 @pytest.fixture(autouse=True)
 async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
-    await _full_cleanup(db_session)
+    """TD-032: the shared, FK-safe cleanup helper -- not a bespoke raw-SQL
+    list. ПРОМТ №558: this file's own hand-rolled list (zoom_registrants,
+    zoom_meetings, practices, master_profiles, users, in that order) omitted
+    master_ledger entirely, which is exactly what broke the deploy gate --
+    full_cleanup_range deletes master_ledger (RESTRICT FK) before users
+    (step 7 of 19), so it can never repeat this specific failure, and it
+    also means the NEXT table anyone adds to the schema doesn't need this
+    file touched at all."""
+    await full_cleanup_range(db_session, _TID_MIN, _TID_MAX, delete_users=True)
+    await db_session.commit()
     yield
-    await _full_cleanup(db_session)
+    await full_cleanup_range(db_session, _TID_MIN, _TID_MAX, delete_users=True)
+    await db_session.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -198,8 +193,8 @@ async def test_non_owner_refused_start_ticket(
     practice's existence confirmed) requesting a start ticket for it --
     mirrors update_practice/delete_practice/cancel_practice's own P-08
     check exactly (practices/service.py)."""
-    owner = await _make_verified_master(client, db_session, telegram_id=79201)
-    other = await _make_verified_master(client, db_session, telegram_id=79202)
+    owner = await _make_verified_master(client, db_session, telegram_id=99601)
+    other = await _make_verified_master(client, db_session, telegram_id=99602)
     practice_id = await _create_and_publish_practice(client, owner)
 
     resp = await client.post(
@@ -221,7 +216,7 @@ async def test_no_active_meeting_returns_honest_error(
     """A draft (never published) practice has no ZoomMeeting row at all --
     the ticket endpoint must refuse with a specific machine-readable code,
     not a raw 500 or a generic message the frontend can't distinguish."""
-    master = await _make_verified_master(client, db_session, telegram_id=79203)
+    master = await _make_verified_master(client, db_session, telegram_id=99603)
     body = {
         "practice_type": "live",
         "direction": "meditation",
@@ -264,7 +259,7 @@ async def test_ticket_then_redirect_success_never_exposes_start_url_in_json(
     response body, not just schema shape), and redeeming that ticket 30s
     later is a redirect straight to Zoom -- the frontend never sees or
     holds the start_url at any point in this flow."""
-    master = await _make_verified_master(client, db_session, telegram_id=79204)
+    master = await _make_verified_master(client, db_session, telegram_id=99604)
     practice_id = await _create_and_publish_practice(client, master)
 
     ticket_resp = await client.post(
@@ -292,7 +287,7 @@ async def test_ticket_is_single_use(
 ) -> None:
     """Redeeming the same ticket twice: the second attempt must get the
     honest "expired" page, not a second redirect -- GETDEL semantics."""
-    master = await _make_verified_master(client, db_session, telegram_id=79205)
+    master = await _make_verified_master(client, db_session, telegram_id=99605)
     practice_id = await _create_and_publish_practice(client, master)
 
     ticket_resp = await client.post(
@@ -328,7 +323,7 @@ async def test_zoom_unreachable_returns_honest_russian_page_not_raw_error(
     status_code/body since 6b69cfe and would otherwise leak an English,
     API-shaped string to a human -- exactly the OWNER-2 failure mode this
     track must not repeat)."""
-    master = await _make_verified_master(client, db_session, telegram_id=79206)
+    master = await _make_verified_master(client, db_session, telegram_id=99606)
     practice_id = await _create_and_publish_practice(client, master)
 
     ticket_resp = await client.post(
