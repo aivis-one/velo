@@ -1178,6 +1178,75 @@ describe('CreatePracticeView', () => {
       expect(titles).toEqual(['Новая', 'Старая'])
     })
 
+    it('T23-3 (ПРОМТ №565): a published series offers ONE entry, not one per generated occurrence', async () => {
+      // The owner's exact report: "Свист" for three separate July dates --
+      // one root (parent_practice_id=null) + two generated children sharing
+      // that root's id as their own parent_practice_id. Grouped by
+      // parent_practice_id ?? id (.vue), the root wins over its children.
+      masterState.practices = [
+        practice({
+          id: 'root_1',
+          title: 'Свист',
+          created_at: '2026-07-01T00:00:00Z',
+          scheduled_at: '2026-07-23T10:00:00Z',
+        }),
+        practice({
+          id: 'child_1',
+          title: 'Свист',
+          parent_practice_id: 'root_1',
+          created_at: '2026-07-01T00:00:00Z',
+          scheduled_at: '2026-07-24T10:00:00Z',
+        }),
+        practice({
+          id: 'child_2',
+          title: 'Свист',
+          parent_practice_id: 'root_1',
+          created_at: '2026-07-01T00:00:00Z',
+          scheduled_at: '2026-07-25T10:00:00Z',
+        }),
+        // An unrelated, genuinely separate practice must still show its own
+        // entry -- the dedup groups by series, not by title/master.
+        practice({ id: 'other', title: 'Другая практика', created_at: '2026-06-01T00:00:00Z' }),
+      ]
+      mount()
+      await flush()
+
+      host?.querySelector<HTMLElement>('.use-template__head')?.click()
+      await flush()
+
+      const titles = Array.from(host?.querySelectorAll('.use-template__card-title') ?? []).map(
+        (e) => e.textContent?.trim(),
+      )
+      expect(titles).toEqual(['Свист', 'Другая практика'])
+    })
+
+    it('T23-3: with the root not (yet) loaded, ONE child still represents the whole series (graceful fallback, not a crash or a second entry)', async () => {
+      masterState.practices = [
+        practice({
+          id: 'child_1',
+          title: 'Свист',
+          parent_practice_id: 'root_1',
+          created_at: '2026-07-01T00:00:00Z',
+        }),
+        practice({
+          id: 'child_2',
+          title: 'Свист',
+          parent_practice_id: 'root_1',
+          created_at: '2026-07-01T00:00:00Z',
+        }),
+      ]
+      mount()
+      await flush()
+
+      host?.querySelector<HTMLElement>('.use-template__head')?.click()
+      await flush()
+
+      const titles = Array.from(host?.querySelectorAll('.use-template__card-title') ?? []).map(
+        (e) => e.textContent?.trim(),
+      )
+      expect(titles).toEqual(['Свист'])
+    })
+
     it('a master with no practices gets a hint, not an empty box', async () => {
       mount()
       await flush()

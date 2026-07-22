@@ -556,9 +556,41 @@ const errors = reactive({
 
 // «Использовать шаблон» source: all the master's practices, newest-created
 // first (operator Q2=А — backend list order isn't guaranteed, so sort here).
-const templatePractices = computed((): PracticeResponse[] =>
-  [...masterStore.practices].sort((a, b) => b.created_at.localeCompare(a.created_at)),
-)
+//
+// T23-3 (ПРОМТ №565): a published SERIES must offer ONE entry, not one per
+// generated occurrence -- masterStore.practices carries every child
+// individually (each is its own Practice row), so an unrelated series
+// otherwise floods this list with N near-identical cards ("Свист" three
+// times for three July dates in the owner's report).
+//
+// Grouped by parent_practice_id (a series child's own group key) falling
+// back to the row's own id (a root or a non-series practice is its own
+// group of one). Within a group the ROOT (parent_practice_id === null) is
+// preferred when present. MEASURED, not assumed: series_service.py's
+// _build_child_occurrence copies title, description, what_to_prepare,
+// contraindications, duration_minutes, max_participants, zoom_link,
+// is_free, price_cents, currency and the full taxonomy (direction,
+// difficulty, style) VERBATIM from the root to every child at generation
+// time (no per-child override of any of these anywhere in that function) --
+// exactly the field set applyTemplate() below actually copies. So which
+// occurrence in a group gets offered does not change what a master
+// receives; the root is still the deliberate pick because it is guaranteed
+// to exist for as long as the series does (a child can be individually
+// cancelled/deleted without touching the root) and is the series' own
+// canonical definition (the recurrence spec itself lives only on the root,
+// series_service.py). Only WHICH entries are offered changes here --
+// applyTemplate's copy list is untouched.
+const templatePractices = computed((): PracticeResponse[] => {
+  const bestForGroup = new Map<string, PracticeResponse>()
+  for (const p of masterStore.practices) {
+    const groupKey = p.parent_practice_id ?? p.id
+    const existing = bestForGroup.get(groupKey)
+    if (!existing || (existing.parent_practice_id !== null && p.parent_practice_id === null)) {
+      bestForGroup.set(groupKey, p)
+    }
+  }
+  return [...bestForGroup.values()].sort((a, b) => b.created_at.localeCompare(a.created_at))
+})
 
 // T21-6 (ПРОМТ №546): this master's OWN CONFIRMED methods (MasterProfile.
 // methods -- the live field, only overwritten on admin approval), parsed
