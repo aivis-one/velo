@@ -228,10 +228,14 @@ export function editMasterProfile(
 export function verifyMaster(
   userId: string,
   promote?: string[],
+  masterOnly?: string[],
 ): Promise<AdminMasterActionResponse> {
+  const body: { promote?: string[]; master_only?: string[] } = {}
+  if (promote && promote.length) body.promote = promote
+  if (masterOnly && masterOnly.length) body.master_only = masterOnly
   return api.post<AdminMasterActionResponse>(
     `/api/v1/admin/masters/${userId}/verify`,
-    promote && promote.length ? { promote } : {},
+    body,
   )
 }
 
@@ -287,10 +291,14 @@ export function getMethodChangeRequests(
 export function approveMethodChange(
   userId: string,
   promote?: string[],
+  masterOnly?: string[],
 ): Promise<MethodChangeActionResponse> {
+  const body: { promote?: string[]; master_only?: string[] } = {}
+  if (promote && promote.length) body.promote = promote
+  if (masterOnly && masterOnly.length) body.master_only = masterOnly
   return api.post<MethodChangeActionResponse>(
     `/api/v1/admin/masters/${userId}/method-change-request/approve`,
-    promote && promote.length ? { promote } : {},
+    body,
   )
 }
 

@@ -238,11 +238,15 @@ function onApprove(item: AdminMethodChangeItem): void {
   void doApprove(item)
 }
 
-async function doApprove(item: AdminMethodChangeItem, promote?: string[]): Promise<void> {
+async function doApprove(
+  item: AdminMethodChangeItem,
+  promote?: string[],
+  masterOnly?: string[],
+): Promise<void> {
   if (busyId.value) return
   busyId.value = item.user_id
   try {
-    await approveMethodChange(item.user_id, promote)
+    await approveMethodChange(item.user_id, promote, masterOnly)
     toast.success('Методы обновлены')
     removeItem(item.user_id)
   } catch (e) {
@@ -261,11 +265,13 @@ function onPromoteConfirm(): void {
   void doApprove(item, [promoteLabel.value])
 }
 
-/** «Только этому мастеру» (or dialog dismissed) -- approve, no promote. */
+/** «Только этому мастеру» (or dialog dismissed) -- approve, scoped to this
+ *  master only (T22-6, ПРОМТ №561): a real taxonomy row, just not a shared
+ *  one -- was silently nothing before this. */
 function onPromoteCancel(): void {
   const item = promoteTarget.value
   if (!item) return
-  void doApprove(item)
+  void doApprove(item, undefined, [promoteLabel.value])
 }
 
 function openReject(item: AdminMethodChangeItem): void {

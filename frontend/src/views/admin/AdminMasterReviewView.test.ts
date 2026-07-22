@@ -535,7 +535,7 @@ describe('AdminMasterReviewView', () => {
       footBtn('Одобрить')?.click()
       await flush()
 
-      expect(adminApi.verifyMaster).toHaveBeenCalledWith('m_pending')
+      expect(adminApi.verifyMaster).toHaveBeenCalledWith('m_pending', undefined, undefined)
       expect(toastSuccess).toHaveBeenCalledWith('Мастер верифицирован')
       expect(push).toHaveBeenCalledWith({ name: 'admin-masters' })
     })
@@ -584,7 +584,7 @@ describe('AdminMasterReviewView', () => {
       await flush()
 
       expect(modalIsOpen()).toBe(false)
-      expect(adminApi.verifyMaster).toHaveBeenCalledWith('m_pending')
+      expect(adminApi.verifyMaster).toHaveBeenCalledWith('m_pending', undefined, undefined)
     })
 
     it('custom/unmatched text: pauses on the confirm dialog INSTEAD of calling verifyMaster', async () => {
@@ -617,13 +617,15 @@ describe('AdminMasterReviewView', () => {
       modalBtn('Добавить в каталог')?.click()
       await flush()
 
-      expect(adminApi.verifyMaster).toHaveBeenCalledWith('m_pending', ['Нестандартный метод'])
+      expect(adminApi.verifyMaster).toHaveBeenCalledWith(
+        'm_pending', ['Нестандартный метод'], undefined,
+      )
       expect(toastSuccess).toHaveBeenCalledWith('Мастер верифицирован')
       expect(push).toHaveBeenCalledWith({ name: 'admin-masters' })
       expect(modalIsOpen()).toBe(false)
     })
 
-    it('cancel ("Только этому мастеру"): STILL verifies, WITHOUT promote (never blocks)', async () => {
+    it('cancel ("Только этому мастеру"): verifies, SCOPED to this master only (T22-6, ПРОМТ №561)', async () => {
       vi.mocked(adminApi.getMasterById).mockResolvedValue(
         master({ methods: ['Нестандартный метод'] }),
       )
@@ -645,14 +647,17 @@ describe('AdminMasterReviewView', () => {
       cancelBtnEl?.click()
       await flush()
 
-      // Exactly ONE arg -- same call shape as the no-custom-text path, so
-      // every pre-existing verifyMaster call site is unaffected.
-      expect(adminApi.verifyMaster).toHaveBeenCalledWith('m_pending')
+      // Was "exactly one arg, promote never sent": that used to mean the
+      // label vanished entirely (T22-6). Now it takes the master_only
+      // branch, so the direction gets a real (master-scoped) row.
+      expect(adminApi.verifyMaster).toHaveBeenCalledWith(
+        'm_pending', undefined, ['Нестандартный метод'],
+      )
       expect(toastSuccess).toHaveBeenCalledWith('Мастер верифицирован')
       expect(push).toHaveBeenCalledWith({ name: 'admin-masters' })
     })
 
-    it('dismiss (overlay tap, NOT the cancel button): STILL verifies, WITHOUT promote -- an accidental dismiss can never fail to act', async () => {
+    it('dismiss (overlay tap, NOT the cancel button): STILL verifies, scoped to this master only', async () => {
       vi.mocked(adminApi.getMasterById).mockResolvedValue(
         master({ methods: ['Нестандартный метод'] }),
       )
@@ -670,7 +675,9 @@ describe('AdminMasterReviewView', () => {
       modalOverlay()?.click()
       await flush()
 
-      expect(adminApi.verifyMaster).toHaveBeenCalledWith('m_pending')
+      expect(adminApi.verifyMaster).toHaveBeenCalledWith(
+        'm_pending', undefined, ['Нестандартный метод'],
+      )
       expect(toastSuccess).toHaveBeenCalledWith('Мастер верифицирован')
     })
 
@@ -690,7 +697,9 @@ describe('AdminMasterReviewView', () => {
       confirmBtnEl?.click()
       await flush()
 
-      expect(adminApi.verifyMaster).toHaveBeenCalledWith('m_pending', ['Нестандартный метод'])
+      expect(adminApi.verifyMaster).toHaveBeenCalledWith(
+        'm_pending', ['Нестандартный метод'], undefined,
+      )
       expect(toastError).toHaveBeenCalledWith('Ошибка верификации')
       expect(push).not.toHaveBeenCalled()
       expect(modalIsOpen()).toBe(false)

@@ -812,13 +812,10 @@ function onVerify(): void {
   void doVerify()
 }
 
-async function doVerify(promote?: string[]): Promise<void> {
+async function doVerify(promote?: string[], masterOnly?: string[]): Promise<void> {
   verifying.value = true
   try {
-    // Exactly one arg when there's nothing to promote -- verifyMaster's
-    // own default (promote?.length ? {promote} : {}) would handle either
-    // shape, but this keeps every pre-existing call site's arity unchanged.
-    await (promote ? verifyMaster(masterId, promote) : verifyMaster(masterId))
+    await verifyMaster(masterId, promote, masterOnly)
     toast.success('Мастер верифицирован')
     // S-1/S-2: push to the list (fresh mount) instead of back().
     router.push({ name: 'admin-masters' })
@@ -836,9 +833,11 @@ function onPromoteConfirm(): void {
   void doVerify([promoteLabel.value])
 }
 
-/** «Только этому мастеру» (or the dialog dismissed) -- verify, no promote. */
+/** «Только этому мастеру» (or the dialog dismissed) -- verify, scoped to this
+ *  master only (T22-6, ПРОМТ №561): a real taxonomy row, just not a shared
+ *  one -- was silently nothing before this. */
 function onPromoteCancel(): void {
-  void doVerify()
+  void doVerify(undefined, [promoteLabel.value])
 }
 
 async function onReject(): Promise<void> {
