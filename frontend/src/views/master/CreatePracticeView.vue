@@ -419,7 +419,7 @@ import { DURATION_OPTIONS, catalogDirectionOptions, catalogStylesForDirection } 
 import { ensureTaxonomyCatalog, parseMethods } from '@/utils/methodTaxonomy'
 import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 import type { TaxonomyListResponse } from '@/api/taxonomy'
-import type { RecurrenceSpec, PracticeResponse } from '@/api/types'
+import type { RecurrenceSpec, PracticeResponse, PracticeDirection } from '@/api/types'
 
 const router = useRouter()
 const toast = useToast()
@@ -566,26 +566,31 @@ const templatePractices = computed((): PracticeResponse[] =>
 // uses. Deliberately reads masterStore.profile?.methods, NEVER
 // method_change_request.proposed_methods -- a pending, unapproved request
 // must not unlock a direction before the "up to 3 working days" review the
-// profile screen itself advertises. null while the profile hasn't loaded
-// yet (fail toward showing the full catalogue rather than flashing "no
-// options" for a frame -- the backend is the actual gate regardless).
+// profile screen itself advertises. null while the profile hasn't loaded.
 const confirmedMethods = computed(() => {
   const methods = masterStore.profile?.methods
   if (!methods) return null
   return parseMethods(methods)
 })
 
-// Direction options, filtered to the master's own confirmed directions.
-// Falls back to the FULL catalog-first list (unfiltered) in two cases,
-// both deliberate: the profile hasn't loaded yet (see confirmedMethods
-// above), or it loaded with zero confirmed methods at all -- a state a real
-// verified master can't be in (application requires >=1 method), so
-// restricting it would only ever hit a test fixture or pre-feature data,
-// never a genuine master with something to hide directions from.
+// ПРОМТ №556 (OWNER-2, MEASURED): this route (master-practice-new) has
+// masterStatusGuard on it (router/index.ts), which AWAITS fetchMyProfile()
+// before this component ever mounts -- so masterStore.profileLoaded is
+// already true on first render in the normal navigation case, and the
+// "not loaded yet" branch below is a defensive fallback for an abnormal
+// state, not the master line of defense. It must still fail toward
+// showing NOTHING, never the full catalogue: the previous version
+// returned the FULL unfiltered catalog for both "profile not loaded" and
+// "loaded with zero confirmed methods", which is exactly backwards --
+// an unknown or empty confirmed-set must never read as "everything is
+// allowed". A master with genuinely zero confirmed methods (documented
+// elsewhere as unreachable for a real verified master) now sees an empty
+// Направление select instead of the full catalogue.
 const directionOptions = computed(() => {
-  const all = catalogDirectionOptions(catalog.value)
+  if (!masterStore.profileLoaded) return []
   const confirmed = confirmedMethods.value
-  if (!confirmed || !confirmed.directions.length) return all
+  if (!confirmed) return []
+  const all = catalogDirectionOptions(catalog.value)
   return all.filter((opt) => confirmed.directions.includes(opt.value))
 })
 
@@ -596,9 +601,10 @@ const directionOptions = computed(() => {
 // any style under a bare-confirmed direction would be rejected on submit,
 // so the picker must not offer it in the first place.
 const styleOptionsForForm = computed(() => {
-  const all = catalogStylesForDirection(catalog.value, form.direction)
+  if (!masterStore.profileLoaded) return []
   const confirmed = confirmedMethods.value
-  if (!confirmed || !confirmed.directions.length) return all
+  if (!confirmed) return []
+  const all = catalogStylesForDirection(catalog.value, form.direction)
   const confirmedStyleValues = confirmed.styles[form.direction as string] ?? []
   return all.filter((opt) => confirmedStyleValues.includes(opt.value))
 })
@@ -621,8 +627,25 @@ function applyTemplate(p: PracticeResponse): void {
   // get saved.
   suppressSave = true
   form.title = p.title
-  form.direction = p.direction ?? ''
-  form.style = p.style ?? ''
+  // ПРОМТ №556 (OWNER-2, MEASURED root cause): a template practice's
+  // direction/style were confirmed at the time IT was created -- a master's
+  // confirmed methods can have since narrowed (a method-change-request +
+  // admin approval overwrites the profile's methods verbatim). Copying the
+  // template's direction/style verbatim bypasses directionOptions/
+  // styleOptionsForForm entirely (this assignment never goes through those
+  // filtered dropdowns), which is exactly how an unconfirmed direction/
+  // style could reach submit() and hit the backend's raw rejection. Only
+  // copy a value still present in the CURRENT confirmed set; otherwise
+  // leave it blank so the master must re-pick from the live, filtered list.
+  const confirmed = confirmedMethods.value
+  const directionStillConfirmed =
+    !!confirmed && !!p.direction && confirmed.directions.includes(p.direction as PracticeDirection)
+  const styleStillConfirmed =
+    directionStillConfirmed &&
+    !!p.style &&
+    (confirmed?.styles[p.direction as string] ?? []).includes(p.style)
+  form.direction = directionStillConfirmed ? (p.direction ?? '') : ''
+  form.style = styleStillConfirmed ? (p.style ?? '') : ''
   form.difficulty = p.difficulty ?? ''
   form.duration_minutes = String(p.duration_minutes)
   form.max_participants_raw = p.max_participants != null ? String(p.max_participants) : ''
@@ -918,7 +941,17 @@ async function submit(): Promise<void> {
     // refresh is harmless and must not turn a successful create into an error path.
     void masterStore.refreshMyPractices().catch(() => {})
   } catch (e) {
-    toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось создать практику')
+    // ПРОМТ №556 (OWNER-2): _assert_master_confirmed_taxonomy's rejection is a
+    // raw, English, API-shaped message (e.detail) -- must never reach a human
+    // directly. Same pattern as MasterInviteClaimView's invite_invalid: switch
+    // on the machine-readable code, not the message text.
+    if (e instanceof ApiResponseError && e.code === 'direction_not_confirmed') {
+      toast.error('Это направление ещё не подтверждено в вашем профиле')
+    } else if (e instanceof ApiResponseError && e.code === 'style_not_confirmed') {
+      toast.error('Этот вид практики ещё не подтверждён в вашем профиле')
+    } else {
+      toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось создать практику')
+    }
   } finally {
     submitting.value = false
   }

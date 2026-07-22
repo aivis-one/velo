@@ -489,11 +489,13 @@ async def _assert_master_confirmed_taxonomy(
 
     if style is None:
         raise BadRequestError(
-            f"direction '{direction}' is not among your confirmed methods"
+            f"direction '{direction}' is not among your confirmed methods",
+            code="direction_not_confirmed",
         )
     raise BadRequestError(
         f"style '{style}' for direction '{direction}' is not among your "
-        f"confirmed methods"
+        f"confirmed methods",
+        code="style_not_confirmed",
     )
 
 

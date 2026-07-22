@@ -110,9 +110,18 @@ vi.mock('@/composables/useToast', () => ({
 
 // Both stores are DEPENDENCIES. Getters over a mutable object so tests mutate
 // state instead of re-mocking (velo-idiom §5).
-const masterState: { practices: PracticeResponse[]; profile: MasterProfileResponse | null } = {
+const masterState: {
+  practices: PracticeResponse[]
+  profile: MasterProfileResponse | null
+  profileLoaded: boolean
+} = {
   practices: [],
   profile: null,
+  // ПРОМТ №556: defaults true -- masterStatusGuard (router/index.ts) already
+  // awaits fetchMyProfile() before this screen mounts in the real app, so
+  // "not yet loaded" is the abnormal case, not the default one. The two
+  // tests that specifically exercise "profile hasn't loaded" override this.
+  profileLoaded: true,
 }
 const fetchMyPractices = vi.fn()
 const refreshMyPractices = vi.fn()
@@ -124,6 +133,9 @@ vi.mock('@/stores/master', () => ({
     },
     get profile() {
       return masterState.profile
+    },
+    get profileLoaded() {
+      return masterState.profileLoaded
     },
     fetchMyPractices,
     refreshMyPractices,
@@ -357,6 +369,7 @@ beforeEach(() => {
   masterState.profile = {
     methods: ['Йога', 'Йога — Хатха-йога', 'Дыхательные практики', 'Круги', 'Круги — Женский круг'],
   } as MasterProfileResponse
+  masterState.profileLoaded = true
   authState.user = { id: 'u1', timezone: 'Europe/Moscow' } as Partial<UserResponse>
   fetchMyProfile.mockReset().mockResolvedValue(undefined)
   vi.mocked(ensureTaxonomyCatalog).mockReset().mockResolvedValue(null)
@@ -414,23 +427,26 @@ describe('CreatePracticeView', () => {
       expect(selectByPlaceholder('Направление практики')).toBeDefined()
     })
 
-    it('a COLD taxonomy catalog still offers the hardcoded directions when the master profile has not loaded yet (T21-6, ПРОМТ №546)', async () => {
-      // practiceOptions.ts:268-271. An empty Направление picker is an unusable
-      // form -- the field is required and there would be nothing to choose.
-      // Explicitly null (overriding the file's seeded default) -- fetchMyProfile
-      // is mocked and never actually populates the store on its own, so this
-      // models the real gap between mount and the profile fetch resolving.
-      // directionOptions/styleOptionsForForm fail OPEN to the full catalog
-      // until a confirmed-methods list actually arrives.
+    it('offers NOTHING (not the full catalog) while the master profile has not loaded yet (ПРОМТ №556, OWNER-2 fix)', async () => {
+      // REVERSED by ПРОМТ №556: this used to assert a fail-OPEN fallback to
+      // the full catalog while the profile was unloaded -- exactly the gap
+      // that let a form present a direction/style the master was never
+      // confirmed for. An unknown confirmed-set must never read as
+      // "everything is allowed"; masterStatusGuard (router/index.ts) already
+      // awaits fetchMyProfile() before this screen mounts in the real app, so
+      // this is a defensive state, not the normal one.
       masterState.profile = null
+      masterState.profileLoaded = false
       mount()
       await flush()
 
       const opts = Array.from(selectByPlaceholder('Направление практики')?.options ?? []).map((o) =>
         o.textContent?.trim(),
       )
-      expect(opts).toContain('Йога')
-      expect(opts).toContain('Медитация')
+      // Only the placeholder option itself remains -- no real direction.
+      expect(opts).not.toContain('Йога')
+      expect(opts).not.toContain('Медитация')
+      expect(opts).toHaveLength(1)
     })
 
     it('narrows to the master\'s own confirmed methods once the profile has loaded (T21-6, ПРОМТ №546)', async () => {
