@@ -206,49 +206,51 @@ async def generate_series_occurrences(
     # construction) and never pass through update_practice()'s
     # draft->scheduled branch, which is where meeting creation is wired for
     # a non-series practice -- so without this, no recurring practice ever
-    # gets a Zoom meeting. Create one here, per child, right after adding it.
-    # ПРОМТ №527: the ORIGINAL comment here claimed "Practice.id is available
-    # immediately (UUIDMixin, app-side uuid4), no flush needed first" -- that
-    # was WRONG and was the actual cause the deploy battery caught
-    # (NotNullViolationError on zoom_meetings.practice_id, 22 occurrences,
-    # ALL from this loop). `default=uuid4` on the mapped_column is a
-    # flush-time default: SQLAlchemy evaluates it during session.flush(), not
-    # at `Practice(...)` construction, so `child.id` is still None right
-    # after `session.add(child)`. create_meeting_for_practice reads
-    # `practice.id` synchronously (`ZoomMeeting(practice_id=practice.id)`,
-    # before its own first await) to build the ZoomMeeting row, so an
-    # autoflush triggered later inside that call is too late -- the None had
-    # already been captured into the object. The explicit flush below is
-    # what actually makes child.id available before that read. SAME
-    # best-effort posture as the root otherwise: a Zoom failure on any one
-    # child is caught inside create_meeting_for_practice and recorded as
-    # ZoomMeeting.status=create_failed for the retry poller -- it never
-    # aborts generation of the remaining children.
+    # gets a Zoom meeting. ПРОМТ №527: child.id (app-side uuid4) is only
+    # populated at flush time, not at `Practice(...)` construction, so each
+    # child is flushed before its ZoomMeeting row is built (that row's FK
+    # needs a real id).
     #
-    # VOLUME: Zoom documents 100 meeting-creation calls/day/host. A series
-    # can generate up to practice_series_max_occurrences-1 children (39) in
-    # one publish -- comfortably under that limit alone, but NOT accounting
-    # for whatever else that host's account creates the same day (other
-    # practices, other series). If the quota is hit mid-loop, the remaining
-    # children's create_meeting calls fail with HTTP 429 and land
-    # create_failed exactly like any other failure -- CHOSEN, not an
-    # accident: the retry poller (zoom/retry_poller.py) exempts 429
-    # specifically from its retry_count cap (see that module), so a
-    # quota-exhausted child is retried every poll cycle, uncapped, until
-    # Zoom's quota actually resets -- "the poller retries tomorrow" is a
-    # real, working mechanism here, not just a comment.
-    from app.modules.zoom.service import create_meeting_for_practice
+    # ПРОМТ №559 (OWNER-3): each child's Zoom meeting used to be created
+    # HERE, synchronously, one real Zoom API call per child, all inside this
+    # one request/transaction. MEASURED on prod: the parent and every child
+    # PRACTICE row land within 194ms of each other (occurrence layout is
+    # instant) -- the only candidate for the actual delay is exactly this
+    # per-child Zoom call, sequential, up to 39 of them. The frontend's own
+    # 15s AbortController gives up long before that finishes; the backend
+    # keeps running and commits successfully regardless, so the master saw
+    # a timeout, believed publish had failed, and pressed the button again
+    # -- three complete duplicate "Сказки" series in four minutes on prod
+    # today, not a cosmetic double-click.
+    #
+    # DECIDED DESIGN (owner): the ROOT still gets its meeting synchronously
+    # (update_practice's existing publish branch, immediately after this
+    # function returns, UNCHANGED -- the root is always the nearest
+    # occurrence in time, since children are only ever LATER dates, so "the
+    # link is there right now" is preserved exactly where a human actually
+    # needs it first). Every CHILD's meeting is deferred: only a ZoomMeeting
+    # row is created here, status=PENDING_CREATION (never ATTEMPTED, not a
+    # failure -- retry_poller.py claims this status the same as
+    # create_failed and makes the real Zoom call in the background, same
+    # per-row isolation and 429 handling as any other retried meeting). A
+    # student CAN still book a pending child before its meeting exists --
+    # zoom/service.py's create_registrant_for_booking already anticipated
+    # exactly this ("series-child edge case" in its own docstring) and
+    # queues the registrant as pending until the meeting goes active.
+    from app.modules.zoom.models import ZoomMeeting, ZoomMeetingStatus
 
     children: list[Practice] = []
     for start_utc in starts:
         child = _build_child_occurrence(root, start_utc)
         session.add(child)
-        # Flush now so child.id (app-side uuid4, but only evaluated by
-        # SQLAlchemy at flush time) is actually populated before
-        # create_meeting_for_practice reads it to build the ZoomMeeting row.
         await session.flush()
         children.append(child)
-        await create_meeting_for_practice(child, session)
+        session.add(
+            ZoomMeeting(
+                practice_id=child.id,
+                status=ZoomMeetingStatus.PENDING_CREATION.value,
+            )
+        )
 
     logger.info(
         "series_occurrences_generated",

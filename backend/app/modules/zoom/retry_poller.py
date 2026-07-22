@@ -17,6 +17,13 @@
 #   create_failed (retry_count + last_sync_error both readable), the poller
 #   just stops touching it.
 #
+#   ПРОМТ №559: this worker ALSO makes the FIRST (not just retry) attempt for
+#   status=pending_creation rows -- a series child beyond the nearest
+#   occurrence, whose Zoom meeting creation is deliberately deferred here
+#   rather than made synchronously during publish (series_service.py).
+#   _attempt_create doesn't distinguish "first try" from "retry #N"; both
+#   states are claimed by the same query and processed identically.
+#
 # SESSION / ISOLATION:
 #   Each row is retried in its OWN session/transaction, claimed with
 #   FOR UPDATE SKIP LOCKED so a row already being retried (or edited
@@ -101,10 +108,11 @@ async def run_zoom_retry_poller() -> None:
 
 
 async def _poll_cycle() -> bool:
-    """Retry every create_failed ZoomMeeting row still under the cap, THEN
-    every pending/create_failed ZoomRegistrant row whose meeting is now
-    active (step E: a booking made while the meeting wasn't active yet, or
-    whose registrant call failed, queues here).
+    """Retry every create_failed ZoomMeeting row, and attempt every
+    pending_creation one for the first time (ПРОМТ №559), both still under
+    the cap, THEN every pending/create_failed ZoomRegistrant row whose
+    meeting is now active (step E: a booking made while the meeting wasn't
+    active yet, or whose registrant call failed, queues here).
 
     Returns True if at least one row (meeting OR registrant) was retried
     (regardless of outcome -- a retry that fails again still counts as work
@@ -131,7 +139,12 @@ async def _poll_cycle() -> bool:
 
 
 async def _claim_retryable_ids() -> list:
-    """Return ids of ZoomMeeting rows still eligible for a retry attempt."""
+    """Return ids of ZoomMeeting rows still eligible for a creation attempt
+    -- either a genuine RETRY (create_failed) or a FIRST attempt that was
+    deliberately deferred (pending_creation, ПРОМТ №559: series children
+    beyond the nearest occurrence). _attempt_create below treats both
+    identically -- same Zoom call, same success/failure handling, same 429
+    exemption -- a pending_creation row simply has retry_count=0 going in."""
     factory = get_session_factory()
     cap = settings.zoom_meeting_create_max_retries
 
@@ -140,7 +153,12 @@ async def _claim_retryable_ids() -> list:
             stmt = (
                 select(ZoomMeeting.id)
                 .where(
-                    ZoomMeeting.status == ZoomMeetingStatus.CREATE_FAILED.value,
+                    ZoomMeeting.status.in_(
+                        [
+                            ZoomMeetingStatus.CREATE_FAILED.value,
+                            ZoomMeetingStatus.PENDING_CREATION.value,
+                        ]
+                    ),
                     ZoomMeeting.retry_count < cap,
                 )
                 .order_by(ZoomMeeting.created_at.asc())
@@ -175,7 +193,10 @@ async def _retry_one(meeting_id) -> bool:
                     .with_for_update()
                 )
             ).scalar_one_or_none()
-            if row is None or row.status != ZoomMeetingStatus.CREATE_FAILED.value:
+            if row is None or row.status not in (
+                ZoomMeetingStatus.CREATE_FAILED.value,
+                ZoomMeetingStatus.PENDING_CREATION.value,
+            ):
                 # Lost the race (already retried/resolved elsewhere).
                 await session.rollback()
                 return False

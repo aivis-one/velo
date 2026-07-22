@@ -73,7 +73,7 @@
 # =============================================================================
 
 import copy
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import structlog
@@ -655,6 +655,72 @@ async def user_flags_for_practices(
 # ===================================================================
 
 
+async def _find_recent_duplicate_practice(
+    user_id: UUID,
+    body: CreatePracticeRequest,
+    session: AsyncSession,
+) -> Practice | None:
+    """ПРОМТ №559 idempotency check: a non-deleted practice this SAME master
+    created within the last practice_duplicate_submit_window_minutes, with
+    the identical title, scheduled_at, AND recurrence spec, is treated as
+    the master's earlier submission having already gone through -- not a
+    fresh, different practice.
+
+    MEASURED root cause (ПРОМТ №559): a series publish makes one Zoom API
+    call per occurrence, sequentially, inside one request; the frontend's
+    own 15s AbortController gives up well before a ~29-occurrence series
+    finishes, the master sees a timeout, and presses the button again --
+    creating a full duplicate series, not a cosmetic double-click. Since
+    (child creation is now deferred to the poller and) the ROOT publish is
+    the only synchronous Zoom call left, THIS check, at create_practice
+    time, is early enough to prevent the duplicate before any of that work
+    starts.
+
+    Match key is (master_id, title, scheduled_at, recurrence) -- exactly
+    what the owner specified. Compared in Python (not a JSONB query) since
+    recurrence needs a value-equality check against a Pydantic model, not a
+    string match.
+
+    DOES NOT COVER:
+      - Two GENUINELY separate series/practices with an identical title,
+        an identical scheduled_at (to the second), and identical recurrence,
+        submitted deliberately within the window -- silently merged into
+        one. Considered acceptable: two real submissions matching on all
+        three fields to the SECOND is a scenario indistinguishable from a
+        retry by any server-side signal available here.
+      - A retry more than window-minutes after the original -- intentional;
+        a stale window would block a master who genuinely re-creates the
+        same series hours or days later.
+      - Any resource other than Practice (bookings, purchases, etc.).
+      - A client whose retry recomputes scheduled_at slightly differently
+        between attempts (e.g. from a fresh "now + offset" instead of a
+        fixed picked date/time) -- the match is exact, not fuzzy.
+    """
+    window_start = datetime.now(UTC) - timedelta(
+        minutes=settings.practice_duplicate_submit_window_minutes,
+    )
+    candidates = (
+        await session.execute(
+            select(Practice).where(
+                Practice.master_id == user_id,
+                Practice.title == body.title,
+                Practice.scheduled_at == body.scheduled_at,
+                Practice.status != PracticeStatus.DELETED.value,
+                Practice.created_at >= window_start,
+            ).order_by(Practice.created_at.desc())
+        )
+    ).scalars().all()
+
+    incoming_recurrence = (
+        body.recurrence.model_dump(mode="json") if body.recurrence is not None else None
+    )
+    for candidate in candidates:
+        stored_recurrence = (candidate.data or {}).get("recurrence")
+        if stored_recurrence == incoming_recurrence:
+            return candidate
+    return None
+
+
 async def create_practice(
     user: User,
     body: CreatePracticeRequest,
@@ -674,7 +740,23 @@ async def create_practice(
     approved for. This is separate from the global catalog check above and
     does not apply anywhere master onboarding picks methods (a different
     endpoint entirely, which correctly shows the unfiltered catalogue).
+
+    ПРОМТ №559: returns the EXISTING practice, unchanged, instead of
+    creating a new one, if _find_recent_duplicate_practice finds a match --
+    see that function's docstring for exactly what this does and does not
+    cover. No new validation runs in that case; there is nothing new to
+    validate.
     """
+    duplicate = await _find_recent_duplicate_practice(user.id, body, session)
+    if duplicate is not None:
+        logger.info(
+            "practice_create_deduplicated",
+            master_id=str(user.id),
+            existing_practice_id=str(duplicate.id),
+            title=body.title,
+        )
+        return duplicate
+
     await _validate_taxonomy(body.direction, body.style, session)
     await _assert_master_confirmed_taxonomy(user.id, body.direction, body.style, session)
     price_cents = _enforce_pricing(body.is_free, body.price_cents)

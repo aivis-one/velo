@@ -373,7 +373,16 @@ beforeEach(() => {
   authState.user = { id: 'u1', timezone: 'Europe/Moscow' } as Partial<UserResponse>
   fetchMyProfile.mockReset().mockResolvedValue(undefined)
   vi.mocked(ensureTaxonomyCatalog).mockReset().mockResolvedValue(null)
-  vi.mocked(practicesApi.createPractice).mockReset().mockResolvedValue(practice({ id: 'p_new' }))
+  // ПРОМТ №559: status:'draft' -- matches the REAL backend (create_practice
+  // always creates as draft; only the follow-up publish PATCH makes it
+  // 'scheduled'). Left at the shared factory's default 'scheduled' this
+  // would silently defeat the new guard that skips a redundant re-publish
+  // PATCH when createPractice already returns an ALREADY-scheduled practice
+  // (the duplicate-submission path) -- every test below expects the normal
+  // create-then-publish two-call sequence unless it overrides this.
+  vi.mocked(practicesApi.createPractice)
+    .mockReset()
+    .mockResolvedValue(practice({ id: 'p_new', status: 'draft' }))
   vi.mocked(practicesApi.updatePractice)
     .mockReset()
     .mockResolvedValue(practice({ id: 'p_new', status: 'scheduled' }))
@@ -1007,6 +1016,28 @@ describe('CreatePracticeView', () => {
       expect(practicesApi.updatePractice).toHaveBeenCalledWith('p_created', {
         status: 'scheduled',
       })
+    })
+
+    it('ПРОМТ №559: skips the publish PATCH entirely when createPractice returns an ALREADY-scheduled practice', async () => {
+      // The backend's own duplicate-submission check (create_practice)
+      // returns the master's EARLIER submission unchanged, status='scheduled'
+      // already, when this looks like a retry within its short window. A
+      // second PATCH .../status=scheduled would 400 ("Cannot transition
+      // from scheduled to scheduled") for no reason -- there is nothing
+      // left to publish, and the master must still see a normal success.
+      vi.mocked(practicesApi.createPractice).mockResolvedValue(
+        practice({ id: 'p_existing', status: 'scheduled' }),
+      )
+      mount()
+      await flush()
+      await fillMinimalForm()
+
+      submitForm()
+      await flush()
+
+      expect(practicesApi.updatePractice).not.toHaveBeenCalled()
+      expect(toastSuccess).toHaveBeenCalledWith('Практика создана!')
+      expect(replace).toHaveBeenCalled()
     })
 
     it('on success: reports it, invalidates the list cache and REPLACES the route', async () => {

@@ -226,6 +226,16 @@ class Settings(BaseSettings):
     # the ceiling matches that default. NO-LITERALS: tunable here, not inline.
     practice_series_max_occurrences: int = 40
 
+    # ПРОМТ №559: a duplicate practice submission (master retries after the
+    # frontend's own request timeout, believing the first attempt failed --
+    # MEASURED on prod: 09:56:48, 09:57:07, 10:00:30, three complete series)
+    # is treated as the SAME submission, not a new one, when another
+    # non-deleted practice already exists for the same master with the same
+    # title/scheduled_at/recurrence created within this many minutes.
+    # NO-LITERALS: tunable here, not inline. See create_practice's docstring
+    # for exactly what this window does and does not cover.
+    practice_duplicate_submit_window_minutes: int = 10
+
     # -- Stripe (Phase 6.3) --
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""

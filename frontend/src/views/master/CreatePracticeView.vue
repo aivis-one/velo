@@ -921,7 +921,17 @@ async function submit(): Promise<void> {
     // 2026-06-17). The backend create defaults to 'draft'; we run the same
     // draft→scheduled PATCH the edit screen uses, so the practice appears on the
     // dashboard «Ближайшая практика» (scheduled/live only) right away.
-    await updatePractice(created.id, { status: 'scheduled' })
+    //
+    // ПРОМТ №559: skip the PATCH entirely when `created` is already
+    // 'scheduled' -- createPractice() returns the MASTER's own earlier
+    // submission unchanged (not a new draft) when it detects a duplicate
+    // within its short window (retry after a perceived timeout, the exact
+    // failure this closes). Re-sending the same PATCH would 400
+    // ("Cannot transition from scheduled to scheduled") on a retry for no
+    // reason -- there is nothing left to publish.
+    if (created.status !== 'scheduled') {
+      await updatePractice(created.id, { status: 'scheduled' })
+    }
 
     // Draft fulfilled — drop it (and block any late debounced save) so it can't
     // resurrect on the next create.

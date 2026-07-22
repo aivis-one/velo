@@ -45,14 +45,23 @@ from app.core.mixins import JSONBMixin, TimestampMixin, UUIDMixin
 class ZoomMeetingStatus(enum.StrEnum):
     """Lifecycle of our view of a practice's Zoom meeting.
 
-    active        -- created successfully, zoom_meeting_id is usable.
-    create_failed -- creation (or a retry) failed; retry_count / last_sync_error
-                     record why. The retry poller keeps trying until the cap.
-    deleted       -- we deleted the Zoom-side meeting (practice cancelled
-                     before it happened).
+    active            -- created successfully, zoom_meeting_id is usable.
+    pending_creation   -- ПРОМТ №559: creation deliberately DEFERRED, never
+                          attempted yet -- a series child beyond the nearest
+                          occurrence (see series_service.py). Distinct from
+                          create_failed on purpose: nothing has failed here,
+                          so nothing must read as an error to a master
+                          looking at a fresh series (requirement A). Picked
+                          up by the same retry poller that handles
+                          create_failed (retry_poller.py claims both).
+    create_failed     -- creation (or a retry) failed; retry_count / last_sync_error
+                          record why. The retry poller keeps trying until the cap.
+    deleted           -- we deleted the Zoom-side meeting (practice cancelled
+                          before it happened).
     """
 
     ACTIVE = "active"
+    PENDING_CREATION = "pending_creation"
     CREATE_FAILED = "create_failed"
     DELETED = "deleted"
 

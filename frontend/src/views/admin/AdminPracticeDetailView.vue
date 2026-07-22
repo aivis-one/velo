@@ -180,8 +180,13 @@ const freeLabel = computed<string>(() => {
 // T21-1: zoom_meeting_status is null when no ZoomMeeting row was ever
 // created for this practice at all (pre-E21, or creation never succeeded --
 // backend docstring, admin/practices/router.py).
+// ПРОМТ №559: pending_creation added -- a series child beyond the nearest
+// occurrence, whose meeting creation is deliberately deferred to the retry
+// poller, not failed. Without an entry here the fallback below would show
+// the raw English string to the admin.
 const ZOOM_STATUS_BADGES: Record<string, { label: string; variant: 'success' | 'error' | 'muted' }> = {
   active: { label: 'Активна', variant: 'success' },
+  pending_creation: { label: 'Ожидает создания', variant: 'muted' },
   create_failed: { label: 'Ошибка создания', variant: 'error' },
   deleted: { label: 'Удалена', variant: 'muted' },
 }
