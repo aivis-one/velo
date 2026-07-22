@@ -189,6 +189,22 @@
               Check-ins
             </VButton>
           </div>
+          <!-- "Начать" (ПРОМТ №556, OWNER-1 option В): only when a real Zoom
+               meeting exists (kind==='personal' -- the same signal the "Zoom"
+               button already uses to mean "there is a host registrant link",
+               which only exists once create_meeting_for_practice succeeded).
+               kind==='manual' means no real meeting, just the master's own
+               pasted fallback link -- nothing for this action to start. -->
+          <VButton
+            v-if="zoomLinkFor(practice).kind === 'personal'"
+            variant="secondary"
+            block
+            :disabled="startingId === practice.id"
+            class="master-dashboard__start-button"
+            @click="onStart(practice)"
+          >
+            Начать
+          </VButton>
           <VBadge
             v-if="zoomLinkFor(practice).kind === 'manual'"
             variant="warning"
@@ -243,6 +259,8 @@ import { checkinLabel, recurrenceLabel, remainingSessionsLabel } from '@/utils/p
 import { practiceHasEnded } from '@/utils/practiceStatus'
 import { resolveZoomLink, type ZoomLinkResolution } from '@/utils/zoomLink'
 import { getMasterStats } from '@/api/masters'
+import { createZoomStartTicket, zoomStartRedirectUrl } from '@/api/practices'
+import { ApiResponseError } from '@/api/client'
 import type { PracticeResponse, MasterStatsResponse } from '@/api/types'
 
 const router = useRouter()
@@ -361,6 +379,30 @@ function onZoom(p: PracticeResponse): void {
     platform.openLink(resolved.url)
   } else {
     toast.info('Ссылка на Zoom ещё готовится')
+  }
+}
+
+// "Начать" (ПРОМТ №556, OWNER-1 option В): the master starts their own
+// meeting as host. start_url itself never reaches this frontend -- we ask
+// the backend for a one-time ticket, then open a plain link to the
+// backend's redirect endpoint (platform.openLink), which redeems the
+// ticket and 302s the browser straight to Zoom. Never fetch() that URL.
+const startingId = ref<string | null>(null)
+
+async function onStart(p: PracticeResponse): Promise<void> {
+  if (startingId.value) return
+  startingId.value = p.id
+  try {
+    const { ticket } = await createZoomStartTicket(p.id)
+    platform.openLink(zoomStartRedirectUrl(ticket))
+  } catch (e) {
+    if (e instanceof ApiResponseError && e.code === 'zoom_meeting_not_active') {
+      toast.error('Встреча Zoom для этой практики недоступна')
+    } else {
+      toast.error('Не удалось начать встречу. Попробуйте ещё раз')
+    }
+  } finally {
+    startingId.value = null
   }
 }
 
@@ -673,6 +715,12 @@ onUnmounted(() => {
   width: fit-content;
   margin: var(--space-2) auto 0;
   text-align: center;
+}
+
+.master-dashboard__start-button {
+  margin: var(--space-3) var(--space-4) 0;
+  font-size: var(--text-lg);
+  background: var(--velo-glass-blue-200-15);
 }
 
 /* Card action buttons: 20px label (design); secondary action is a light glass

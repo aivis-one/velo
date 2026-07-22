@@ -142,6 +142,39 @@ export function getAttendance(id: string): Promise<AttendanceResponse> {
   return api.get<AttendanceResponse>(`/api/v1/practices/${id}/attendance`)
 }
 
+// ============================================================================
+// Zoom "Начать" (ПРОМТ №556, OWNER-1 option В)
+// ============================================================================
+//
+// start_url is a bearer credential (its holder needs no further Zoom-side
+// check to become host) that also expires -- the owner decided it must
+// never be stored, never appear in a JSON response, and never be held by
+// this frontend at all. So this API never returns a start_url: it returns a
+// one-time ticket, and the actual redirect to Zoom happens entirely on the
+// backend (GET .../zoom/start), reached via a PLAIN browser navigation
+// (platform.openLink), not this authenticated fetch client.
+
+const ZOOM_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.talentir.info'
+
+/**
+ * Request a one-time, 30s ticket authorizing a single Zoom start_url fetch
+ * for this practice's meeting. Throws ApiResponseError (e.g. code
+ * 'zoom_meeting_not_active') if there is nothing to start.
+ */
+export function createZoomStartTicket(practiceId: string): Promise<{ ticket: string }> {
+  return api.post<{ ticket: string }>(`/api/v1/practices/${practiceId}/zoom/start-ticket`)
+}
+
+/**
+ * Build the URL to hand to platform.openLink() -- a plain browser
+ * navigation to our backend, which redeems the ticket and 302s straight to
+ * Zoom. Never fetch() this URL: that would not navigate the browser, and
+ * the point of the redirect is that the frontend never touches start_url.
+ */
+export function zoomStartRedirectUrl(ticket: string): string {
+  return `${ZOOM_API_BASE_URL}/api/v1/practices/zoom/start?ticket=${encodeURIComponent(ticket)}`
+}
+
 /**
  * Fetch paginated named reviews for a practice (E1).
  *

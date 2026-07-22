@@ -220,6 +220,14 @@ def _stub_response(method: str, path: str, json_body: dict | None) -> Any:
         return {}
     if method == "GET" and "/report/meetings/" in path:
         return {"participants": []}
+    # Must come AFTER both /registrants and /report/meetings/ GET checks
+    # above -- both of those paths also contain "/meetings/" as a substring.
+    if method == "GET" and "/meetings/" in path:
+        stub_id = path.rsplit("/", 1)[-1]
+        return {
+            "id": int(stub_id) if stub_id.isdigit() else 0,
+            "start_url": f"https://zoom.us/s/{stub_id}?pwd=stub&zak=stubzak",
+        }
 
     raise ZoomAPIError(f"No stub response defined for {method} {path}")
 
@@ -267,6 +275,18 @@ async def patch_meeting(*, zoom_meeting_id: str, start_time_iso: str) -> None:
         f"/meetings/{zoom_meeting_id}",
         json_body={"start_time": start_time_iso},
     )
+
+
+async def get_meeting(*, zoom_meeting_id: str) -> dict:
+    """Fetch a meeting's current details from Zoom, including start_url.
+
+    ПРОМТ №556 (OWNER-1, option В): this is the ONLY place start_url is ever
+    read. create_meeting's response has one too, but that one is deliberately
+    discarded (see this module's FAILURE SHAPE note + zoom/service.py) so the
+    credential is fetched fresh, on demand, and never stored -- callers must
+    not persist or log the field this returns.
+    """
+    return await _request("GET", f"/meetings/{zoom_meeting_id}")
 
 
 async def delete_meeting(*, zoom_meeting_id: str) -> None:

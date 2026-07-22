@@ -33,12 +33,16 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+import structlog
+from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import AfterValidator
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db_reader, get_db_session
+from app.core.exceptions import BadRequestError, NotFoundError
 from app.modules.auth.dependencies import (
     get_current_master,
     get_current_user,
@@ -46,12 +50,14 @@ from app.modules.auth.dependencies import (
 from app.modules.masters.models import MasterProfile
 from app.modules.practices.cancel_service import cancel_practice
 from app.modules.practices.listing_service import list_public_practices
+from app.modules.practices.models import Practice
 from app.modules.practices.schemas import (
     CancelPracticeRequest,
     CreatePracticeRequest,
     PaginatedPracticesResponse,
     PracticeResponse,
     UpdatePracticeRequest,
+    ZoomStartTicketResponse,
 )
 from app.modules.practices.service import (
     create_practice,
@@ -61,6 +67,9 @@ from app.modules.practices.service import (
     update_practice,
 )
 from app.modules.users.models import User
+from app.modules.zoom.models import ZoomMeeting, ZoomMeetingStatus
+
+logger = structlog.get_logger()
 
 router = APIRouter(
     prefix="/api/v1/practices", tags=["practices"],
@@ -351,4 +360,123 @@ async def cancel_practice_endpoint(
     return practice_to_response(
         practice, user.first_name,
         zoom_link_visible=True, zoom_host_join_url=host_join_url,
+    )
+
+
+# ------------------------------------------------------------------
+# Zoom "Начать" (ПРОМТ №556, OWNER-1 option В) -- the master starts their
+# own meeting as host. See zoom/service.py's ticket-issuance docstring for
+# the full rationale (start_url never stored, never in a JSON body).
+# ------------------------------------------------------------------
+@router.post(
+    "/{practice_id}/zoom/start-ticket",
+    response_model=ZoomStartTicketResponse,
+)
+async def create_zoom_start_ticket_endpoint(
+    practice_id: UUID,
+    master_tuple: tuple[User, MasterProfile] = Depends(
+        get_current_master,
+    ),
+    session: AsyncSession = Depends(get_db_reader),
+) -> ZoomStartTicketResponse:
+    """Issue a one-time, 30s ticket authorizing a single start_url fetch.
+
+    Ownership check is the SAME P-08 pattern (404, not 403) as
+    update/delete/cancel_practice above -- deliberately not a new notion of
+    "owns this practice". No admin carve-out: none of those three
+    owner-only Zoom call sites has one either, and start_url is a strictly
+    more sensitive credential than the join_url they gate, so this endpoint
+    does not introduce a wider audience than the existing pattern already
+    allows.
+    """
+    user, _profile = master_tuple
+    stmt = select(Practice).where(Practice.id == practice_id)
+    result = await session.execute(stmt)
+    practice = result.scalar_one_or_none()
+    if not practice or practice.master_id != user.id:
+        raise NotFoundError("Practice not found")
+
+    from app.modules.zoom.service import (
+        create_start_ticket,
+        get_active_meeting_for_practice,
+    )
+    meeting = await get_active_meeting_for_practice(practice_id, session)
+    if meeting is None:
+        raise BadRequestError(
+            "No active Zoom meeting for this practice",
+            code="zoom_meeting_not_active",
+        )
+
+    ticket = await create_start_ticket(meeting.id)
+    return ZoomStartTicketResponse(ticket=ticket)
+
+
+@router.get("/zoom/start")
+async def zoom_start_redirect_endpoint(
+    ticket: str,
+    session: AsyncSession = Depends(get_db_reader),
+) -> Response:
+    """Redeem a start-ticket and 302 the browser straight to Zoom's
+    start_url. Reached by a PLAIN browser navigation (Telegram
+    WebApp.openLink), never by our authenticated fetch client -- there is no
+    Authorization header here, the ticket IS the authentication (see
+    create_zoom_start_ticket_endpoint above and zoom/service.py).
+
+    Every failure path returns a small Russian-language HTML page, never a
+    raw exception body -- a plain navigation has no toast/error-handling
+    layer to catch a JSON error the way an authenticated fetch call does.
+    start_url itself is never logged on any path below.
+    """
+    from app.modules.zoom.service import (
+        get_meeting_start_url,
+        redeem_start_ticket,
+    )
+    from app.modules.zoom.zoom_client import ZoomAPIError
+
+    zoom_meeting_id = await redeem_start_ticket(ticket)
+    if zoom_meeting_id is None:
+        return _zoom_start_error_page(
+            "Ссылка устарела. Вернитесь в приложение и нажмите «Начать» ещё раз.",
+        )
+
+    meeting = await session.get(ZoomMeeting, zoom_meeting_id)
+    if meeting is None or meeting.status != ZoomMeetingStatus.ACTIVE.value:
+        return _zoom_start_error_page(
+            "Встреча Zoom для этой практики недоступна.",
+        )
+
+    try:
+        start_url = await get_meeting_start_url(meeting.zoom_meeting_id)
+    except ZoomAPIError:
+        logger.warning(
+            "zoom_start_url_fetch_failed", practice_id=str(meeting.practice_id),
+        )
+        return _zoom_start_error_page(
+            "Не удалось связаться с Zoom. Попробуйте ещё раз через минуту.",
+        )
+
+    if start_url is None:
+        logger.warning(
+            "zoom_start_url_missing", practice_id=str(meeting.practice_id),
+        )
+        return _zoom_start_error_page(
+            "Zoom не вернул ссылку для начала встречи. Попробуйте ещё раз.",
+        )
+
+    return RedirectResponse(url=start_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+
+def _zoom_start_error_page(message: str) -> HTMLResponse:
+    """Honest, Russian-facing failure page for zoom_start_redirect_endpoint
+    -- a plain navigation has no frontend toast to route a JSON error into,
+    so this IS the error UI. Never includes any Zoom-provided text
+    (status/body) -- those are English and API-shaped, exactly the failure
+    mode this must not repeat."""
+    return HTMLResponse(
+        content=(
+            "<!doctype html><html lang='ru'><meta charset='utf-8'>"
+            "<body style='font-family:sans-serif;text-align:center;padding:40px 20px'>"
+            f"<p>{message}</p></body></html>"
+        ),
+        status_code=status.HTTP_400_BAD_REQUEST,
     )

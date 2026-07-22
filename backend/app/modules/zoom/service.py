@@ -41,6 +41,7 @@
 # existing commit picks them up.
 # =============================================================================
 
+import secrets
 from datetime import UTC
 from uuid import UUID
 
@@ -49,6 +50,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.redis import get_redis
 from app.modules.bookings.models import Booking
 from app.modules.practices.models import Practice
 from app.modules.users.models import User
@@ -65,6 +67,7 @@ from app.modules.zoom.zoom_client import (
     create_meeting,
     create_registrant,
     delete_meeting,
+    get_meeting,
     list_registrants,
     patch_meeting,
     update_registrant_status,
@@ -620,3 +623,86 @@ async def get_host_join_urls(
         )
     ).all()
     return {row[0]: row[1] for row in rows}
+
+
+# ---------------------------------------------------------------------------
+# ПРОМТ №556 (OWNER-1, option В): "Начать" -- the master starts their own
+# meeting as host. start_url is a bearer credential (its holder needs no
+# further Zoom-side identity check to become host) that also expires, so the
+# owner decided against ever storing or returning it: it is fetched fresh
+# from Zoom at the moment the master clicks, and handed to the browser only
+# via an HTTP redirect (a Location header), never through a JSON body a
+# frontend variable could hold onto.
+#
+# A plain browser navigation (window.location / Telegram WebApp.openLink)
+# never carries our Authorization header -- there is no cookie session
+# either (client.ts is bearer-only) -- so the redirect endpoint cannot reuse
+# get_current_master. The ticket below stands in for that header for exactly
+# one redirect: minted only after the ownership check already ran
+# (practices/router.py, same P-08 pattern as update/delete/cancel_practice),
+# single-use (deleted the instant it's read), and short-lived enough that a
+# leaked ticket (server access logs, browser history) is worthless within
+# seconds -- a much smaller exposure than the general session token would be
+# if that were reused here instead.
+# ---------------------------------------------------------------------------
+
+_START_TICKET_PREFIX = "zoom_start_ticket:"
+_START_TICKET_TTL_SECONDS = 30
+
+
+async def get_active_meeting_for_practice(
+    practice_id: UUID,
+    session: AsyncSession,
+) -> ZoomMeeting | None:
+    """This practice's ZoomMeeting row if one exists and is currently
+    active, else None. Used to give an honest "no meeting" refusal before
+    ever minting a start ticket for a practice that has nothing to start."""
+    return (
+        await session.execute(
+            select(ZoomMeeting).where(
+                ZoomMeeting.practice_id == practice_id,
+                ZoomMeeting.status == ZoomMeetingStatus.ACTIVE.value,
+            )
+        )
+    ).scalar_one_or_none()
+
+
+async def create_start_ticket(zoom_meeting_id: UUID) -> str:
+    """Mint a single-use, short-lived ticket authorizing ONE start_url fetch
+    for this meeting. Caller must already have verified the requester owns
+    the practice this meeting belongs to -- this function trusts its input."""
+    ticket = secrets.token_urlsafe(32)
+    redis = get_redis()
+    await redis.set(
+        f"{_START_TICKET_PREFIX}{ticket}",
+        str(zoom_meeting_id),
+        ex=_START_TICKET_TTL_SECONDS,
+    )
+    return ticket
+
+
+async def redeem_start_ticket(ticket: str) -> UUID | None:
+    """Atomically read-and-delete a start ticket. Returns the ZoomMeeting id
+    it authorized, or None if the ticket is missing, expired, or already
+    used (GETDEL is one round trip -- no separate GET+DEL race window)."""
+    redis = get_redis()
+    value = await redis.getdel(f"{_START_TICKET_PREFIX}{ticket}")
+    if value is None:
+        return None
+    return UUID(value)
+
+
+async def get_meeting_start_url(zoom_meeting_id: str) -> str | None:
+    """Fetch the meeting's CURRENT start_url from Zoom, at request time --
+    never read from a stored column (none exists; see create_meeting's
+    docstring for why one was never added). Returns None if Zoom's response
+    has no usable start_url; raises ZoomAPIError on any Zoom-side failure
+    (network, non-2xx) for the caller to translate into an honest message.
+
+    Does not log `response` or any field of it -- do not add a logging call
+    here that would put start_url in a log line."""
+    response = await get_meeting(zoom_meeting_id=zoom_meeting_id)
+    start_url = response.get("start_url")
+    if not isinstance(start_url, str) or not start_url.startswith("https://"):
+        return None
+    return start_url

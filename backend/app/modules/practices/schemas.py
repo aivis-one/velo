@@ -708,3 +708,12 @@ class PracticeSummary(BaseModel):
         summary.master_name = master_name
         summary.zoom_link = practice.zoom_link if zoom_link_visible else None
         return summary
+
+
+class ZoomStartTicketResponse(BaseModel):
+    """POST /api/v1/practices/{id}/zoom/start-ticket (ПРОМТ №556, OWNER-1).
+
+    Deliberately carries a one-time ticket, never a start_url -- see
+    zoom/service.py's ticket-issuance docstring for why."""
+
+    ticket: str
