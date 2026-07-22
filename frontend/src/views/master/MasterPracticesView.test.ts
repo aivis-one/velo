@@ -172,6 +172,18 @@ const U_DRAFT = practice('u-draft', {
   scheduled_at: '2026-07-25T10:00:00Z',
 })
 
+// A4 V5 (ПРОМТ №571): status is still 'live' (the backend has not yet run its
+// autofinalize transition to 'completed') but scheduled_at + duration_minutes
+// is already BEHIND NOW -- started 11:00Z, 60 min, ends 12:00Z, frozen instant
+// is 12:00:00Z exactly. practiceHasEnded is `nowMs >= end`, so this is the
+// boundary case: ended AT this instant, not merely approaching it.
+const U_JUST_ENDED = practice('u-just-ended', {
+  title: 'Только что закончилась',
+  status: 'live',
+  scheduled_at: '2026-07-20T11:00:00Z',
+  duration_minutes: 60,
+})
+
 // -- Past: completed only.
 const P_RECENT = practice('p-recent', {
   title: 'Недавняя',
@@ -363,6 +375,12 @@ function loader(): HTMLElement | null | undefined {
 // -----------------------------------------------------------------------------
 
 beforeEach(() => {
+  // Fake timers, not a bare setSystemTime (A4 V5, mirrors
+  // MasterDashboardView.test.ts): the screen now installs a 60s setInterval
+  // (.vue) that the clock test below drives directly. Nothing in the mount
+  // chain awaits a timer (the API is mocked and usePagination holds none),
+  // and microtasks are not faked, so flush() is unaffected.
+  vi.useFakeTimers()
   vi.setSystemTime(NOW)
   pinia = createPinia()
   setActivePinia(pinia)
@@ -678,6 +696,63 @@ describe('MasterPracticesView', () => {
 
       expect(cardTitles()).toEqual(['Недавняя', 'Давняя'])
       expect(cardTitles()).not.toContain('Удалённая')
+    })
+
+    it('A4 V5: a status=live practice whose time has already ended does not show as upcoming', async () => {
+      // The backend has not YET run autofinalize (status is still 'live'
+      // server-side) -- the frontend must not wait for that round-trip to
+      // stop calling it "Предстоящие". U_JUST_ENDED ends AT the frozen
+      // instant exactly (practiceHasEnded's own boundary: nowMs >= end).
+      mockBucketedPractices([U_LIVE, U_SCHED, U_DRAFT, U_JUST_ENDED])
+      mount()
+      await flush()
+
+      expect(cardTitles()).toEqual(['Сегодняшняя', 'Завтрашняя', 'Черновик'])
+      expect(cardTitles()).not.toContain('Только что закончилась')
+    })
+
+    it('A4 V5: a DRAFT past its scheduled_at is NOT swept by the time filter -- only scheduled/live are', async () => {
+      // The clock filter is deliberately narrower than Dashboard's: a draft's
+      // scheduled_at going stale is not something the backend's autofinalize
+      // worker ever resolves (drafts are never live), so it must stay visible
+      // until the master publishes or deletes it.
+      const staleDraft = practice('u-stale-draft', {
+        title: 'Старый черновик',
+        status: 'draft',
+        scheduled_at: '2026-07-01T09:00:00Z', // 19 days before NOW
+      })
+      mockBucketedPractices([staleDraft])
+      mount()
+      await flush()
+
+      expect(cardTitles()).toEqual(['Старый черновик'])
+    })
+
+    it('A4 V5: the 60s clock drops a card the moment its practice ends, without a re-fetch', async () => {
+      // The whole point of `now` being a REACTIVE ref on a 60s interval,
+      // mirroring MasterDashboardView's nearestPractices clock test: a master
+      // who leaves the list open must not keep seeing a practice that ended
+      // while they were looking at it -- and this must NOT require a second
+      // getMyPractices call (the store's cache is untouched; only the LOCAL
+      // filter re-evaluates).
+      const aboutToEnd = practice('u-about-to-end', {
+        title: 'Скоро закончится',
+        status: 'live',
+        scheduled_at: '2026-07-20T11:14:00Z',
+        duration_minutes: 60, // ends 12:14Z -- one minute after NOW (12:00Z)
+      })
+      mockBucketedPractices([aboutToEnd])
+      mount()
+      await flush()
+      expect(cardTitles()).toEqual(['Скоро закончится'])
+      const fetchCallsBeforeTick = vi.mocked(mastersApi.getMyPractices).mock.calls.length
+
+      vi.setSystemTime(new Date('2026-07-20T12:15:00Z'))
+      await vi.advanceTimersByTimeAsync(60_000)
+      await flush()
+
+      expect(cardTitles()).toEqual([])
+      expect(vi.mocked(mastersApi.getMyPractices).mock.calls.length).toBe(fetchCallsBeforeTick)
     })
   })
 

@@ -172,7 +172,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VButton, VLoader, VEmptyState, VSegmentTrack, VRatingBadges } from '@/components/ui'
@@ -189,6 +189,7 @@ import { useToast } from '@/composables/useToast'
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { checkinLabel, recurrenceLabel, remainingSessionsLabel } from '@/utils/practiceCardMeta'
 import { formatDateShort, formatShortDate, formatTime } from '@/utils/format'
+import { practiceHasEnded } from '@/utils/practiceStatus'
 import type { PracticeResponse } from '@/api/types'
 
 const route = useRoute()
@@ -208,7 +209,30 @@ const activeTab = ref<'upcoming' | 'past'>(route.query.tab === 'past' ? 'past' :
 // T22-3/T22-5 (ПРОМТ №561): the server now owns both the filter AND the
 // ordering per bucket (nearest-first for upcoming, most-recent-first for
 // past) -- no client-side filter/sort left to hide the next ordering bug.
-const upcomingPractices = computed(() => masterStore.practicesUpcoming)
+//
+// A4 V5 (ПРОМТ №571): fetchUpcomingPractices() is a one-shot cache -- it
+// no-ops once upcomingLoaded is true (stores/master.ts:117-121) -- but the
+// backend transitions a practice scheduled/live -> completed BY WALL CLOCK
+// (the autofinalize worker, practices/service.py's state machine), not on
+// request. Without a local time check, a class that ended five minutes ago
+// stays rendered under "Предстоящие" until something else (an edit,
+// create, cancel elsewhere) happens to call refreshMyPractices(), or a hard
+// reload. Mirrors MasterDashboardView's own 60s clock + practiceHasEnded
+// filter (nearestPractices) exactly -- same fix, same idiom, applied to
+// the full list instead of the dashboard's top-2 preview. Draft is
+// deliberately EXCLUDED from this filter (unlike Dashboard's narrower
+// widget): a draft's scheduled_at can be stale from the moment it was
+// created and still legitimately belongs in "Предстоящие" until the
+// master publishes or deletes it -- it is not something the clock auto-
+// finalizes away.
+const now = ref(Date.now())
+let clockInterval: ReturnType<typeof setInterval> | null = null
+
+const upcomingPractices = computed(() =>
+  masterStore.practicesUpcoming.filter(
+    (p) => !((p.status === 'scheduled' || p.status === 'live') && practiceHasEnded(p, now.value)),
+  ),
+)
 
 // -- Past: completed ONLY, most-recent first -- server-side now (T22-5). --
 const pastPractices = computed(() => masterStore.practicesPast)
@@ -340,8 +364,15 @@ watch(activeTab, async (tab) => {
 })
 
 onMounted(async () => {
+  clockInterval = setInterval(() => {
+    now.value = Date.now()
+  }, 60_000)
   await ensureBucketLoaded(activeTab.value)
   await loadTabData()
+})
+
+onUnmounted(() => {
+  if (clockInterval) clearInterval(clockInterval)
 })
 </script>
 
