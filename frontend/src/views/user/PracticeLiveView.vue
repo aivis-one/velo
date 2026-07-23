@@ -64,6 +64,15 @@
         Ссылка от мастера — посещение не засчитается автоматически
       </VBadge>
 
+      <!-- A4 V2 (ПРОМТ №572): honest permanent-failure state, distinct from
+           "still preparing" -- before this, create_failed rendered the
+           identical "Ссылка готовится" spinner forever. A participant has
+           no retry action (only the master does, MasterDashboardView) --
+           this just tells the truth instead of hiding it. -->
+      <VBadge v-if="zoomLink.kind === 'failed'" variant="error" class="live__zoom-note">
+        Не удалось создать встречу — обратитесь к мастеру
+      </VBadge>
+
       <VButton
         variant="primary"
         size="lg"
@@ -72,7 +81,8 @@
         :loading="joining"
         @click="onEnter"
       >
-        <template v-if="zoomLink.kind === 'pending'">Ссылка готовится</template>
+        <template v-if="zoomLink.kind === 'failed'">Ссылка недоступна</template>
+        <template v-else-if="zoomLink.kind === 'pending'">Ссылка готовится</template>
         <template v-else>Войти</template>
       </VButton>
 
@@ -125,15 +135,24 @@ const alreadyCheckedIn = computed(() => !!myBooking.value?.has_checkin)
 /**
  * D3 ladder (ПРОМТ №541): the booking's own registrant link first, the
  * manual practice.zoom_link only as a visibly-marked fallback, otherwise
- * "being prepared". Never a silent fall-through (AUDIT-0520-02's https
- * guard is now inside resolveZoomLink for both rungs).
+ * "being prepared" -- or, since A4 V2 (ПРОМТ №572), the honest "failed"
+ * state when practice.zoom_meeting_status is create_failed. Never a silent
+ * fall-through (AUDIT-0520-02's https guard is now inside resolveZoomLink
+ * for both rungs).
  */
 const zoomLink = computed(() =>
-  resolveZoomLink(myBooking.value?.zoom_registrant_join_url, practice.value?.zoom_link),
+  resolveZoomLink(
+    myBooking.value?.zoom_registrant_join_url,
+    practice.value?.zoom_link,
+    practice.value?.zoom_meeting_status,
+  ),
 )
 
-/** "Войти" is enabled only with a booking and a usable link (either rung). */
-const canJoin = computed(() => !!myBooking.value && zoomLink.value.kind !== 'pending')
+/** "Войти" is enabled only with a booking and a usable link (neither
+ * pending nor permanently failed). */
+const canJoin = computed(
+  () => !!myBooking.value && zoomLink.value.kind !== 'pending' && zoomLink.value.kind !== 'failed',
+)
 
 // -- Actions --
 

@@ -586,6 +586,48 @@ describe('UserDashboardView', () => {
       expect(host?.textContent).not.toContain('посещение не засчитается')
     })
 
+    // A4 V2 (ПРОМТ №572): before this, create_failed and pending_creation
+    // both rendered as the SAME disabled Zoom button with no explanation --
+    // a participant could not tell "still preparing" from "will never
+    // happen unless the master acts".
+    it('Zoom: create_failed -- disabled AND the honest failure badge shows, distinct from a plain unlinked practice', async () => {
+      const failedMeeting = booking(
+        'up_failed',
+        { status: 'confirmed', zoom_registrant_join_url: null },
+        {
+          scheduled_at: '2026-07-20T11:50:00Z',
+          duration_minutes: 60,
+          zoom_link: null,
+          zoom_meeting_status: 'create_failed',
+        },
+      )
+      vi.mocked(bookingsApi.getUpcomingBookings).mockResolvedValue([failedMeeting])
+      mount()
+      await flush()
+
+      expect(actionIn(nearestBlocks()[0]!, 'Zoom')?.disabled).toBe(true)
+      expect(host?.textContent).toContain('Не удалось создать встречу')
+    })
+
+    it('Zoom: pending_creation stays a plain disabled button -- no failure badge', async () => {
+      const pending = booking(
+        'up_pending',
+        { status: 'confirmed', zoom_registrant_join_url: null },
+        {
+          scheduled_at: '2026-07-20T11:50:00Z',
+          duration_minutes: 60,
+          zoom_link: null,
+          zoom_meeting_status: 'pending_creation',
+        },
+      )
+      vi.mocked(bookingsApi.getUpcomingBookings).mockResolvedValue([pending])
+      mount()
+      await flush()
+
+      expect(actionIn(nearestBlocks()[0]!, 'Zoom')?.disabled).toBe(true)
+      expect(host?.textContent).not.toContain('Не удалось создать встречу')
+    })
+
     it('Check-in: disabled when the booking already has one, enabled otherwise', async () => {
       vi.mocked(bookingsApi.getUpcomingBookings).mockResolvedValue([UP_SOON, UP_LIVE])
       mount()

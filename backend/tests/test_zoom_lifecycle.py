@@ -416,6 +416,163 @@ async def test_retry_poller_stops_at_cap_and_stays_visibly_failed(
 
 
 # ===================================================================
+# 4b. POST /{id}/zoom/retry -- master-triggered retry (A4 V2, ПРОМТ №572)
+# ===================================================================
+
+RETRY_URL = PRACTICES_URL + "/{practice_id}/zoom/retry"
+
+
+@pytest.mark.asyncio
+async def test_retry_endpoint_succeeds_and_flips_status_to_active(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A master clicking "Повторить" on a create_failed meeting whose
+    retry_count is ALREADY AT the poller's own cap still gets a real
+    attempt -- the cap only gates the poller's OWN automatic claiming, not
+    this explicit action. Success flips status to active AND the response
+    body's zoom_meeting_status reflects it immediately (no reload needed)."""
+    master = await _make_verified_master(client, db_session, telegram_id=79012)
+    practice_id = await _create_draft_practice(client, master)
+    cap = settings.zoom_meeting_create_max_retries
+
+    zoom_meeting = ZoomMeeting(
+        practice_id=UUID(practice_id),
+        status=ZoomMeetingStatus.CREATE_FAILED.value,
+        retry_count=cap,
+        last_sync_error="pre-seeded: already at cap",
+    )
+    db_session.add(zoom_meeting)
+    await db_session.commit()
+
+    with patch(
+        "app.modules.zoom.retry_poller.create_meeting",
+        return_value={"id": 999888777, "uuid": "fake-uuid", "host_id": "host-1"},
+    ) as mock_create:
+        resp = await client.post(
+            RETRY_URL.format(practice_id=practice_id),
+            headers=auth_headers(master["session_token"]),
+        )
+        mock_create.assert_called_once()
+
+    assert resp.status_code == 200
+    assert resp.json()["zoom_meeting_status"] == "active"
+
+    await db_session.refresh(zoom_meeting)
+    assert zoom_meeting.status == ZoomMeetingStatus.ACTIVE.value
+    assert zoom_meeting.retry_count == cap + 1
+
+
+@pytest.mark.asyncio
+async def test_retry_endpoint_still_fails_reports_honest_state_not_500(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Zoom still down on retry: the endpoint itself must not 500 (mirrors
+    attempt_zoom_meeting_create's own "never raises" contract) -- it
+    succeeds at MAKING the attempt, reports the honest still-failed state,
+    and last_sync_error/retry_count both advance so the master (and the
+    admin's own zoom_meeting_status view) can see a fresh attempt happened."""
+    master = await _make_verified_master(client, db_session, telegram_id=79013)
+    practice_id = await _create_draft_practice(client, master)
+
+    zoom_meeting = ZoomMeeting(
+        practice_id=UUID(practice_id),
+        status=ZoomMeetingStatus.CREATE_FAILED.value,
+        retry_count=1,
+        last_sync_error="pre-seeded: first failure",
+    )
+    db_session.add(zoom_meeting)
+    await db_session.commit()
+
+    with patch(
+        "app.modules.zoom.retry_poller.create_meeting",
+        side_effect=ZoomAPIError("still down", status_code=503, body="down"),
+    ):
+        resp = await client.post(
+            RETRY_URL.format(practice_id=practice_id),
+            headers=auth_headers(master["session_token"]),
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["zoom_meeting_status"] == "create_failed"
+
+    await db_session.refresh(zoom_meeting)
+    assert zoom_meeting.status == ZoomMeetingStatus.CREATE_FAILED.value
+    assert zoom_meeting.retry_count == 2
+    assert "retry #2" in zoom_meeting.last_sync_error
+
+
+@pytest.mark.asyncio
+async def test_retry_endpoint_refuses_a_meeting_that_is_not_failed(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """pending_creation is already queued for the poller -- retrying it
+    manually would be a second, redundant attempt racing the poller's own
+    claim, not a recovery action. Honest 400, machine-readable code."""
+    master = await _make_verified_master(client, db_session, telegram_id=79014)
+    practice_id = await _create_draft_practice(client, master)
+
+    zoom_meeting = ZoomMeeting(
+        practice_id=UUID(practice_id),
+        status=ZoomMeetingStatus.PENDING_CREATION.value,
+    )
+    db_session.add(zoom_meeting)
+    await db_session.commit()
+
+    resp = await client.post(
+        RETRY_URL.format(practice_id=practice_id),
+        headers=auth_headers(master["session_token"]),
+    )
+    assert resp.status_code == 400
+    assert resp.json()["error"] == "zoom_meeting_not_failed"
+
+
+@pytest.mark.asyncio
+async def test_retry_endpoint_404s_when_no_zoom_meeting_exists(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """An unpublished draft has no ZoomMeeting row at all -- nothing to
+    retry, honest 404 rather than a 500 on the FOR UPDATE select finding
+    nothing."""
+    master = await _make_verified_master(client, db_session, telegram_id=79015)
+    practice_id = await _create_draft_practice(client, master)
+
+    resp = await client.post(
+        RETRY_URL.format(practice_id=practice_id),
+        headers=auth_headers(master["session_token"]),
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_retry_endpoint_refuses_a_non_owner(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """P-08: a master who does not own the practice gets 404, not 403 --
+    same posture as the start-ticket endpoint (test_zoom_start.py)."""
+    owner = await _make_verified_master(client, db_session, telegram_id=79016)
+    other = await _make_verified_master(client, db_session, telegram_id=79017)
+    practice_id = await _create_draft_practice(client, owner)
+
+    zoom_meeting = ZoomMeeting(
+        practice_id=UUID(practice_id),
+        status=ZoomMeetingStatus.CREATE_FAILED.value,
+    )
+    db_session.add(zoom_meeting)
+    await db_session.commit()
+
+    resp = await client.post(
+        RETRY_URL.format(practice_id=practice_id),
+        headers=auth_headers(other["session_token"]),
+    )
+    assert resp.status_code == 404
+
+
+# ===================================================================
 # 5. Publish survives a NON-ZoomAPIError failure inside the registrant
 #    step too, not just a Zoom-API failure (ПРОМТ №525)
 # ===================================================================

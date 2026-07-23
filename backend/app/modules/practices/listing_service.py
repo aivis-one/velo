@@ -123,8 +123,15 @@ async def list_master_practices(
     # T21-1: host join_url for this page (one batched query, same owner-only
     # posture as zoom_link_visible=True below -- every row here is the
     # requester's own).
-    from app.modules.zoom.service import get_host_join_urls
+    from app.modules.zoom.service import get_host_join_urls, get_zoom_meeting_statuses
     host_join_urls = await get_host_join_urls([p.id for p in page_practices], session)
+    # A4 V2 (ПРОМТ №572): batched Zoom meeting status for this page --
+    # MasterDashboardView's "nearest practices" and MasterPracticesView both
+    # read practicesUpcoming (this endpoint), and their Zoom button needs to
+    # tell "готовится" apart from "не удалось создать встречу".
+    zoom_meeting_statuses = await get_zoom_meeting_statuses(
+        [p.id for p in page_practices], session,
+    )
 
     return PaginatedPracticesResponse(
         items=[
@@ -137,6 +144,7 @@ async def list_master_practices(
                 # "Войти" button reads zoom_link from this list.
                 zoom_link_visible=True,
                 zoom_host_join_url=host_join_urls.get(p.id),
+                zoom_meeting_status=zoom_meeting_statuses.get(p.id),
                 **series_meta_kwargs(series_meta.get(p.id)),
                 **attendance_counts_kwargs(attendance.get(p.id)),
             )

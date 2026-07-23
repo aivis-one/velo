@@ -186,7 +186,22 @@
                (ПРОМТ №556/557). Owner decision: no second button -- "Zoom"
                itself now does what "Начать" did, for kind==='personal'. -->
           <div class="master-dashboard__practice-actions">
+            <!-- A4 V2 (ПРОМТ №572): create_failed replaces "Zoom" with
+                 "Повторить" -- before this, a permanently-failed meeting
+                 showed the SAME disabled "Zoom" button as one still being
+                 created, with no way for the master to act on it. -->
             <VButton
+              v-if="zoomLinkFor(practice).kind === 'failed'"
+              variant="danger"
+              block
+              :loading="retryingId === practice.id"
+              :disabled="retryingId === practice.id"
+              @click="onRetryZoom(practice)"
+            >
+              Повторить
+            </VButton>
+            <VButton
+              v-else
               variant="secondary"
               block
               :disabled="zoomLinkFor(practice).kind === 'pending' || startingId === practice.id"
@@ -208,6 +223,13 @@
             class="master-dashboard__zoom-note"
           >
             Ручная ссылка — посещение не засчитается автоматически
+          </VBadge>
+          <VBadge
+            v-if="zoomLinkFor(practice).kind === 'failed'"
+            variant="error"
+            class="master-dashboard__zoom-note"
+          >
+            Не удалось создать встречу Zoom
           </VBadge>
         </div>
       </template>
@@ -256,7 +278,7 @@ import { checkinLabel, recurrenceLabel, remainingSessionsLabel } from '@/utils/p
 import { practiceHasEnded } from '@/utils/practiceStatus'
 import { resolveZoomLink, type ZoomLinkResolution } from '@/utils/zoomLink'
 import { getMasterStats } from '@/api/masters'
-import { createZoomStartTicket, zoomStartRedirectUrl } from '@/api/practices'
+import { createZoomStartTicket, zoomStartRedirectUrl, retryZoomMeeting } from '@/api/practices'
 import { ApiResponseError } from '@/api/client'
 import type { PracticeResponse, MasterStatsResponse } from '@/api/types'
 
@@ -368,9 +390,10 @@ function openPractice(p: PracticeResponse): void {
 // Zoom — D3 ladder (T21-1, ПРОМТ №541): the master's own host registrant
 // link first, else the manual practice.zoom_link (marked in the template),
 // else nudge -- via the platform abstraction (Telegram-SDK openLink vs
-// window.open).
+// window.open). A4 V2 (ПРОМТ №572): meeting status distinguishes "still
+// preparing" from "permanently failed".
 function zoomLinkFor(p: PracticeResponse): ZoomLinkResolution {
-  return resolveZoomLink(p.zoom_host_join_url, p.zoom_link)
+  return resolveZoomLink(p.zoom_host_join_url, p.zoom_link, p.zoom_meeting_status)
 }
 
 // ПРОМТ №565 (T23-1): "Zoom" for the master's OWN practice (every card on
@@ -418,6 +441,38 @@ async function onZoom(p: PracticeResponse): Promise<void> {
     }
   } finally {
     startingId.value = null
+  }
+}
+
+// A4 V2 (ПРОМТ №572): "Повторить" on a create_failed meeting. The endpoint
+// itself never raises for a Zoom-side failure (same "never blocks"
+// contract as publish) -- it resolves 200 either way, so success/failure
+// is read off the RETURNED zoom_meeting_status, not off a thrown error.
+// Thrown errors here mean the REQUEST itself couldn't be honored (already
+// recovered, ownership, network), not that Zoom said no again.
+const retryingId = ref<string | null>(null)
+
+async function onRetryZoom(p: PracticeResponse): Promise<void> {
+  if (retryingId.value) return
+  retryingId.value = p.id
+  try {
+    const updated = await retryZoomMeeting(p.id)
+    if (updated.zoom_meeting_status === 'active') {
+      toast.success('Встреча Zoom создана')
+    } else {
+      toast.error('Всё ещё не удалось создать встречу. Попробуйте позже')
+    }
+    await masterStore.refreshMyPractices()
+  } catch (e) {
+    if (e instanceof ApiResponseError && e.code === 'zoom_meeting_not_failed') {
+      // Recovered by itself (poller won the race) -- refresh, no error tone.
+      toast.info('Статус встречи уже обновился')
+      await masterStore.refreshMyPractices()
+    } else {
+      toast.error('Не удалось повторить попытку')
+    }
+  } finally {
+    retryingId.value = null
   }
 }
 

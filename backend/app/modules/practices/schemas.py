@@ -612,6 +612,17 @@ class PracticeResponse(BaseModel):
     # attended/no_show above.
     zoom_host_join_url: str | None = None
 
+    # A4 V2 (ПРОМТ №572): this practice's ZoomMeeting.status verbatim
+    # ('active' | 'pending_creation' | 'create_failed' | 'deleted'), or None
+    # if no ZoomMeeting row exists at all. UNLIKE zoom_host_join_url above,
+    # this is NOT owner-gated -- the value carries no secret material (same
+    # zero-masking posture as the admin zoom-attendance endpoint's identical
+    # field). Lets the frontend Zoom-link ladder (utils/zoomLink.ts) tell a
+    # meeting that is still being created apart from one that permanently
+    # failed, for BOTH the master and a booked participant -- previously
+    # both rendered the identical "готовится" spinner in both cases.
+    zoom_meeting_status: str | None = None
+
     # zoom_link (M-3 access gate) is handled at the response-building layer,
     # NOT with a model_validator: FastAPI re-validates the returned model
     # against response_model, which would re-run an "after" validator and wipe
@@ -685,6 +696,15 @@ class PracticeSummary(BaseModel):
     # builder set.
     zoom_link: str | None = None
 
+    # A4 V2 (ПРОМТ №572): same field, same NOT-owner-gated posture as
+    # PracticeResponse.zoom_meeting_status above -- powers the SAME
+    # pending-vs-failed distinction on list-view Zoom buttons (dashboard
+    # nearest card, my-bookings). Set by from_practice() below; no ORM
+    # source on Practice itself (ZoomMeeting is a separate table), so
+    # model_validate() alone cannot populate it -- callers must pass it in,
+    # the same shape as zoom_link_visible.
+    zoom_meeting_status: str | None = None
+
     model_config = {"from_attributes": True}
 
     @classmethod
@@ -694,6 +714,7 @@ class PracticeSummary(BaseModel):
         *,
         master_name: str | None = None,
         zoom_link_visible: bool = False,
+        zoom_meeting_status: str | None = None,
     ) -> "PracticeSummary":
         """Build a summary from a Practice ORM row -- the single construction
         point for all list-view consumers (bookings / waitlist / purchases).
@@ -707,6 +728,7 @@ class PracticeSummary(BaseModel):
         summary = cls.model_validate(practice)
         summary.master_name = master_name
         summary.zoom_link = practice.zoom_link if zoom_link_visible else None
+        summary.zoom_meeting_status = zoom_meeting_status
         return summary
 
 

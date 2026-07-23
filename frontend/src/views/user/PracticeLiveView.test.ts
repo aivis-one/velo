@@ -395,6 +395,44 @@ describe('PracticeLiveView', () => {
       expect(text()).toContain('Ссылка готовится')
     })
 
+    // A4 V2 (ПРОМТ №572): before this, create_failed and pending_creation
+    // rendered the IDENTICAL "Ссылка готовится" state -- a permanently
+    // failed meeting looked exactly like one still being created, forever.
+    it('the meeting permanently FAILED (create_failed): honest distinct state, not "готовится"', () => {
+      practicesState.selected = practice({ zoom_link: null, zoom_meeting_status: 'create_failed' })
+      bookingsState.bookings = [booking({ zoom_registrant_join_url: null, joined_at: null })]
+      mount()
+
+      expect(enterBtn()?.disabled).toBe(true)
+      expect(enterBtn()?.textContent).toContain('Ссылка недоступна')
+      expect(text()).not.toContain('Ссылка готовится')
+      expect(text()).toContain('Не удалось создать встречу')
+    })
+
+    it('pending_creation is still the honest "готовится" state, not "failed"', () => {
+      // The discriminator: pending_creation must NOT read as a failure.
+      practicesState.selected = practice({ zoom_link: null, zoom_meeting_status: 'pending_creation' })
+      bookingsState.bookings = [booking({ zoom_registrant_join_url: null, joined_at: null })]
+      mount()
+
+      expect(enterBtn()?.disabled).toBe(true)
+      expect(enterBtn()?.textContent).toContain('Ссылка готовится')
+      expect(text()).not.toContain('Не удалось создать встречу')
+    })
+
+    it('a manual zoom_link still wins over create_failed -- the link itself is the source of truth', () => {
+      practicesState.selected = practice({
+        zoom_link: 'https://zoom.us/j/manual',
+        zoom_meeting_status: 'create_failed',
+      })
+      bookingsState.bookings = [booking({ zoom_registrant_join_url: null })]
+      mount()
+
+      expect(enterBtn()?.disabled).toBe(false)
+      expect(text()).toContain('посещение не засчитается')
+      expect(text()).not.toContain('Не удалось создать встречу')
+    })
+
     it('a non-https personal link is never opened -- falls through to the manual link instead', async () => {
       practicesState.selected = practice({ zoom_link: 'https://zoom.us/j/manual' })
       bookingsState.bookings = [

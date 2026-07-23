@@ -21,7 +21,7 @@
 #   status=pending_creation rows -- a series child beyond the nearest
 #   occurrence, whose Zoom meeting creation is deliberately deferred here
 #   rather than made synchronously during publish (series_service.py).
-#   _attempt_create doesn't distinguish "first try" from "retry #N"; both
+#   attempt_zoom_meeting_create doesn't distinguish "first try" from "retry #N"; both
 #   states are claimed by the same query and processed identically.
 #
 # SESSION / ISOLATION:
@@ -142,7 +142,7 @@ async def _claim_retryable_ids() -> list:
     """Return ids of ZoomMeeting rows still eligible for a creation attempt
     -- either a genuine RETRY (create_failed) or a FIRST attempt that was
     deliberately deferred (pending_creation, ПРОМТ №559: series children
-    beyond the nearest occurrence). _attempt_create below treats both
+    beyond the nearest occurrence). attempt_zoom_meeting_create below treats both
     identically -- same Zoom call, same success/failure handling, same 429
     exemption -- a pending_creation row simply has retry_count=0 going in."""
     factory = get_session_factory()
@@ -207,7 +207,7 @@ async def _retry_one(meeting_id) -> bool:
                 await session.rollback()
                 return False
 
-            await _attempt_create(row, practice, session)
+            await attempt_zoom_meeting_create(row, practice, session)
             await session.commit()
             return True
     except Exception:
@@ -215,7 +215,7 @@ async def _retry_one(meeting_id) -> bool:
         return False
 
 
-async def _attempt_create(
+async def attempt_zoom_meeting_create(
     row: ZoomMeeting,
     practice: Practice,
     session: AsyncSession,
@@ -225,6 +225,14 @@ async def _attempt_create(
     Never raises -- ZoomAPIError (and anything else) is caught and recorded
     as last_sync_error, same posture as the initial attempt in
     practices/service.py. Caller commits.
+
+    A4 V2 (ПРОМТ №572): public (no leading underscore) -- besides
+    _retry_one's own automatic-poller call below, practices/router.py's
+    retry_zoom_meeting_endpoint calls this directly for a master-triggered
+    "Повторить" on a create_failed meeting, so the master does not have to
+    wait for the poller's next cycle (which can be minutes away if it has
+    backed off from idling). Caller owns the row's FOR UPDATE lock either
+    way -- this function itself takes no lock and commits nothing.
 
     RATE LIMIT (429) IS EXEMPT FROM THE RETRY CAP (ПРОМТ №520, series-hole
     volume answer). A generic failure (bad config, network down, Zoom
@@ -379,7 +387,7 @@ async def _attempt_registrant_create(
     session: AsyncSession,
 ) -> None:
     """One registrant-creation attempt, updating `row` in place. Same 429
-    exemption as _attempt_create above, same reasoning -- a rate-limited
+    exemption as attempt_zoom_meeting_create above, same reasoning -- a rate-limited
     registrant call is retried indefinitely without burning the cap.
 
     Names are re-fetched from User via row.user_id (ZoomRegistrant doesn't

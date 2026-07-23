@@ -552,6 +552,7 @@ def practice_to_response(
     no_show: int | None = None,
     zoom_link_visible: bool = False,
     zoom_host_join_url: str | None = None,
+    zoom_meeting_status: str | None = None,
 ) -> PracticeResponse:
     """Build PracticeResponse from ORM object with master_name and master_methods.
 
@@ -605,6 +606,10 @@ def practice_to_response(
     # T21-1: host join_url -- caller decides whether to fetch/pass it (owner-
     # facing responses only); everyone else gets the schema default (None).
     resp.zoom_host_join_url = zoom_host_join_url
+
+    # A4 V2 (ПРОМТ №572): NOT owner-gated, unlike zoom_host_join_url above --
+    # see the schema field's own docstring for why.
+    resp.zoom_meeting_status = zoom_meeting_status
 
     return resp
 
@@ -981,6 +986,12 @@ async def get_practice_detail(
     if is_owner:
         from app.modules.zoom.service import get_host_join_url
         host_join_url = await get_host_join_url(practice.id, session)
+    # A4 V2 (ПРОМТ №572): NOT owner-gated -- this is the call site behind
+    # GET /practices/{id}, which is also what PracticeLiveView reads for a
+    # booked (non-owner) participant. Both need to distinguish pending_
+    # creation from create_failed, not just the owner.
+    from app.modules.zoom.service import get_zoom_meeting_status
+    zoom_meeting_status = await get_zoom_meeting_status(practice.id, session)
     return practice_to_response(
         practice,
         master_name,
@@ -990,6 +1001,7 @@ async def get_practice_detail(
         is_paid=is_paid,
         zoom_link_visible=zoom_visible,
         zoom_host_join_url=host_join_url,
+        zoom_meeting_status=zoom_meeting_status,
         **series_meta_kwargs(series_meta.get(practice.id)),
         **attendance_counts_kwargs(attendance.get(practice.id)),
     )

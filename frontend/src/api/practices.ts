@@ -164,6 +164,18 @@ export function createZoomStartTicket(practiceId: string): Promise<{ ticket: str
 }
 
 /**
+ * A4 V2 (ПРОМТ №572): the "Повторить" action on a permanently-failed Zoom
+ * meeting (zoom_meeting_status === 'create_failed'). Owner-only; throws
+ * ApiResponseError code 'zoom_meeting_not_failed' if the meeting is not
+ * currently in that state, or a 404 if there is no ZoomMeeting row at all.
+ * Returns the updated practice -- zoom_meeting_status reflects the fresh
+ * attempt's outcome immediately, no reload needed.
+ */
+export function retryZoomMeeting(practiceId: string): Promise<PracticeResponse> {
+  return api.post<PracticeResponse>(`/api/v1/practices/${practiceId}/zoom/retry`)
+}
+
+/**
  * Build the URL to hand to platform.openLink() -- a plain browser
  * navigation to our backend, which redeems the ticket and 302s straight to
  * Zoom. Never fetch() this URL: that would not navigate the browser, and

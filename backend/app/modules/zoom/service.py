@@ -626,6 +626,52 @@ async def get_host_join_urls(
 
 
 # ---------------------------------------------------------------------------
+# A4 V2 (ПРОМТ №572): read-only ZoomMeetingStatus lookups for
+# PracticeResponse.zoom_meeting_status / PracticeSummary.zoom_meeting_status.
+# Unlike get_host_join_url[s] above, this is NOT owner-gated -- the status
+# value itself carries no secret material (same zero-masking posture as the
+# admin zoom-attendance endpoint's own zoom_meeting_status field,
+# admin/practices/schemas.py), and BOTH the master and a booked participant
+# need it to tell "still preparing" (pending_creation) apart from
+# "permanently failed" (create_failed) -- utils/zoomLink.ts previously had no
+# way to distinguish the two, so both rendered the identical "готовится"
+# spinner forever on a permanently-failed meeting.
+# ---------------------------------------------------------------------------
+
+
+async def get_zoom_meeting_status(
+    practice_id: UUID,
+    session: AsyncSession,
+) -> str | None:
+    """This practice's ZoomMeeting.status, or None if no ZoomMeeting row was
+    ever created (creation never attempted -- pre-E21 data, or a draft never
+    published)."""
+    return (
+        await session.execute(
+            select(ZoomMeeting.status).where(ZoomMeeting.practice_id == practice_id)
+        )
+    ).scalar_one_or_none()
+
+
+async def get_zoom_meeting_statuses(
+    practice_ids: list[UUID],
+    session: AsyncSession,
+) -> dict[UUID, str]:
+    """Batched form of get_zoom_meeting_status for a list endpoint -- one
+    query, no N+1, same pattern as get_host_join_urls above."""
+    if not practice_ids:
+        return {}
+    rows = (
+        await session.execute(
+            select(ZoomMeeting.practice_id, ZoomMeeting.status).where(
+                ZoomMeeting.practice_id.in_(practice_ids),
+            )
+        )
+    ).all()
+    return {row[0]: row[1] for row in rows}
+
+
+# ---------------------------------------------------------------------------
 # ПРОМТ №556 (OWNER-1, option В): "Начать" -- the master starts their own
 # meeting as host. start_url is a bearer credential (its holder needs no
 # further Zoom-side identity check to become host) that also expires, so the

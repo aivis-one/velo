@@ -116,7 +116,7 @@ vi.mock('@/api/users')
 // stubbed per-test via vi.stubEnv where the exact url matters).
 vi.mock('@/api/practices', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/practices')>()
-  return { ...actual, createZoomStartTicket: vi.fn() }
+  return { ...actual, createZoomStartTicket: vi.fn(), retryZoomMeeting: vi.fn() }
 })
 
 const push = vi.fn()
@@ -126,8 +126,9 @@ vi.mock('vue-router', () => ({
 
 const toastInfo = vi.fn()
 const toastError = vi.fn()
+const toastSuccess = vi.fn()
 vi.mock('@/composables/useToast', () => ({
-  useToast: () => ({ info: toastInfo, success: vi.fn(), error: toastError }),
+  useToast: () => ({ info: toastInfo, success: toastSuccess, error: toastError }),
 }))
 
 // The Zoom button routes through the platform abstraction (.vue:339-345), not
@@ -527,8 +528,10 @@ beforeEach(() => {
   push.mockReset()
   toastInfo.mockReset()
   toastError.mockReset()
+  toastSuccess.mockReset()
   platformState.openLink.mockReset()
   vi.mocked(practicesApi.createZoomStartTicket).mockReset()
+  vi.mocked(practicesApi.retryZoomMeeting).mockReset()
 })
 
 afterEach(() => {
@@ -1149,6 +1152,107 @@ describe('MasterDashboardView', () => {
       // blocks()[0] is P_SOON: https zoom_link, no host link set.
       expect(actionIn(blocks()[0]!, 'Zoom')?.disabled).toBe(false)
       expect(host?.textContent).toContain('посещение не засчитается')
+    })
+
+    // =========================================================================
+    // A4 V2 (ПРОМТ №572): create_failed replaces "Zoom" with "Повторить".
+    // Before this, create_failed and pending_creation both rendered the
+    // identical disabled "Zoom" button -- indistinguishable to the master,
+    // and no way to act on the permanent one.
+    // =========================================================================
+    describe('create_failed: "Повторить" (A4 V2, ПРОМТ №572)', () => {
+      it('shows "Повторить" instead of "Zoom", plus the honest failed badge', async () => {
+        vi.mocked(mastersApi.getMyPractices).mockResolvedValue(
+          page([practice('failed1', { zoom_meeting_status: 'create_failed' })]),
+        )
+        mount()
+        await flush()
+
+        expect(actionIn(blocks()[0]!, 'Zoom')).toBeUndefined()
+        expect(actionIn(blocks()[0]!, 'Повторить')).toBeDefined()
+        expect(host?.textContent).toContain('Не удалось создать встречу Zoom')
+      })
+
+      it('pending_creation (still queued) keeps the disabled "Zoom" button -- no "Повторить"', async () => {
+        // The discriminator: pending_creation must NOT get the retry button.
+        vi.mocked(mastersApi.getMyPractices).mockResolvedValue(
+          page([practice('pending1', { zoom_meeting_status: 'pending_creation' })]),
+        )
+        mount()
+        await flush()
+
+        expect(actionIn(blocks()[0]!, 'Повторить')).toBeUndefined()
+        expect(actionIn(blocks()[0]!, 'Zoom')?.disabled).toBe(true)
+      })
+
+      it('a successful retry toasts success and refreshes the list', async () => {
+        vi.mocked(mastersApi.getMyPractices).mockResolvedValue(
+          page([practice('failed1', { title: 'Провалившаяся', zoom_meeting_status: 'create_failed' })]),
+        )
+        vi.mocked(practicesApi.retryZoomMeeting).mockResolvedValue(
+          practice('failed1', { title: 'Провалившаяся', zoom_meeting_status: 'active' }),
+        )
+        mount()
+        await flush()
+        const callsBefore = vi.mocked(mastersApi.getMyPractices).mock.calls.length
+
+        actionIn(blocks()[0]!, 'Повторить')?.click()
+        await flush()
+
+        expect(practicesApi.retryZoomMeeting).toHaveBeenCalledWith('failed1')
+        expect(toastSuccess).toHaveBeenCalledWith('Встреча Zoom создана')
+        expect(toastError).not.toHaveBeenCalled()
+        // refreshMyPractices() re-fetches both buckets -- proof the list
+        // was actually invalidated, not just the toast fired.
+        expect(vi.mocked(mastersApi.getMyPractices).mock.calls.length).toBeGreaterThan(callsBefore)
+      })
+
+      it('a retry that fails AGAIN reports it honestly -- the endpoint resolves 200 either way', async () => {
+        // attempt_zoom_meeting_create never raises (backend "never blocks"
+        // contract) -- the endpoint itself returns 200 whether Zoom's own
+        // attempt succeeded or not, so success/failure must be read off the
+        // RETURNED zoom_meeting_status, not off a thrown error.
+        vi.mocked(mastersApi.getMyPractices).mockResolvedValue(
+          page([practice('failed1', { zoom_meeting_status: 'create_failed' })]),
+        )
+        vi.mocked(practicesApi.retryZoomMeeting).mockResolvedValue(
+          practice('failed1', { zoom_meeting_status: 'create_failed' }),
+        )
+        mount()
+        await flush()
+
+        actionIn(blocks()[0]!, 'Повторить')?.click()
+        await flush()
+
+        expect(toastError).toHaveBeenCalledWith('Всё ещё не удалось создать встречу. Попробуйте позже')
+        expect(toastSuccess).not.toHaveBeenCalled()
+      })
+
+      it('the button is disabled while a retry is in flight, and does not double-submit', async () => {
+        vi.mocked(mastersApi.getMyPractices).mockResolvedValue(
+          page([practice('failed1', { zoom_meeting_status: 'create_failed' })]),
+        )
+        let resolveRetry!: (v: PracticeResponse) => void
+        vi.mocked(practicesApi.retryZoomMeeting).mockReturnValue(
+          new Promise((resolve) => {
+            resolveRetry = resolve
+          }),
+        )
+        mount()
+        await flush()
+
+        const btn = actionIn(blocks()[0]!, 'Повторить')
+        btn?.click()
+        await nextTick()
+        expect(actionIn(blocks()[0]!, 'Повторить')?.disabled).toBe(true)
+        btn?.click()
+        await nextTick()
+
+        expect(practicesApi.retryZoomMeeting).toHaveBeenCalledTimes(1)
+
+        resolveRetry(practice('failed1', { zoom_meeting_status: 'active' }))
+        await flush()
+      })
     })
 
     it('refuses a non-https link on EITHER rung rather than handing it to the platform', async () => {

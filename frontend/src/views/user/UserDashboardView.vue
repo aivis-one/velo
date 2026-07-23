@@ -124,7 +124,7 @@
             <VButton
               variant="secondary"
               block
-              :disabled="zoomLinkFor(b).kind === 'pending'"
+              :disabled="zoomLinkFor(b).kind === 'pending' || zoomLinkFor(b).kind === 'failed'"
               @click="onZoomClick(b)"
             >
               Zoom
@@ -140,6 +140,12 @@
           </div>
           <VBadge v-if="zoomLinkFor(b).kind === 'manual'" variant="warning" class="dashboard__zoom-note">
             Ссылка от мастера — посещение не засчитается автоматически
+          </VBadge>
+          <!-- A4 V2 (ПРОМТ №572): honest permanent-failure state, distinct
+               from "still preparing" -- see PracticeLiveView's identical
+               badge for the full rationale. -->
+          <VBadge v-if="zoomLinkFor(b).kind === 'failed'" variant="error" class="dashboard__zoom-note">
+            Не удалось создать встречу — обратитесь к мастеру
           </VBadge>
         </div>
       </template>
@@ -351,7 +357,7 @@ function practiceTitle(b: BookingWithPracticeResponse): string {
  * rungs already come with the booking from GET /bookings/me(/upcoming).
  */
 function zoomLinkFor(b: BookingWithPracticeResponse): ZoomLinkResolution {
-  return resolveZoomLink(b.zoom_registrant_join_url, b.practice.zoom_link)
+  return resolveZoomLink(b.zoom_registrant_join_url, b.practice.zoom_link, b.practice.zoom_meeting_status)
 }
 
 function onZoomClick(b: BookingWithPracticeResponse): void {

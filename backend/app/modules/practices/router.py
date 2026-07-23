@@ -7,6 +7,7 @@
 #   GET    /api/v1/practices                     -- public feed (4.3)
 #   POST   /api/v1/practices                     -- create (master only)
 #   POST   /api/v1/practices/{id}/zoom/start-ticket -- one-time Zoom start ticket (556)
+#   POST   /api/v1/practices/{id}/zoom/retry      -- retry a failed Zoom meeting (A4 V2, 572)
 #   GET    /api/v1/practices/zoom/start           -- redeem ticket, redirect to Zoom (556)
 #   GET    /api/v1/practices/{id}                 -- get by id (any auth user)
 #   PATCH  /api/v1/practices/{id}                 -- update (owner master only)
@@ -235,11 +236,18 @@ async def create_practice_endpoint(
     # T21-1: same owner-only posture for the host's own join_url. A freshly
     # created practice has no ZoomMeeting yet (that happens on publish, not
     # here) -- get_host_join_url returns None until then, which is correct.
-    from app.modules.zoom.service import get_host_join_url
+    from app.modules.zoom.service import get_host_join_url, get_zoom_meeting_status
     host_join_url = await get_host_join_url(practice.id, session)
+    # A4 V2 (ПРОМТ №572): None here too, same reasoning as host_join_url --
+    # fetched anyway for consistency with the other three owner-only sites
+    # (this is also the endpoint V6's deduplicated-practice response flows
+    # through, where the returned practice IS already published and DOES
+    # have a real status).
+    zoom_meeting_status = await get_zoom_meeting_status(practice.id, session)
     return practice_to_response(
         practice, user.first_name,
         zoom_link_visible=True, zoom_host_join_url=host_join_url,
+        zoom_meeting_status=zoom_meeting_status,
     )
 
 
@@ -301,6 +309,88 @@ async def create_zoom_start_ticket_endpoint(
 
     ticket = await create_start_ticket(meeting.id)
     return ZoomStartTicketResponse(ticket=ticket)
+
+
+# ------------------------------------------------------------------
+# A4 V2 (ПРОМТ №572): master-triggered retry for a permanently-failed
+# meeting creation. RECON (before this endpoint existed): the background
+# retry poller (zoom/retry_poller.py) already re-attempts create_failed
+# rows automatically, so re-enqueueing was cheap -- attempt_zoom_meeting_
+# create (renamed from the poller's own private _attempt_create) is
+# reused DIRECTLY here, called synchronously instead of waiting for the
+# poller's next cycle (which can be zoom_retry_max_backoff_seconds -- up
+# to 10 minutes -- away if the poller has backed off from idling). No new
+# locking was needed: this endpoint takes the SAME row-level FOR UPDATE
+# the poller's own claim query relies on, so the two can never double-
+# process the same row (Postgres serializes them; the poller's SKIP
+# LOCKED just skips a row this endpoint is mid-handling that cycle).
+# ------------------------------------------------------------------
+@router.post(
+    "/{practice_id}/zoom/retry",
+    response_model=PracticeResponse,
+)
+async def retry_zoom_meeting_endpoint(
+    practice_id: UUID,
+    master_tuple: tuple[User, MasterProfile] = Depends(
+        get_current_master,
+    ),
+    session: AsyncSession = Depends(get_db_session),
+) -> PracticeResponse:
+    """The "Повторить" button on a create_failed Zoom meeting.
+
+    Ownership check is the SAME P-08 pattern (404, not 403) as the other
+    owner-only Zoom endpoints above.
+
+    404 if there is no ZoomMeeting row at all for this practice (nothing to
+    retry -- publish never ran, or this is pre-E21 data). 400
+    zoom_meeting_not_failed if a row exists but is not currently
+    create_failed: pending_creation is already queued for the poller
+    (nothing for a manual retry to add), and active has nothing to retry.
+
+    retry_count is still incremented by attempt_zoom_meeting_create (so
+    last_sync_error keeps an honest attempt count), but this action is NOT
+    gated by settings.zoom_meeting_create_max_retries -- that cap only
+    stops the POLLER's own automatic re-claiming
+    (_claim_retryable_ids), not this explicit, one-at-a-time action a
+    master chose to take. A master can therefore retry again even after
+    the poller has visibly given up.
+    """
+    user, _profile = master_tuple
+    practice = (
+        await session.execute(select(Practice).where(Practice.id == practice_id))
+    ).scalar_one_or_none()
+    if not practice or practice.master_id != user.id:
+        raise NotFoundError("Practice not found")
+
+    meeting = (
+        await session.execute(
+            select(ZoomMeeting)
+            .where(ZoomMeeting.practice_id == practice_id)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if meeting is None:
+        raise NotFoundError("No Zoom meeting for this practice")
+    if meeting.status != ZoomMeetingStatus.CREATE_FAILED.value:
+        raise BadRequestError(
+            "Zoom meeting is not in a failed state",
+            code="zoom_meeting_not_failed",
+        )
+
+    from app.modules.zoom.retry_poller import attempt_zoom_meeting_create
+    from app.modules.zoom.service import get_host_join_url
+
+    await attempt_zoom_meeting_create(meeting, practice, session)
+    await session.flush()
+    await session.refresh(meeting)
+
+    host_join_url = await get_host_join_url(practice.id, session)
+    return practice_to_response(
+        practice, user.first_name,
+        zoom_link_visible=True,
+        zoom_host_join_url=host_join_url,
+        zoom_meeting_status=meeting.status,
+    )
 
 
 @router.get("/zoom/start")
@@ -430,11 +520,15 @@ async def update_practice_endpoint(
     # owner-always-sees rule on the detail (M-3) and the master list (Z-6).
     # T21-1: same owner-only posture for the host's own join_url (may become
     # non-None here if this update is the draft->scheduled publish).
-    from app.modules.zoom.service import get_host_join_url
+    from app.modules.zoom.service import get_host_join_url, get_zoom_meeting_status
     host_join_url = await get_host_join_url(practice.id, session)
+    # A4 V2 (ПРОМТ №572): so a master publishing a draft (creating the Zoom
+    # meeting) sees "готовится" immediately instead of a stale None.
+    zoom_meeting_status = await get_zoom_meeting_status(practice.id, session)
     return practice_to_response(
         practice, user.first_name,
         zoom_link_visible=True, zoom_host_join_url=host_join_url,
+        zoom_meeting_status=zoom_meeting_status,
     )
 
 
@@ -467,11 +561,13 @@ async def delete_practice_endpoint(
     # T21-1: soft-deleted drafts never had a meeting created (E21 fires on
     # publish only), so this is always None here -- fetched anyway for
     # consistency with the other three owner-only sites.
-    from app.modules.zoom.service import get_host_join_url
+    from app.modules.zoom.service import get_host_join_url, get_zoom_meeting_status
     host_join_url = await get_host_join_url(practice.id, session)
+    zoom_meeting_status = await get_zoom_meeting_status(practice.id, session)
     return practice_to_response(
         practice, user.first_name,
         zoom_link_visible=True, zoom_host_join_url=host_join_url,
+        zoom_meeting_status=zoom_meeting_status,
     )
 
 
@@ -512,9 +608,13 @@ async def cancel_practice_endpoint(
     # T21-1: cancel_practice deletes the Zoom meeting (zoom/service.py
     # delete_meeting_for_practice) -- get_host_join_url returns None once that
     # row's status flips, which is correct (nothing to join anymore).
-    from app.modules.zoom.service import get_host_join_url
+    from app.modules.zoom.service import get_host_join_url, get_zoom_meeting_status
     host_join_url = await get_host_join_url(practice.id, session)
+    # A4 V2 (ПРОМТ №572): will read 'deleted' after the cancel above --
+    # correctly distinct from create_failed/pending_creation.
+    zoom_meeting_status = await get_zoom_meeting_status(practice.id, session)
     return practice_to_response(
         practice, user.first_name,
         zoom_link_visible=True, zoom_host_join_url=host_join_url,
+        zoom_meeting_status=zoom_meeting_status,
     )

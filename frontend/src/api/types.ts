@@ -98,7 +98,6 @@ export type {
   PayoutDetails,
   PayoutDetailsUpdate,
   PracticeInsightsResponse,
-  PracticeSummary,
   PreviewPurchaseRequest,
   PreviewPurchaseResponse,
   PromoResponse,
@@ -148,7 +147,30 @@ export type {
 import type {
   BookingWithPracticeResponse as GeneratedBookingWithPracticeResponse,
   PracticeResponse as GeneratedPracticeResponse,
+  PracticeSummary as GeneratedPracticeSummary,
 } from './generated'
+
+export interface PracticeResponse extends GeneratedPracticeResponse {
+  /** The practice owner's own Zoom host-registrant link. Populated only on
+   * owner-facing responses; null/undefined otherwise. Optional for the same
+   * fixture-compatibility reason as above. */
+  zoom_host_join_url?: string | null
+  /** A4 V2 (ПРОМТ №572): this practice's ZoomMeeting.status verbatim
+   * ('active' | 'pending_creation' | 'create_failed' | 'deleted'), or null/
+   * undefined if no ZoomMeeting row exists. NOT owner-gated (unlike
+   * zoom_host_join_url above) -- see the backend schema field's own
+   * docstring. Lets resolveZoomLink (utils/zoomLink.ts) tell "still
+   * preparing" apart from "permanently failed" for BOTH the master and a
+   * booked participant. */
+  zoom_meeting_status?: string | null
+}
+
+export interface PracticeSummary extends GeneratedPracticeSummary {
+  /** Same field, same posture as PracticeResponse.zoom_meeting_status
+   * above -- powers the identical pending-vs-failed distinction on
+   * list-view Zoom buttons (dashboard nearest card, my-bookings). */
+  zoom_meeting_status?: string | null
+}
 
 export interface BookingWithPracticeResponse extends GeneratedBookingWithPracticeResponse {
   /** This booking's own Zoom registrant link (the personal ?tk= URL), or
@@ -157,13 +179,9 @@ export interface BookingWithPracticeResponse extends GeneratedBookingWithPractic
    * this field existed omit it entirely, and the ladder treats a missing
    * field the same as an explicit null. */
   zoom_registrant_join_url?: string | null
-}
-
-export interface PracticeResponse extends GeneratedPracticeResponse {
-  /** The practice owner's own Zoom host-registrant link. Populated only on
-   * owner-facing responses; null/undefined otherwise. Optional for the same
-   * fixture-compatibility reason as above. */
-  zoom_host_join_url?: string | null
+  /** Overrides the generated field's type to OUR bridged PracticeSummary
+   * (zoom_meeting_status) above -- the generated one does not have it yet. */
+  practice: PracticeSummary
 }
 
 // =============================================================================
