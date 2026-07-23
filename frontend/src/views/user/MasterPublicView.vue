@@ -131,6 +131,7 @@ import { getPublicMaster } from '@/api/masters'
 import { getPractices } from '@/api/practices'
 import { extractApiError } from '@/composables/useApiError'
 import { useToast } from '@/composables/useToast'
+import { plural } from '@/utils/plural'
 import type { MasterPublicResponse, PracticeResponse } from '@/api/types'
 
 const route = useRoute()
@@ -149,15 +150,7 @@ const displayName = computed(() => profile.value?.display_name ?? 'Мастер'
 // Method tags cycle through three tints (same as MasterCard).
 const TAG_VARIANTS = ['blue', 'pink', 'sand'] as const
 
-// -- Russian pluralization helpers --
-function plural(n: number, one: string, few: string, many: string): string {
-  const mod10 = n % 10
-  const mod100 = n % 100
-  if (mod100 >= 11 && mod100 <= 14) return many
-  if (mod10 === 1) return one
-  if (mod10 >= 2 && mod10 <= 4) return few
-  return many
-}
+// -- Russian pluralization helpers (SW14: canonical impl in utils/plural.ts) --
 function pluralYears(n: number): string {
   return plural(n, 'год', 'года', 'лет')
 }

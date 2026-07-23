@@ -190,6 +190,7 @@ import { practiceIconFor } from '@/utils/displayHelpers'
 import { checkinLabel, recurrenceLabel, remainingSessionsLabel } from '@/utils/practiceCardMeta'
 import { formatDateShort, formatShortDate, formatTime } from '@/utils/format'
 import { practiceHasEnded } from '@/utils/practiceStatus'
+import { plural } from '@/utils/plural'
 import type { PracticeResponse } from '@/api/types'
 
 const route = useRoute()
@@ -273,12 +274,7 @@ function participantsLabel(p: PracticeResponse): string {
 /** «N участников» with Russian plural agreement — past-card sub-line (PL-E1). */
 function participantsCount(p: PracticeResponse): string {
   const n = p.current_participants
-  const mod10 = n % 10
-  const mod100 = n % 100
-  let word = 'участников'
-  if (mod10 === 1 && mod100 !== 11) word = 'участник'
-  else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) word = 'участника'
-  return `${n} ${word}`
+  return `${n} ${plural(n, 'участник', 'участника', 'участников')}`
 }
 
 // -- Insights-derived (REAL) ------------------------------------------------
