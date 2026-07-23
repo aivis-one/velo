@@ -417,7 +417,14 @@ async def _attempt_registrant_create(
         )
     except ZoomAPIError as exc:
         if exc.status_code == 429:
-            row.status = ZoomRegistrantStatus.CREATE_FAILED.value
+            # Status left UNTOUCHED -- same as attempt_zoom_meeting_create's
+            # 429 branch above. Setting CREATE_FAILED here contradicted
+            # last_sync_error's own "retried next cycle" claim: a row still
+            # PENDING on its first attempt would be forced into
+            # CREATE_FAILED for no reason (cosmetic here, since both
+            # statuses are equally claimable by
+            # _claim_retryable_registrant_ids -- but the row's actual state
+            # should say what happened, not something else).
             row.last_sync_error = (
                 f"create_registrant rate-limited (429): {exc.body} -- "
                 f"not counted against the retry cap, retried next cycle"

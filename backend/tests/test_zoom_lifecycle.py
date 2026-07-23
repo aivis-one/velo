@@ -416,6 +416,66 @@ async def test_retry_poller_stops_at_cap_and_stays_visibly_failed(
 
 
 # ===================================================================
+# 4a. SW6 (Батч B, ПРОМТ №579): registrant 429 leaves status untouched
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_registrant_retry_429_does_not_force_create_failed(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A PENDING ZoomRegistrant whose create_registrant call comes back 429
+    stays PENDING -- retry_count untouched (uncapped, same 429 exemption as
+    the meeting-create path), status untouched too.
+
+    Before this fix, _attempt_registrant_create's 429 branch set
+    row.status = CREATE_FAILED even though last_sync_error in the SAME
+    write says "not counted against the retry cap, retried next cycle" --
+    a contradiction between the two fields on one row. The sibling
+    meeting-create path (attempt_zoom_meeting_create) never touches
+    row.status on 429; this pins the registrant path to the same
+    discipline.
+    """
+    master = await _make_verified_master(client, db_session, telegram_id=79016)
+    practice_id = await _create_draft_practice(client, master)
+
+    resp = await _publish(client, master, practice_id)
+    assert resp.status_code == 200
+    zoom_meeting = await _get_zoom_meeting(db_session, practice_id)
+    assert zoom_meeting.status == ZoomMeetingStatus.ACTIVE.value
+
+    registrant = ZoomRegistrant(
+        zoom_meeting_id=zoom_meeting.id,
+        user_id=UUID(master["user"]["id"]),
+        booking_id=None,
+        role=ZoomRegistrantRole.STUDENT.value,
+        status=ZoomRegistrantStatus.PENDING.value,
+        registration_email="rate-limited-student@users.velo.invalid",
+        retry_count=0,
+    )
+    db_session.add(registrant)
+    await db_session.commit()
+
+    with patch(
+        "app.modules.zoom.retry_poller.create_registrant",
+        side_effect=ZoomAPIError("rate limited", status_code=429, body="too many"),
+    ) as mock_create:
+        work_done = await _poll_cycle()
+        mock_create.assert_called_once()
+
+    assert work_done is True
+    await db_session.refresh(registrant)
+    assert registrant.status == ZoomRegistrantStatus.PENDING.value, (
+        "429 must leave status untouched, not force CREATE_FAILED -- "
+        "contradicted last_sync_error's own 'retried next cycle' claim"
+    )
+    assert registrant.retry_count == 0, "429 is never counted against the cap"
+    assert "rate-limited" in registrant.last_sync_error
+    assert "not counted against the retry cap" in registrant.last_sync_error
+
+
+# ===================================================================
 # 4b. POST /{id}/zoom/retry -- master-triggered retry (A4 V2, ПРОМТ №572)
 # ===================================================================
 
