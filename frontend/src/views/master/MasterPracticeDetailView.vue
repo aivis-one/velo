@@ -297,7 +297,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, type Component } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDiaryStore } from '@/stores/diary'
 import { useMasterStore } from '@/stores/master'
@@ -323,7 +323,8 @@ import { VHeader } from '@/components/layout'
 import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
 import VShowMore from '@/components/shared/VShowMore.vue'
 import CancelPracticeDialog from '@/components/shared/CancelPracticeDialog.vue'
-import { IconRatingFire, IconRatingGood, IconRatingConfused, IconEdit } from '@/components/icons'
+import { IconEdit } from '@/components/icons'
+import { RATING_ICON } from '@/utils/ratingIcons'
 // IconTrash is not re-exported from the icons barrel; import the component
 // directly (same as EntryView).
 import IconTrash from '@/components/icons/IconTrash.vue'
@@ -339,7 +340,6 @@ import type {
   PracticeResponse,
   AttendanceResponse,
   AttendanceItemResponse,
-  FeedbackRating,
   PracticeDifficulty,
   ReviewItem,
 } from '@/api/types'
@@ -479,11 +479,6 @@ const hiddenReviewsCount = computed((): number => Math.max(0, reviewsTotal.value
 function expandReviews(): void {
   reviewsExpanded.value = true
   if (hasMoreReviews.value) loadMoreReviews()
-}
-const RATING_ICON: Record<FeedbackRating, Component> = {
-  fire: IconRatingFire,
-  good: IconRatingGood,
-  confused: IconRatingConfused,
 }
 
 async function loadReviews(): Promise<void> {

@@ -230,7 +230,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, type Component } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
@@ -247,13 +247,9 @@ import { VHeader } from '@/components/layout'
 import VRatingDistribution from '@/components/shared/VRatingDistribution.vue'
 import VShowMore from '@/components/shared/VShowMore.vue'
 import SendMessageModal from '@/components/shared/SendMessageModal.vue'
-import {
-  IconRatingFire,
-  IconRatingGood,
-  IconRatingConfused,
-  IconMessages,
-} from '@/components/icons'
+import { IconMessages } from '@/components/icons'
 import { practiceIconFor, RATING_ICON_COLOR } from '@/utils/displayHelpers'
+import { RATING_ICON } from '@/utils/ratingIcons'
 import { formatMoney, formatShortDate } from '@/utils/format'
 import { getIncome, getTransactions, getMasterReviews } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
@@ -386,14 +382,6 @@ function ratingPct(practiceId: string, rating: 'fire' | 'good' | 'confused'): nu
 // =========================================================================
 // Последние отзывы (#3: GET /masters/me/reviews — cross-practice named feed)
 // =========================================================================
-
-// Per-item rating icon, reusing the same map as the per-practice reviews screen
-// (PracticeReviewsView) + the shared RATING_ICON_COLOR / RATING_LABEL.
-const RATING_ICON: Record<FeedbackRating, Component> = {
-  fire: IconRatingFire,
-  good: IconRatingGood,
-  confused: IconRatingConfused,
-}
 
 const REVIEWS_PAGE = 20
 const reviews = ref<MasterReviewItem[]>([])

@@ -93,11 +93,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, type Component } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VAvatar, VStatCard, VButton, VLoader, VEmptyState } from '@/components/ui'
-import { IconRatingFire, IconRatingGood, IconRatingConfused } from '@/components/icons'
 import MoodAvatar from '@/components/shared/MoodAvatar.vue'
 import SendMessageModal from '@/components/shared/SendMessageModal.vue'
 import VShowMore from '@/components/shared/VShowMore.vue'
@@ -107,6 +106,7 @@ import {
   ratingZoneFromScore,
   RATING_ICON_COLOR,
 } from '@/utils/displayHelpers'
+import { RATING_ICON } from '@/utils/ratingIcons'
 import { formatShortDate } from '@/utils/format'
 import { getStudent } from '@/api/masters'
 import type { StudentDetailResponse } from '@/api/types'
@@ -145,12 +145,6 @@ onMounted(load)
 const practicesCount = computed((): number => detail.value?.practices_count ?? 0)
 const hours = computed((): number => detail.value?.hours ?? 0)
 
-const ICON_BY_ZONE: Record<'confused' | 'good' | 'fire', Component> = {
-  confused: IconRatingConfused,
-  good: IconRatingGood,
-  fire: IconRatingFire,
-}
-
 const checkinRows = computed(() =>
   (detail.value?.recent_checkins ?? []).map((ci) => ({
     mood: ci.mood,
@@ -164,7 +158,7 @@ const feedbackRows = computed(() =>
     const zone = ratingZoneFromScore(fb.rating)
     return {
       label: ratingLabelFromScore(fb.rating),
-      icon: ICON_BY_ZONE[zone],
+      icon: RATING_ICON[zone],
       color: RATING_ICON_COLOR[zone],
       comment: fb.comment ?? '',
       date: formatShortDate(fb.created_at),
