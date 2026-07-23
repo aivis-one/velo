@@ -161,8 +161,11 @@ function isToday(iso: string, timezone: string): boolean {
 }
 
 function isTomorrow(iso: string, timezone: string): boolean {
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
+  // SW9: +24h on the epoch, NOT Date.setDate() -- setDate mutates in the
+  // DEVICE's own local timezone (unrelated to the `timezone` param), which
+  // can skew by other than 24h on a DST transition day. Same fix as
+  // utils/format.ts's formatDateShort/dayLabelOf.
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
   return calendarDate(new Date(iso), timezone) === calendarDate(tomorrow, timezone)
 }
 

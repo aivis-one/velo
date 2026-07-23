@@ -390,6 +390,47 @@ describe('MyBookingsView', () => {
       expect(text()).toContain('Сегодня')
       expect(text()).not.toContain('Завтра')
     })
+
+    // SW9 (found while grepping for other sites during ПРОМТ №577's
+    // comparison task): isTomorrow's OWN `tomorrow.setDate(getDate()+1)` is
+    // device-local Date math, unlike the fix applied to utils/format.ts's
+    // formatDateShort/dayLabelOf. Fixing SW3's "which timezone to compare
+    // in" left this local mutation in place -- on a day the DEVICE's own OS
+    // timezone crosses a DST transition, it does not land exactly +24h,
+    // which can resolve to the wrong calendar day once compared against the
+    // viewer's timezone, independent of whether the viewer's timezone itself
+    // observes DST.
+    it('SW9: "Завтра" is unaffected by the DEVICE\'s own DST transition', async () => {
+      vi.stubEnv('TZ', 'America/New_York') // US spring-forward 2026: Mar 8.
+      try {
+        // "Now" = Mar 7, 8pm EST (the evening before the device's own DST
+        // jump). setDate(getDate()+1) resolves to Mar 8, 8pm -- by then EDT
+        // has started, so that instant is only +23h from "now", not +24h.
+        vi.setSystemTime(new Date('2026-03-08T01:00:00.000Z'))
+        // Viewer profile tz Cape Verde (UTC-1, no DST, ever) straddles a
+        // local midnight between the OLD (buggy, +23h) and the CORRECT
+        // (+24h) "tomorrow" instant -- same fixture as format.test.ts's SW9
+        // coverage for formatDateShort.
+        useAuthStore().user = user({ timezone: 'Atlantic/Cape_Verde' })
+
+        vi.mocked(bookingsApi.getMyBookings).mockResolvedValue(
+          page([
+            booking(
+              'dstcheck',
+              { status: 'confirmed' },
+              { scheduled_at: '2026-03-09T12:00:00Z', duration_minutes: 60, timezone: 'UTC' },
+            ),
+          ]),
+        )
+        mount()
+        await flush()
+
+        expect(text()).toContain('Завтра')
+      } finally {
+        vi.unstubAllEnvs()
+        vi.setSystemTime(NOW)
+      }
+    })
   })
 
   describe('navigation', () => {
