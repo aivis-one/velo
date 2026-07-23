@@ -44,7 +44,6 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.practices.models import Practice
 from app.modules.zoom.models import (
@@ -79,6 +78,19 @@ def _normalized_matchable_email(email: str | None) -> str | None:
     if not normalized or _is_placeholder_email(normalized):
         return None
     return normalized
+
+
+def attendance_threshold_seconds(duration_minutes: int) -> int:
+    """The attendance bar for a practice: 50% of ITS OWN duration, not a
+    fixed global minute count (owner decision, ПРОМТ №585 -- replaces the
+    old settings.zoom_attendance_threshold_minutes=10 constant, which is
+    now vestigial, see config.py). Integer floor division on minutes, THEN
+    converted to seconds -- matches the owner's mapping exactly: 30->15,
+    45->22, 60->30, 75->37, 90->45, 120->60 (test_zoom_attendance_ladder.py
+    asserts all six literally). Total over the whole validated
+    practice_min/max_duration_minutes range (5..480, config.py) -- no floor,
+    no cap, deliberately (that was explicitly deferred by the owner)."""
+    return (duration_minutes // 2) * 60
 
 
 def _parse_report_datetime(value: Any) -> datetime | None:
@@ -240,7 +252,7 @@ async def ingest_report_for_meeting(
         )
 
     seconds_by_registrant = sum_seconds_by_registrant(matches)
-    threshold_seconds = settings.zoom_attendance_threshold_minutes * 60
+    threshold_seconds = attendance_threshold_seconds(practice.duration_minutes)
 
     outcomes: list[tuple[UUID, UUID, str]] = []
     for r in registrants:

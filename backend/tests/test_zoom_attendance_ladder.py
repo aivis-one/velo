@@ -26,12 +26,18 @@ from app.modules.zoom.attendance_service import (
     PLACEHOLDER_EMAIL_SUFFIX,
     _is_placeholder_email,
     _normalized_matchable_email,
+    attendance_threshold_seconds,
     match_report_rows,
     sum_seconds_by_registrant,
 )
 from app.modules.zoom.models import ZoomRegistrant, ZoomRegistrantRole
 
-THRESHOLD_SECONDS = 10 * 60  # default zoom_attendance_threshold_minutes=10
+# Illustrative boundary only -- NOT the production threshold since ПРОМТ
+# №585 (the real one is 50% of each practice's own duration_minutes, see
+# attendance_threshold_seconds() and its own tests below). Kept as a plain
+# constant here because these two tests exercise sum_seconds_by_registrant's
+# rejoin-summing, not the decision itself, and need SOME boundary to sit at.
+THRESHOLD_SECONDS = 10 * 60
 
 
 def _registrant(**overrides) -> ZoomRegistrant:
@@ -177,3 +183,42 @@ def test_rejoin_summing_exactly_at_threshold() -> None:
 
     assert totals[alice.id] == 600
     assert totals[alice.id] >= THRESHOLD_SECONDS
+
+
+# ===================================================================
+# attendance_threshold_seconds -- 50% of the practice's OWN duration
+# (ПРОМТ №585, replaces the old fixed 10-minute constant)
+# ===================================================================
+
+
+def test_attendance_threshold_matches_owner_mapping_exactly() -> None:
+    """The six pairs from the owner's decision, asserted literally --
+    duration_minutes -> threshold_minutes, both sides in seconds here."""
+    owner_mapping_minutes = {
+        30: 15,
+        45: 22,
+        60: 30,
+        75: 37,
+        90: 45,
+        120: 60,
+    }
+    for duration_minutes, expected_threshold_minutes in owner_mapping_minutes.items():
+        assert attendance_threshold_seconds(duration_minutes) == expected_threshold_minutes * 60
+
+
+def test_attendance_threshold_sane_at_validated_range_extremes() -> None:
+    """practice_min/max_duration_minutes admits 5..480 (config.py) even
+    though the product UI only offers 30..120 -- the formula must stay a
+    sane, non-negative, non-zero-division result over the FULL validated
+    range, not just the UI's subset."""
+    assert attendance_threshold_seconds(5) == 120  # 5 // 2 = 2 min -> 120s
+    assert attendance_threshold_seconds(480) == 14400  # 240 min -> 14400s
+
+
+def test_attendance_threshold_never_negative_or_crashing_across_full_range() -> None:
+    """No floor, no cap, deliberately -- pure 50%, every minute in the
+    validated range produces a sane non-negative result."""
+    for duration_minutes in range(5, 481):
+        threshold = attendance_threshold_seconds(duration_minutes)
+        assert threshold >= 0
+        assert threshold <= duration_minutes * 60

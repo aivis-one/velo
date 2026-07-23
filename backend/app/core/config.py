@@ -419,11 +419,17 @@ class Settings(BaseSettings):
     zoom_account_id: str = ""
     zoom_client_id: str = ""
     zoom_client_secret: str = ""
-    # Threshold for the real attendance decision: minutes present required to
-    # count as attended. Deliberately an ORDINARY env var, not admin-editable
-    # -- the owner was told the price (no admin-settings mechanism exists in
-    # this codebase at all) and decided against building one for a single
-    # value (ПРОМТ №519). Changing it is a deploy, and that is accepted.
+    # VESTIGIAL (ПРОМТ №585) -- no longer decides anything. The attendance
+    # decision is now 50% of EACH PRACTICE'S OWN duration_minutes (owner
+    # decision), computed in zoom/attendance_service.py's
+    # attendance_threshold_seconds(), not read from here. This field is kept
+    # -- not deleted -- because pydantic-settings' default extra='forbid'
+    # (measured against the pinned pydantic-settings==2.14.2) means a live
+    # .env that still defines ZOOM_ATTENDANCE_THRESHOLD_MINUTES would refuse
+    # to start if the field vanished, and the deployed server's .env content
+    # is not something this change can verify (no VPS access). Safe to
+    # delete later once a measurement of the live .env confirms the key is
+    # gone from it too.
     zoom_attendance_threshold_minutes: int = 10
     # Meeting-creation retry poller (mirrors practice_autofinalize_* above).
     # Background worker toggle -- same rationale as
