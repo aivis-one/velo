@@ -26,10 +26,12 @@
 // One pinia instance goes to both setActivePinia and app.use (SC-03).
 //
 // PINNED INSTANT: 2026-07-20T12:00:00.000Z. Every fixture is a literal against
-// it (SC-04) -- no `Date.now() + 86400000`. Timezone is pinned too, but NOT via
-// a mocked composable: this screen passes `practice.timezone` straight into
-// formatDate (.vue:133), so the fixture's own `timezone: 'UTC'` IS the pin and
-// the runner's local zone cannot drift the rendered date.
+// it (SC-04) -- no `Date.now() + 86400000`. Timezone is pinned via
+// useAuthStore().user.timezone (SW4 fix, ПРОМТ №577): this screen renders the
+// scheduled date via formatDate(scheduled_at, viewerTz.value), matching its
+// flow siblings PracticeDetailView/EntryView -- so the viewer's profile
+// timezone, not the practice's own, is what the runner's local zone could
+// otherwise drift.
 //
 // FAKE TIMERS are on for the whole file (not just setSystemTime). They are
 // load-bearing for exactly one test -- "the tick race" below -- which fires the
@@ -110,7 +112,8 @@ import { ApiResponseError } from '@/api/client'
 import { upsertCheckin, listDiaryFeed } from '@/api/diary'
 import { getMyBookings, skipCheckin } from '@/api/bookings'
 import { getPractice } from '@/api/practices'
-import type { BookingWithPracticeResponse, PracticeResponse } from '@/api/types'
+import { useAuthStore } from '@/stores/auth'
+import type { BookingWithPracticeResponse, PracticeResponse, UserResponse } from '@/api/types'
 
 // -- seams: the api wrappers the three real stores import (velo-idiom §4).
 // importActual + spread keeps every other export real; only the network
@@ -175,6 +178,37 @@ function practice(overrides: Partial<PracticeResponse> = {}): PracticeResponse {
     difficulty: null,
     ...overrides,
   } as PracticeResponse
+}
+
+// SW4: the viewer's profile timezone, distinct from every fixture's own
+// practice.timezone (default 'UTC') -- proves formattedDate reads the
+// VIEWER's tz, not the practice's own.
+const VIEWER_TZ = 'Europe/Moscow' // UTC+3
+
+function user(overrides: Partial<UserResponse> = {}): UserResponse {
+  return {
+    id: 'u1',
+    telegram_id: 1,
+    role: 'user',
+    first_name: 'Аня',
+    last_name: null,
+    avatar_url: null,
+    timezone: VIEWER_TZ,
+    language: 'ru',
+    is_active: true,
+    balance_cents: 0,
+    created_at: '2026-01-01T00:00:00Z',
+    last_login_at: null,
+    onboarding_completed: true,
+    master_onboarding_completed: false,
+    phone: null,
+    bio: null,
+    email: null,
+    notifications: {} as UserResponse['notifications'],
+    master_notifications: null,
+    role_switch: null,
+    ...overrides,
+  }
 }
 
 function booking(overrides: Partial<BookingWithPracticeResponse> = {}): BookingWithPracticeResponse {
@@ -269,6 +303,7 @@ beforeEach(() => {
   vi.setSystemTime(NOW)
   pinia = createPinia()
   setActivePinia(pinia)
+  useAuthStore().user = user()
   routeParams.practiceId = 'p1'
 
   getPracticeMock.mockReset().mockResolvedValue(practice())
@@ -360,16 +395,25 @@ describe('CheckinView', () => {
       expect(text()).toContain('Мастер Лена')
     })
 
-    it('content: the date is rendered in the PRACTICE\'s timezone, not the runner\'s', async () => {
-      // formatDate(scheduled_at, practice.timezone) -- .vue:133. Split into two
-      // toContain so an ICU separator change between Node builds cannot break a
-      // test that is really about the timezone and the instant.
-      getPracticeMock.mockResolvedValue(practice({ scheduled_at: '2026-07-20T13:00:00.000Z' }))
+    it('SW4: the date is rendered in the VIEWER\'s timezone, not the practice\'s own', async () => {
+      // formatDate(scheduled_at, viewerTz.value) -- .vue:153-154 (ПРОМТ №577
+      // fix), matching PracticeDetailView/EntryView, this flow's siblings. The
+      // fixture's practice.timezone (America/New_York, UTC-4 in July) is
+      // deliberately DIFFERENT from the viewer's profile tz (Europe/Moscow,
+      // UTC+3, set in beforeEach) so the two branches render different
+      // HH:MM -- 13:00 UTC is "09:00" in the practice's own tz (the OLD buggy
+      // value) but "16:00" in the viewer's (the correct one). Split into two
+      // toContain so an ICU separator change between Node builds cannot break
+      // a test that is really about the timezone and the instant.
+      getPracticeMock.mockResolvedValue(
+        practice({ scheduled_at: '2026-07-20T13:00:00.000Z', timezone: 'America/New_York' }),
+      )
       mount()
       await flush()
 
       expect(text()).toContain('20 июля')
-      expect(text()).toContain('13:00')
+      expect(text()).toContain('16:00')
+      expect(text()).not.toContain('09:00')
     })
 
     it('falls back to «Мастером» when the practice carries no master name', async () => {

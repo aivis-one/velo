@@ -83,6 +83,7 @@ import FormShell from '@/components/shared/FormShell.vue'
 import MoodSlider from '@/components/shared/MoodSlider.vue'
 import { IconCalendar, IconCheck, IconMoodLow, IconMoodMid, IconMoodHigh } from '@/components/icons'
 import { formatDate } from '@/utils/format'
+import { useViewerTimezone } from '@/composables/useViewerTimezone'
 
 // Three slider zones (low -> high), passed to MoodSlider. Icons are .vue
 // components, so this stays in the view (not in the utils layer). Labels
@@ -101,6 +102,7 @@ const diaryStore = useDiaryStore()
 const toast = useToast()
 
 const practiceId = route.params.practiceId as string
+const viewerTz = useViewerTimezone()
 
 const practice = computed(() => practicesStore.selected)
 const practiceLoading = computed(() => practicesStore.selectedLoading)
@@ -149,8 +151,10 @@ const alreadyCheckedIn = computed<boolean>(() =>
   bookingsStore.bookings.some((b) => b.practice_id === practiceId && b.has_checkin),
 )
 
+// SW4: viewer's own profile timezone, matching flow siblings
+// PracticeDetailView.vue and EntryView.vue -- not the practice's own.
 const formattedDate = computed(() =>
-  practice.value ? formatDate(practice.value.scheduled_at, practice.value.timezone) : '',
+  practice.value ? formatDate(practice.value.scheduled_at, viewerTz.value) : '',
 )
 
 async function onSubmit(): Promise<void> {
