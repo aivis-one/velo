@@ -39,6 +39,16 @@
 
     <div v-if="loading" class="mreview__loader"><VLoader size="lg" /></div>
 
+    <!-- Error (SW7): distinct from "not found" -- retry, not a dead end. -->
+    <VEmptyState
+      v-else-if="error"
+      icon="warning"
+      title="Ошибка загрузки"
+      :description="error"
+    >
+      <VButton size="sm" variant="outline" @click="loadMaster">Повторить</VButton>
+    </VEmptyState>
+
     <template v-else-if="master">
       <!-- Profile -->
       <VCard class="mreview__profile" padding="none">
@@ -464,6 +474,7 @@ const masterId = route.params.id as string
 
 const master = ref<AdminMasterDetail | null>(null)
 const loading = ref(false)
+const error = ref<string | null>(null)
 const verifying = ref(false)
 const rejecting = ref(false)
 
@@ -582,6 +593,7 @@ async function loadMaster(): Promise<void> {
   const handed = (window.history.state as { master?: AdminMasterListItem }).master
   if (handed && handed.id === masterId) master.value = handed
   if (!master.value) loading.value = true
+  error.value = null
   try {
     // Bug 2 fix (ПРОМТ №405): prime the taxonomy catalog cache alongside the
     // detail fetch so a promoted custom method already resolves to a plain
@@ -592,7 +604,16 @@ async function loadMaster(): Promise<void> {
     master.value = detail
   } catch (e) {
     const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки данных'
-    toast.error(msg)
+    // SW7: a cold deep-link (no handed router-state, nothing on screen yet)
+    // gets its own error rung with a retry, distinct from "not found" -- a
+    // refresh failing on top of already-handed data stays toast-only
+    // (matches AdminPracticeDetailView's T21-1 "don't blank a working page
+    // over a secondary failure" convention).
+    if (!master.value) {
+      error.value = msg
+    } else {
+      toast.error(msg)
+    }
   } finally {
     loading.value = false
   }
