@@ -112,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   VLoader,
@@ -178,17 +178,17 @@ function onAsk(): void {
   toast.info('Вопрос мастеру -- скоро')
 }
 
-onMounted(async () => {
+async function loadMaster(id: string): Promise<void> {
   loading.value = true
   error.value = null
   try {
-    profile.value = await getPublicMaster(masterId.value)
+    profile.value = await getPublicMaster(id)
     // Upcoming practices by this master: reuse the public feed with a
     // master_id filter + scheduled status. One small page is enough.
     try {
       const res = await getPractices(
         {
-          master_id: masterId.value,
+          master_id: id,
           status: 'scheduled',
           sort_by: 'scheduled_at',
           sort_order: 'asc',
@@ -207,6 +207,17 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+}
+
+onMounted(() => {
+  void loadMaster(masterId.value)
+})
+
+// B11 item 2: Vue Router reuses this component instance when a navigation
+// only changes route params under the same matched record (master A's
+// public page -> master B's), so onMounted alone never re-fires.
+watch(masterId, (id) => {
+  void loadMaster(id)
 })
 </script>
 

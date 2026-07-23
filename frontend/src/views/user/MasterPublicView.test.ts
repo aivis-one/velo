@@ -53,17 +53,11 @@
 // "Non-fatal"). A master-fetch failure, conversely, never even calls
 // getPractices (proven below) and always reaches the combined error rung.
 //
-// SECONDARY FINDING (lower confidence, NOT the primary ask, flagged not
-// fixed): there is no `watch` on `route.params.id` / the `masterId` computed
-// anywhere in the script (confirmed by grep -- `watch` is not even imported).
-// Vue Router reuses a component instance across a route that only changes
-// params under the SAME matched record; `onMounted` therefore would NOT
-// re-fire and this screen would keep showing the PREVIOUS master under a NEW
-// master's URL. No current in-app link navigates master-profile -> a
-// DIFFERENT master-profile directly (checked every `user-master-public` push
-// site: only MasterCard.vue, always from a different screen/route), so this
-// is unreachable via the app's current UI -- but the code-level gap is real
-// and reproduced below by mutating the route param on an already-mounted
+// FIXED (B11 item 2): the script now `watch`es `masterId` and re-runs the
+// same load on change, so a param-only in-place navigation (Vue Router
+// reuses the component instance when only params change under the SAME
+// matched record) re-loads instead of keeping the previous master under a
+// new URL. Covered below by mutating the route param on an already-mounted
 // instance (no router simulation needed to expose it).
 //
 // TICKS: getPublicMaster (1 await) -> nested getPractices (1 await, only on
@@ -421,20 +415,40 @@ describe('MasterPublicView', () => {
   })
 
   // ===========================================================================
-  describe('secondary finding: no watch on the route param', () => {
-    it('mutating route.params.id on an ALREADY-MOUNTED instance does not trigger a re-fetch -- the screen would keep the previous master under a new URL (unreachable via current in-app links; a code-level gap, not fixed here)', async () => {
-      vi.mocked(mastersApi.getPublicMaster).mockResolvedValue(masterProfile({ user_id: 'm1' }))
+  describe('route param watch (B11 item 2)', () => {
+    it('mutating route.params.id on an ALREADY-MOUNTED instance re-fetches the new master -- Vue Router reuses the component instance when only params change under the same matched route', async () => {
+      vi.mocked(mastersApi.getPublicMaster).mockResolvedValueOnce(masterProfile({ user_id: 'm1' }))
       vi.mocked(practicesApi.getPractices).mockResolvedValue(page([]))
       mount()
       await flush()
       expect(mastersApi.getPublicMaster).toHaveBeenCalledTimes(1)
+      expect(mastersApi.getPublicMaster).toHaveBeenCalledWith('m1')
 
       // Simulate what a param-only in-place navigation would do to `route`.
+      vi.mocked(mastersApi.getPublicMaster).mockResolvedValueOnce(masterProfile({ user_id: 'm2' }))
       routeParams.id = 'm2'
       await flush()
 
-      expect(mastersApi.getPublicMaster).toHaveBeenCalledTimes(1) // NOT re-called
-      expect(mastersApi.getPublicMaster).toHaveBeenCalledWith('m1') // still the original id
+      expect(mastersApi.getPublicMaster).toHaveBeenCalledTimes(2)
+      expect(mastersApi.getPublicMaster).toHaveBeenLastCalledWith('m2')
+      expect(content()?.textContent).toContain('Анна Соколова')
+    })
+
+    it('re-fetch on param change shows the loader again and re-fetches upcoming practices scoped to the new master_id', async () => {
+      vi.mocked(mastersApi.getPublicMaster).mockResolvedValueOnce(masterProfile({ user_id: 'm1' }))
+      vi.mocked(practicesApi.getPractices).mockResolvedValue(page([]))
+      mount()
+      await flush()
+
+      vi.mocked(mastersApi.getPublicMaster).mockResolvedValueOnce(masterProfile({ user_id: 'm2' }))
+      routeParams.id = 'm2'
+      await flush()
+
+      expect(practicesApi.getPractices).toHaveBeenLastCalledWith(
+        expect.objectContaining({ master_id: 'm2', status: 'scheduled' }),
+        10,
+        0,
+      )
     })
   })
 })
