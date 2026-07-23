@@ -16,6 +16,7 @@
 # way to run these standalone the way the pure ladder logic was.
 # =============================================================================
 
+import asyncio
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -26,8 +27,10 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.database import get_session_factory
+from app.core.exceptions import BadRequestError
 from app.modules.bookings.models import Booking, BookingStatus
-from app.modules.bookings.service import auto_finalize_practice
+from app.modules.bookings.service import auto_finalize_practice, cancel_booking
 from app.modules.diary.models import DiaryEvent, DiaryEventKind
 from app.modules.masters.models import MasterProfile
 from app.modules.practices.models import Practice, PracticeStatus, PracticeType
@@ -409,3 +412,108 @@ async def test_admin_checkin_metric_still_counts_confirmed_not_attended(
         )
     ).scalar_one()
     assert count == 1, "CONFIRMED (Zoom-deferred) booking must still count as a participant"
+
+
+# ===================================================================
+# 5. SW1 (Батч B, ПРОМТ №579): FOR UPDATE closes the cancel/poller race
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_concurrent_cancel_during_poller_lock_is_refused_not_reverted(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    """SW1: attendance_service.py's Booking reads (ingest_report_for_meeting
+    :249, apply_legacy_proxy_fallback :314-321) now use with_for_update()
+    -- were a plain session.get()/select() with no lock. Proves the fix
+    closes the race: a cancel_booking commit landing between the poller's
+    read and its own write must not be silently reverted.
+
+    Uses TWO independent sessions from get_session_factory() (not the
+    shared db_session fixture) -- a single shared session cannot reproduce
+    real row-level blocking; the two transactions here are genuinely
+    separate connections.
+
+    Ordering forced via asyncio.Event: the poller locks the row FIRST
+    (mirrors production -- the poller reaches a booking before a
+    concurrent cancel request lands on it), THEN cancel_booking is
+    attempted concurrently against the SAME row.
+
+    Pre-fix (plain read, no lock): this exact ordering is the corruption
+    window -- the poller's early unlocked read does not block anything, so
+    cancel_booking (which DOES take FOR UPDATE, bookings/service.py:372)
+    proceeds, commits CANCELLED immediately, and the poller's later
+    unconditional `booking.status = ATTENDED` + commit overwrites it back
+    -- the cancellation is silently lost (Purchase already REFUNDED,
+    Booking now says attended).
+
+    Post-fix: cancel_booking's own FOR UPDATE blocks on the poller's lock,
+    unblocks only after the poller commits, re-reads the FRESH row under
+    that lock (status now ATTENDED, not CONFIRMED) and correctly refuses
+    via BadRequestError -- instead of succeeding only to be reverted.
+
+    ⚠ NOT RUN LOCALLY -- see module docstring (no Postgres reachable in
+    this environment; backend test collection itself fails locally on a
+    pre-existing, untouched .env/settings mismatch). Deferred to the
+    deploy gate (baseline 846/12). The reasoning above is what the gate
+    run is expected to confirm.
+    """
+    master_id = await _make_master(client, db_session, 79308)
+    practice = await _create_practice(db_session, master_id)
+    await _active_zoom_meeting(db_session, practice)
+    auth = await login_user(client, telegram_id=79328, first_name="Racer")
+    user = await db_session.get(User, auth["user"]["id"])
+    booking = Booking(
+        practice_id=practice.id, user_id=user.id,
+        status=BookingStatus.CONFIRMED.value,
+    )
+    db_session.add(booking)
+    await db_session.commit()
+    await db_session.refresh(booking)
+
+    factory = get_session_factory()
+    poller_locked = asyncio.Event()
+    cancel_attempted = asyncio.Event()
+
+    async def poller() -> None:
+        async with factory() as session_a:
+            row = (
+                await session_a.execute(
+                    select(Booking)
+                    .where(Booking.id == booking.id)
+                    .with_for_update()
+                )
+            ).scalar_one()
+            assert row.status == BookingStatus.CONFIRMED.value
+            poller_locked.set()
+            await cancel_attempted.wait()
+            # Give cancel_booking's FOR UPDATE time to actually queue and
+            # block behind this lock before we release it.
+            await asyncio.sleep(0.2)
+            row.status = BookingStatus.ATTENDED.value
+            row.attendance_decided_via = "zoom_report"
+            await session_a.commit()
+
+    async def canceller() -> BaseException | None:
+        await poller_locked.wait()
+        async with factory() as session_b:
+            cancel_attempted.set()
+            try:
+                await cancel_booking(booking.id, user, session_b)
+            except BadRequestError as exc:
+                return exc
+            await session_b.commit()
+            return None
+
+    _, cancel_error = await asyncio.gather(poller(), canceller())
+
+    await db_session.refresh(booking)
+    assert booking.status == BookingStatus.ATTENDED.value, (
+        "the poller locked first in this ordering -- it must win, proving "
+        "the lock serializes the two writers instead of losing one"
+    )
+    assert isinstance(cancel_error, BadRequestError), (
+        "cancel must be refused once it observes the fresh (no-longer-"
+        "CONFIRMED) row under lock -- not silently succeed only to be "
+        "reverted by the poller's commit (the pre-fix corruption)"
+    )

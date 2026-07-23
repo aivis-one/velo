@@ -246,10 +246,18 @@ async def ingest_report_for_meeting(
     for r in registrants:
         if r.role != ZoomRegistrantRole.STUDENT.value or r.booking_id is None:
             continue
-        booking = await session.get(Booking, r.booking_id)
+        booking = (
+            await session.execute(
+                select(Booking).where(Booking.id == r.booking_id).with_for_update()
+            )
+        ).scalar_one_or_none()
         if booking is None or booking.status != BookingStatus.CONFIRMED.value:
             # Already decided (or cancelled) by something else -- never
-            # overwritten here.
+            # overwritten here. FOR UPDATE (same discipline as
+            # cancel_booking, bookings/service.py:372) closes the race: a
+            # cancel committing between this read and our flush would
+            # otherwise be silently reverted by the unconditional status
+            # write below.
             continue
 
         # Raw-seconds comparison, no rounding of our own on top of Zoom's
@@ -313,10 +321,12 @@ async def apply_legacy_proxy_fallback(
 
     bookings = (
         await session.execute(
-            select(Booking).where(
+            select(Booking)
+            .where(
                 Booking.practice_id == practice.id,
                 Booking.status == BookingStatus.CONFIRMED.value,
             )
+            .with_for_update()
         )
     ).scalars().all()
     if not bookings:
