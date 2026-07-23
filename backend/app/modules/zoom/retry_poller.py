@@ -226,6 +226,17 @@ async def attempt_zoom_meeting_create(
     as last_sync_error, same posture as the initial attempt in
     practices/service.py. Caller commits.
 
+    SW13 (Батч B, ПРОМТ №579): "anything else" above used to be aspirational
+    only -- a non-ZoomAPIError exception (e.g. a malformed response.get()
+    call, an unwrapped network error) propagated straight past this
+    function's own except clause to _retry_one's outer `except Exception`,
+    which never touches retry_count or row.status. The row would then be
+    reclaimed and reattempted every cycle forever, uncapped, without ever
+    surfacing create_failed -- the exact silent-failure mode the cap exists
+    to prevent, just via a different door. The broad `except Exception`
+    below closes it: any non-ZoomAPIError failure now counts against the
+    cap exactly like a generic (non-429) ZoomAPIError does.
+
     A4 V2 (ПРОМТ №572): public (no leading underscore) -- besides
     _retry_one's own automatic-poller call below, practices/router.py's
     retry_zoom_meeting_endpoint calls this directly for a master-triggered
@@ -296,6 +307,21 @@ async def attempt_zoom_meeting_create(
             attempt=row.retry_count,
             at_cap=at_cap,
             status_code=exc.status_code,
+        )
+    except Exception as exc:
+        row.status = ZoomMeetingStatus.CREATE_FAILED.value
+        row.retry_count += 1
+        at_cap = row.retry_count >= settings.zoom_meeting_create_max_retries
+        suffix = " (retry cap reached, no further attempts)" if at_cap else ""
+        row.last_sync_error = (
+            f"create_meeting retry #{row.retry_count} failed with an "
+            f"unexpected (non-Zoom-API) error: {exc!r}{suffix}"
+        )
+        logger.exception(
+            "zoom_meeting_retry_unexpected_error",
+            practice_id=str(practice.id),
+            attempt=row.retry_count,
+            at_cap=at_cap,
         )
 
 
@@ -394,6 +420,11 @@ async def _attempt_registrant_create(
     store them -- only the frozen registration_email) rather than sent
     blank/placeholder, so a retried registrant shows the real person's name
     on Zoom's side, not a generic stand-in.
+
+    SW13 (Батч B, ПРОМТ №579): same broad `except Exception` fallback as
+    attempt_zoom_meeting_create above, same reasoning -- a non-ZoomAPIError
+    exception must still count against the cap, or it retries forever
+    without ever surfacing create_failed.
     """
     user = await session.get(User, row.user_id)
     first_name = (user.first_name if user else None) or "VELO"
@@ -448,4 +479,19 @@ async def _attempt_registrant_create(
             attempt=row.retry_count,
             at_cap=at_cap,
             status_code=exc.status_code,
+        )
+    except Exception as exc:
+        row.status = ZoomRegistrantStatus.CREATE_FAILED.value
+        row.retry_count += 1
+        at_cap = row.retry_count >= settings.zoom_registrant_create_max_retries
+        suffix = " (retry cap reached, no further attempts)" if at_cap else ""
+        row.last_sync_error = (
+            f"create_registrant retry #{row.retry_count} failed with an "
+            f"unexpected (non-Zoom-API) error: {exc!r}{suffix}"
+        )
+        logger.exception(
+            "zoom_registrant_retry_unexpected_error",
+            registrant_id=str(row.id),
+            attempt=row.retry_count,
+            at_cap=at_cap,
         )

@@ -416,6 +416,104 @@ async def test_retry_poller_stops_at_cap_and_stays_visibly_failed(
 
 
 # ===================================================================
+# 3b. SW13 (Батч B, ПРОМТ №579): a non-ZoomAPIError exception still
+#     counts against the retry cap -- must not retry forever unseen
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_meeting_create_generic_exception_counts_against_cap(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """attempt_zoom_meeting_create's docstring has always claimed "Never
+    raises -- ZoomAPIError (and anything else) is caught" -- but the code
+    only caught ZoomAPIError. A non-ZoomAPIError exception (a bug, a
+    malformed response, an unwrapped network error) escaped past this
+    function entirely to _retry_one's outer except, which never touches
+    retry_count or row.status -- the row would be reclaimed and reattempted
+    every cycle forever, uncapped, never surfacing create_failed.
+
+    Proves the fix: a generic (non-Zoom-API) exception now counts against
+    the cap exactly like a generic (non-429) ZoomAPIError failure does.
+    """
+    master = await _make_verified_master(client, db_session, telegram_id=79017)
+    practice_id = await _create_draft_practice(client, master)
+
+    zoom_meeting = ZoomMeeting(
+        practice_id=UUID(practice_id),
+        status=ZoomMeetingStatus.CREATE_FAILED.value,
+        retry_count=1,
+        last_sync_error="pre-seeded: first failure",
+    )
+    db_session.add(zoom_meeting)
+    await db_session.commit()
+
+    with patch(
+        "app.modules.zoom.retry_poller.create_meeting",
+        side_effect=RuntimeError("unexpected parsing bug, not a ZoomAPIError"),
+    ) as mock_create:
+        work_done = await _poll_cycle()
+        mock_create.assert_called_once()
+
+    assert work_done is True
+    await db_session.refresh(zoom_meeting)
+    assert zoom_meeting.status == ZoomMeetingStatus.CREATE_FAILED.value
+    assert zoom_meeting.retry_count == 2, (
+        "a non-ZoomAPIError failure must still advance retry_count -- "
+        "before the fix this stayed at 1 forever, retried every cycle "
+        "with no cap and no visible create_failed surfacing"
+    )
+    assert "unexpected" in zoom_meeting.last_sync_error
+
+
+@pytest.mark.asyncio
+async def test_registrant_create_generic_exception_counts_against_cap(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Same SW13 fix, registrant-creation path: a non-ZoomAPIError exception
+    from create_registrant now counts against the cap instead of escaping
+    _attempt_registrant_create's except clause entirely."""
+    master = await _make_verified_master(client, db_session, telegram_id=79018)
+    practice_id = await _create_draft_practice(client, master)
+
+    resp = await _publish(client, master, practice_id)
+    assert resp.status_code == 200
+    zoom_meeting = await _get_zoom_meeting(db_session, practice_id)
+    assert zoom_meeting.status == ZoomMeetingStatus.ACTIVE.value
+
+    registrant = ZoomRegistrant(
+        zoom_meeting_id=zoom_meeting.id,
+        user_id=UUID(master["user"]["id"]),
+        booking_id=None,
+        role=ZoomRegistrantRole.STUDENT.value,
+        status=ZoomRegistrantStatus.CREATE_FAILED.value,
+        registration_email="buggy-student@users.velo.invalid",
+        retry_count=1,
+        last_sync_error="pre-seeded: first failure",
+    )
+    db_session.add(registrant)
+    await db_session.commit()
+
+    with patch(
+        "app.modules.zoom.retry_poller.create_registrant",
+        side_effect=RuntimeError("unexpected parsing bug, not a ZoomAPIError"),
+    ) as mock_create:
+        work_done = await _poll_cycle()
+        mock_create.assert_called_once()
+
+    assert work_done is True
+    await db_session.refresh(registrant)
+    assert registrant.status == ZoomRegistrantStatus.CREATE_FAILED.value
+    assert registrant.retry_count == 2, (
+        "a non-ZoomAPIError failure must still advance retry_count on the "
+        "registrant path too"
+    )
+    assert "unexpected" in registrant.last_sync_error
+
+
+# ===================================================================
 # 4a. SW6 (Батч B, ПРОМТ №579): registrant 429 leaves status untouched
 # ===================================================================
 
