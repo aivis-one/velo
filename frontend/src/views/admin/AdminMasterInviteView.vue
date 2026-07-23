@@ -55,6 +55,7 @@ import { useRouter } from 'vue-router'
 import { VBackButton, VCard, VButton } from '@/components/ui'
 import { inviteMaster } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
+import { extractApiError } from '@/composables/useApiError'
 import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
@@ -77,7 +78,7 @@ async function onCreate(): Promise<void> {
       // the 503 or the code itself, both test-pinned.
       toast.error('Ссылки для приглашений временно недоступны. Сообщите в поддержку.')
     } else {
-      toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось создать ссылку')
+      toast.error(extractApiError(e, 'Не удалось создать ссылку'))
     }
   } finally {
     creating.value = false

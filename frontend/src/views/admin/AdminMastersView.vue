@@ -130,7 +130,7 @@ import type { AdminMasterListItem } from '@/api/admin'
 import { masterDisplayName, masterStatusVariant } from '@/utils/adminHelpers'
 import { parseMethods, directionLabel, resolveStyleLabel, primeMethodTaxonomyCatalog } from '@/utils/methodTaxonomy'
 import { formatMoney } from '@/utils/format'
-import { ApiResponseError } from '@/api/client'
+import { extractApiError } from '@/composables/useApiError'
 import { useToast } from '@/composables/useToast'
 
 /** направление+вид as chip-language entries: filled (active) for the
@@ -249,8 +249,7 @@ async function load(): Promise<void> {
     total.value = res.total
   } catch (e) {
     error.value = true
-    const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки мастеров'
-    toast.error(msg)
+    toast.error(extractApiError(e, 'Ошибка загрузки мастеров'))
   } finally {
     loading.value = false
   }

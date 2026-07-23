@@ -460,7 +460,7 @@ import type {
   AdminMasterProfileUpdate,
   RevokeMasterAdvisory,
 } from '@/api/admin'
-import { ApiResponseError } from '@/api/client'
+import { extractApiError } from '@/composables/useApiError'
 import { masterDisplayName, masterStatusLabel } from '@/utils/adminHelpers'
 import { LANGUAGES } from '@/utils/languages'
 import MethodTaxonomyPicker from '@/components/shared/MethodTaxonomyPicker.vue'
@@ -578,8 +578,7 @@ async function onRevoke(): Promise<void> {
     showRevoke.value = false
     toast.success('Мастер отозван — аккаунт стал пользователем')
   } catch (e) {
-    const msg = e instanceof ApiResponseError ? e.detail : 'Не удалось отозвать мастера'
-    toast.error(msg)
+    toast.error(extractApiError(e, 'Не удалось отозвать мастера'))
   } finally {
     revoking.value = false
   }
@@ -603,7 +602,7 @@ async function loadMaster(): Promise<void> {
     const [detail] = await Promise.all([getMasterById(masterId), primeMethodTaxonomyCatalog()])
     master.value = detail
   } catch (e) {
-    const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки данных'
+    const msg = extractApiError(e, 'Ошибка загрузки данных')
     // SW7: a cold deep-link (no handed router-state, nothing on screen yet)
     // gets its own error rung with a retry, distinct from "not found" -- a
     // refresh failing on top of already-handed data stays toast-only
@@ -646,8 +645,7 @@ async function saveMethods(): Promise<void> {
     editingMethods.value = false
     toast.success('Направления обновлены')
   } catch (e) {
-    const msg = e instanceof ApiResponseError ? e.detail : 'Не удалось сохранить направления'
-    toast.error(msg)
+    toast.error(extractApiError(e, 'Не удалось сохранить направления'))
   } finally {
     savingMethods.value = false
   }
@@ -743,7 +741,7 @@ async function saveProfile(patch: AdminMasterProfileUpdate): Promise<void> {
     editing.value = null
     toast.success('Сохранено')
   } catch (e) {
-    fieldError.value = e instanceof ApiResponseError ? e.detail : 'Не удалось сохранить'
+    fieldError.value = extractApiError(e, 'Не удалось сохранить')
   } finally {
     savingField.value = false
   }
@@ -841,8 +839,7 @@ async function doVerify(promote?: string[], masterOnly?: string[]): Promise<void
     // S-1/S-2: push to the list (fresh mount) instead of back().
     router.push({ name: 'admin-masters' })
   } catch (e) {
-    const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка верификации'
-    toast.error(msg)
+    toast.error(extractApiError(e, 'Ошибка верификации'))
   } finally {
     verifying.value = false
     showPromote.value = false
@@ -876,8 +873,7 @@ async function onReject(): Promise<void> {
     // S-1/S-2: push to the list (fresh mount) instead of back().
     router.push({ name: 'admin-masters' })
   } catch (e) {
-    const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка при отклонении'
-    toast.error(msg)
+    toast.error(extractApiError(e, 'Ошибка при отклонении'))
   } finally {
     rejecting.value = false
   }

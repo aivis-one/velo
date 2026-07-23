@@ -165,7 +165,7 @@ import { VBadge, VButton, VTextarea, VEmptyState, VLoader, VCard } from '@/compo
 import { useToast } from '@/composables/useToast'
 import { getReportById, resolveReport, dismissReport } from '@/api/admin'
 import type { ReportResponse } from '@/api/admin'
-import { ApiResponseError } from '@/api/client'
+import { extractApiError } from '@/composables/useApiError'
 import {
   reportStatusVariant,
   reportStatusLabel,
@@ -221,7 +221,7 @@ async function loadReport(): Promise<void> {
     currentStatus.value = fetched.status
   } catch (e) {
     // SW8: own error rung + retry, distinct from "not found".
-    error.value = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки жалобы'
+    error.value = extractApiError(e, 'Ошибка загрузки жалобы')
   } finally {
     loading.value = false
   }
@@ -241,8 +241,7 @@ async function onResolve(): Promise<void> {
     // S-1/S-2: push to list instead of back() -- guarantees fresh loadInitial().
     router.push({ name: 'admin-reports' })
   } catch (e) {
-    const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка при обработке'
-    toast.error(msg)
+    toast.error(extractApiError(e, 'Ошибка при обработке'))
   } finally {
     resolving.value = false
   }
@@ -257,8 +256,7 @@ async function onDismiss(): Promise<void> {
     // S-1/S-2: push to list instead of back() -- guarantees fresh loadInitial().
     router.push({ name: 'admin-reports' })
   } catch (e) {
-    const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка при обработке'
-    toast.error(msg)
+    toast.error(extractApiError(e, 'Ошибка при обработке'))
   } finally {
     dismissing.value = false
   }

@@ -140,7 +140,7 @@ import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
 import { IconCalendar, IconProfile, IconCheck, IconClose } from '@/components/icons'
 import { getAdminPracticeDetail, getAdminZoomAttendance } from '@/api/admin'
 import type { AdminZoomAttendanceResponse } from '@/api/admin'
-import { ApiResponseError } from '@/api/client'
+import { extractApiError } from '@/composables/useApiError'
 import { formatDateShort } from '@/utils/format'
 import type { AdminPracticeDetailResponse, AdminRosterEntry } from '@/api/types'
 
@@ -211,7 +211,7 @@ async function load(): Promise<void> {
   try {
     practice.value = await getAdminPracticeDetail(practiceId)
   } catch (e) {
-    error.value = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки'
+    error.value = extractApiError(e, 'Ошибка загрузки')
   } finally {
     loading.value = false
   }
