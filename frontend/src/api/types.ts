@@ -163,6 +163,14 @@ export interface PracticeResponse extends GeneratedPracticeResponse {
    * preparing" apart from "permanently failed" for BOTH the master and a
    * booked participant. */
   zoom_meeting_status?: string | null
+  /** A4 V6 (ПРОМТ №572): True when this response is the master's own
+   * EARLIER submission returned again (a window-scoped retry-after-timeout
+   * dedup, or the losing side of a genuine concurrent double-tap) instead
+   * of a freshly created practice. Only ever meaningful on the CREATE
+   * endpoint's response -- optional/undefined everywhere else (list,
+   * detail, update, delete, cancel), same fixture-compatibility reason as
+   * the other bridged fields above. */
+  deduplicated?: boolean
 }
 
 export interface PracticeSummary extends GeneratedPracticeSummary {

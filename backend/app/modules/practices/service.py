@@ -553,6 +553,7 @@ def practice_to_response(
     zoom_link_visible: bool = False,
     zoom_host_join_url: str | None = None,
     zoom_meeting_status: str | None = None,
+    deduplicated: bool = False,
 ) -> PracticeResponse:
     """Build PracticeResponse from ORM object with master_name and master_methods.
 
@@ -610,6 +611,12 @@ def practice_to_response(
     # A4 V2 (ПРОМТ №572): NOT owner-gated, unlike zoom_host_join_url above --
     # see the schema field's own docstring for why.
     resp.zoom_meeting_status = zoom_meeting_status
+
+    # A4 V6 (ПРОМТ №572): True only on create_practice's two dedup-return
+    # paths (see that function's own docstring). Every other caller of this
+    # builder (update/delete/cancel/list/detail) leaves the schema default
+    # (False) -- deduplication is a CREATE-time concept only.
+    resp.deduplicated = deduplicated
 
     return resp
 
@@ -760,8 +767,18 @@ async def create_practice(
     user: User,
     body: CreatePracticeRequest,
     session: AsyncSession,
-) -> Practice:
+) -> tuple[Practice, bool]:
     """Create a new practice in draft status.
+
+    Returns (practice, deduplicated) -- A4 V6 (ПРОМТ №572): deduplicated is
+    True on EITHER return-the-existing-practice path below (the window
+    check or the post-race lookup), False on a genuine new insert. Before
+    this, both paths returned a bare Practice indistinguishable from a
+    freshly created one -- the caller (create_practice_endpoint) had no way
+    to tell the master "this is your EARLIER submission, not a new one",
+    so a second click after a timeout, or the losing side of a genuine
+    concurrent double-submit (A4 V7), silently looked like success with no
+    signal that nothing new was actually created.
 
     Calendar taxonomy (direction / difficulty / style) is written into the
     data.taxonomy JSONB sandbox via set_jsonb() -- direction and difficulty
@@ -803,7 +820,7 @@ async def create_practice(
             existing_practice_id=str(duplicate.id),
             title=body.title,
         )
-        return duplicate
+        return duplicate, True
 
     await _validate_taxonomy(body.direction, body.style, session)
     await _assert_master_confirmed_taxonomy(user.id, body.direction, body.style, session)
@@ -857,7 +874,7 @@ async def create_practice(
                 existing_practice_id=str(winner.id),
                 title=body.title,
             )
-            return winner
+            return winner, True
         # Practically unreachable: uq_practice_master_title_scheduled_
         # recurrence only fires on an exact (master_id, title,
         # scheduled_at, recurrence) collision, so the winner must exist.
@@ -876,7 +893,7 @@ async def create_practice(
         difficulty=body.difficulty,
     )
 
-    return practice
+    return practice, False
 
 
 async def get_practice(

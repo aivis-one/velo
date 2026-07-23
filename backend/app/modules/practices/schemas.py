@@ -623,6 +623,19 @@ class PracticeResponse(BaseModel):
     # both rendered the identical "готовится" spinner in both cases.
     zoom_meeting_status: str | None = None
 
+    # A4 V6 (ПРОМТ №572): True when create_practice returned an EXISTING
+    # practice instead of creating a new one -- either the window-scoped
+    # duplicate-submit check (_find_recent_duplicate_practice, ПРОМТ №559)
+    # or the TOCTOU race-lost path (uq_practice_master_title_scheduled_
+    # recurrence, A4 V7). Before this field existed, both paths returned a
+    # bare PracticeResponse indistinguishable from a freshly created one --
+    # the master had no signal that their second submission (a timeout
+    # retry, or the losing side of a genuine concurrent double-tap) did NOT
+    # create anything new. Only ever True on the create endpoint's
+    # response; every other builder call site (update/delete/cancel/list/
+    # detail) leaves the schema default.
+    deduplicated: bool = False
+
     # zoom_link (M-3 access gate) is handled at the response-building layer,
     # NOT with a model_validator: FastAPI re-validates the returned model
     # against response_model, which would re-run an "after" validator and wipe

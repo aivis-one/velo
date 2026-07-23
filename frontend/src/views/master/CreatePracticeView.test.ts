@@ -104,8 +104,9 @@ vi.mock('vue-router', () => ({
 
 const toastError = vi.fn()
 const toastSuccess = vi.fn()
+const toastInfo = vi.fn()
 vi.mock('@/composables/useToast', () => ({
-  useToast: () => ({ error: toastError, success: toastSuccess, info: vi.fn() }),
+  useToast: () => ({ error: toastError, success: toastSuccess, info: toastInfo }),
 }))
 
 // Both stores are DEPENDENCIES. Getters over a mutable object so tests mutate
@@ -393,6 +394,7 @@ beforeEach(() => {
   replace.mockReset()
   toastError.mockReset()
   toastSuccess.mockReset()
+  toastInfo.mockReset()
   window.history.replaceState({}, '')
 })
 
@@ -1018,15 +1020,44 @@ describe('CreatePracticeView', () => {
       })
     })
 
-    it('ПРОМТ №559: skips the publish PATCH entirely when createPractice returns an ALREADY-scheduled practice', async () => {
+    it('ПРОМТ №559 / A4 V6 (ПРОМТ №572): a dedup-returned ALREADY-scheduled practice skips the publish PATCH AND is honestly presented as the master\'s existing practice, not a new one', async () => {
       // The backend's own duplicate-submission check (create_practice)
       // returns the master's EARLIER submission unchanged, status='scheduled'
-      // already, when this looks like a retry within its short window. A
-      // second PATCH .../status=scheduled would 400 ("Cannot transition
-      // from scheduled to scheduled") for no reason -- there is nothing
-      // left to publish, and the master must still see a normal success.
+      // already, when this looks like a retry within its short window --
+      // and, since A4 V6, marks the response deduplicated=true. Before V6
+      // this branch was reached via the status==='scheduled' heuristic
+      // alone and showed "Практика создана!" like a real success -- the
+      // exact defect V6 closes. A second PATCH .../status=scheduled would
+      // ALSO 400 ("Cannot transition from scheduled to scheduled") for no
+      // reason, so that part of the original fix still holds.
       vi.mocked(practicesApi.createPractice).mockResolvedValue(
-        practice({ id: 'p_existing', status: 'scheduled' }),
+        practice({ id: 'p_existing', status: 'scheduled', deduplicated: true }),
+      )
+      mount()
+      await flush()
+      await fillMinimalForm()
+
+      submitForm()
+      await flush()
+
+      expect(practicesApi.updatePractice).not.toHaveBeenCalled()
+      expect(toastInfo).toHaveBeenCalledWith(
+        'Вы уже создавали эту практику — открываем существующую',
+      )
+      expect(toastSuccess).not.toHaveBeenCalled()
+      expect(replace).toHaveBeenCalledWith({
+        name: 'master-practice-detail',
+        params: { id: 'p_existing' },
+      })
+    })
+
+    it('A4 V6: a GENUINELY new practice (deduplicated=false/absent) still gets the normal success flow', async () => {
+      // The discriminator: without deduplicated=true, status='scheduled' on
+      // its own must NOT be read as "existing" -- a series root that
+      // legitimately publishes straight to scheduled must still say
+      // "Практика создана!" and land on the list, not the detail screen.
+      vi.mocked(practicesApi.createPractice).mockResolvedValue(
+        practice({ id: 'p_new', status: 'scheduled', deduplicated: false }),
       )
       mount()
       await flush()
@@ -1037,7 +1068,10 @@ describe('CreatePracticeView', () => {
 
       expect(practicesApi.updatePractice).not.toHaveBeenCalled()
       expect(toastSuccess).toHaveBeenCalledWith('Практика создана!')
-      expect(replace).toHaveBeenCalled()
+      expect(toastInfo).not.toHaveBeenCalledWith(
+        'Вы уже создавали эту практику — открываем существующую',
+      )
+      expect(replace).toHaveBeenCalledWith({ name: 'master-practices' })
     })
 
     it('on success: reports it, invalidates the list cache and REPLACES the route', async () => {

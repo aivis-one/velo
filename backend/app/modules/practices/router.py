@@ -227,7 +227,11 @@ async def create_practice_endpoint(
 ) -> PracticeResponse:
     """Create a new practice (verified master only)."""
     user, _profile = master_tuple
-    practice = await create_practice(user, body, session)
+    # A4 V6 (ПРОМТ №572): deduplicated is True when create_practice returned
+    # an EXISTING practice (the window-scoped dedup check, or the TOCTOU
+    # race-lost path, A4 V7) instead of creating a new one -- see that
+    # function's own docstring.
+    practice, deduplicated = await create_practice(user, body, session)
     await session.flush()
     await session.refresh(practice)
     # F1 (№263): this endpoint is owner-only (master guard + ownership check),
@@ -248,6 +252,7 @@ async def create_practice_endpoint(
         practice, user.first_name,
         zoom_link_visible=True, zoom_host_join_url=host_join_url,
         zoom_meeting_status=zoom_meeting_status,
+        deduplicated=deduplicated,
     )
 
 

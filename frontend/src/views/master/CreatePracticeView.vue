@@ -948,25 +948,43 @@ async function submit(): Promise<void> {
       recurrence: form.is_recurring ? buildRecurrence() : null,
     })
 
+    // A4 V6 (ПРОМТ №572): `deduplicated` is the EXPLICIT backend signal that
+    // `created` is the master's own EARLIER submission (the window-scoped
+    // retry-after-timeout check, ПРОМТ №559, or the losing side of a
+    // genuine concurrent double-tap, A4 V7) -- not a new practice. Before
+    // this field existed, the form said "Практика создана!" and navigated
+    // to the list regardless, so a master who double-tapped had no way to
+    // learn that only ONE practice/series exists, not two. Skips the
+    // publish PATCH entirely (the existing practice's own status is
+    // whatever it already is -- forcing 'scheduled' on it here would be
+    // this form silently changing a practice it did not create) and takes
+    // the master straight to that existing practice instead of the list.
+    // Draft cleared here too (this exact submission already exists, so
+    // there is nothing left for it to resurrect into) -- same drop as the
+    // normal path below, just earlier, since there is no publish step
+    // left that could still fail and need the draft preserved for a retry.
+    if (created.deduplicated) {
+      suppressSave = true
+      clearDraft()
+      toast.info('Вы уже создавали эту практику — открываем существующую')
+      router.replace({ name: 'master-practice-detail', params: { id: created.id } })
+      void masterStore.refreshMyPractices().catch(() => {})
+      return
+    }
+
     // Publish immediately: a freshly created practice must be live & bookable,
     // not a draft that needs a second edit→«Опубликовать» step (operator
     // 2026-06-17). The backend create defaults to 'draft'; we run the same
     // draft→scheduled PATCH the edit screen uses, so the practice appears on the
     // dashboard «Ближайшая практика» (scheduled/live only) right away.
-    //
-    // ПРОМТ №559: skip the PATCH entirely when `created` is already
-    // 'scheduled' -- createPractice() returns the MASTER's own earlier
-    // submission unchanged (not a new draft) when it detects a duplicate
-    // within its short window (retry after a perceived timeout, the exact
-    // failure this closes). Re-sending the same PATCH would 400
-    // ("Cannot transition from scheduled to scheduled") on a retry for no
-    // reason -- there is nothing left to publish.
     if (created.status !== 'scheduled') {
       await updatePractice(created.id, { status: 'scheduled' })
     }
 
     // Draft fulfilled — drop it (and block any late debounced save) so it can't
-    // resurrect on the next create.
+    // resurrect on the next create. Runs only AFTER a successful publish: if
+    // the PATCH above throws, control never reaches here and the draft
+    // survives for a retry (see the catch block's failed-publish test).
     suppressSave = true
     clearDraft()
 

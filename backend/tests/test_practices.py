@@ -466,6 +466,56 @@ async def test_concurrent_duplicate_creates_yield_exactly_one_practice(
         f"submit, found {count}"
     )
 
+    # A4 V6: the LOSING side of the race must be told it lost -- exactly one
+    # of the two responses is honestly marked deduplicated, never both
+    # (that would mean nothing was ever actually created) and never neither
+    # (that would mean the race-lost path forgot to set the flag).
+    deduplicated_flags = [r.json()["deduplicated"] for r in responses]
+    assert deduplicated_flags.count(True) == 1, (
+        f"expected exactly one response marked deduplicated=true, got {deduplicated_flags}"
+    )
+    assert deduplicated_flags.count(False) == 1
+
+
+@pytest.mark.asyncio
+async def test_create_practice_window_dedup_marks_the_second_response(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A4 V6: a SEQUENTIAL retry within practice_duplicate_submit_window_
+    minutes (the ПРОМТ №559 case this dedup check was built for -- a
+    frontend timeout, not a race) must be marked deduplicated=true on the
+    SECOND response. Before this field existed, the second POST returned
+    200-shaped success with no way for the master to tell it apart from a
+    genuine new practice -- they would believe two practices/series exist
+    when only one does.
+    """
+    master = await _make_verified_master(client, db_session, telegram_id=60052)
+    body = _valid_practice_body(title="Sequential Retry Practice")
+
+    first = await client.post(
+        PRACTICES_URL, json=body, headers=auth_headers(master["session_token"]),
+    )
+    assert first.status_code == 201
+    assert first.json()["deduplicated"] is False
+
+    second = await client.post(
+        PRACTICES_URL, json=body, headers=auth_headers(master["session_token"]),
+    )
+    assert second.status_code == 201
+    assert second.json()["id"] == first.json()["id"]
+    assert second.json()["deduplicated"] is True
+
+    count = (
+        await db_session.execute(
+            select(func.count()).select_from(Practice).where(
+                Practice.master_id == UUID(master["user"]["id"]),
+                Practice.title == "Sequential Retry Practice",
+            )
+        )
+    ).scalar_one()
+    assert count == 1
+
 
 # ---------------------------------------------------------------------------
 # GET /practices/{id} -- success
