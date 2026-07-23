@@ -31,7 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
 from app.modules.bookings.service import auto_finalize_practice
-from app.modules.diary.models import DiaryEvent
+from app.modules.diary.models import DiaryEvent, DiaryEventKind
 from app.modules.masters.models import MasterProfile
 from app.modules.practices.models import Practice
 from app.modules.users.models import User, UserRole
@@ -518,6 +518,23 @@ async def test_finalize_projects_outcome_for_attended_and_no_show(
     ]
     assert len(abs_outcome) == 1
     assert abs_outcome[0]["snapshot"]["outcome_status"] == "no_show"
+
+    # DB-level check, deliberately separate from the feed/response-body
+    # assertions above: the feed query filters on is_hidden (feed_service.py)
+    # so an item's mere presence never directly proves the column's value --
+    # it only proves the WHERE clause matched. Read the DiaryEvent rows
+    # directly to pin the column itself (mirrors test_zoom_attendance_decision.py's
+    # pattern for the same kind).
+    outcome_events = (
+        await db_session.execute(
+            select(DiaryEvent).where(
+                DiaryEvent.kind == DiaryEventKind.PRACTICE_OUTCOME.value,
+                DiaryEvent.source_id == UUID(pid),
+            )
+        )
+    ).scalars().all()
+    assert len(outcome_events) == 2
+    assert all(e.is_hidden is False for e in outcome_events)
 
 
 # ===================================================================
