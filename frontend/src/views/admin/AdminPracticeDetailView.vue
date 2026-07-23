@@ -162,7 +162,7 @@ const masterInitial = computed<string>(() =>
 )
 
 const whenLabel = computed<string>(() =>
-  practice.value ? formatDateShort(practice.value.scheduled_at) : '',
+  practice.value ? formatDateShort(practice.value.scheduled_at, practice.value.timezone) : '',
 )
 
 const bookedLabel = computed<string>(() => String(practice.value?.booked ?? '—'))

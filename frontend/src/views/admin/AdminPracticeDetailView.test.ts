@@ -116,6 +116,7 @@ function practice(overrides: Partial<AdminPracticeDetailResponse> = {}): AdminPr
     booked: 2,
     capacity: 10,
     status: 'upcoming',
+    timezone: 'Europe/Berlin',
     attended: 0,
     roster: [rosterEntry({ user_id: 'u_1' }), rosterEntry({ user_id: 'u_2', name: 'Борис Сидоров' })],
     ...overrides,
@@ -449,6 +450,28 @@ describe('AdminPracticeDetailView', () => {
       await flush()
 
       expect(statValue('Свободно')).toBe('0')
+    })
+
+    it('SW5: whenLabel renders in the PRACTICE\'s own timezone, not a hardcoded UTC default -- must agree with AdminPracticesView\'s list item, which already threads timezone through', async () => {
+      // 2020-01-15T00:30:00Z: in UTC this is 15 января. In Pacific/Honolulu
+      // (UTC-10, no DST) it is still 2020-01-14 14:30 local -- 14 января.
+      // Before this fix, formatDateShort's timezone param defaulted to 'UTC'
+      // (no third arg was ever passed), so this practice's OWN timezone
+      // field was silently ignored and every detail page showed the UTC
+      // date regardless of where the practice actually happens.
+      vi.mocked(adminApi.getAdminPracticeDetail).mockResolvedValue(
+        practice({
+          id: 'p_upcoming',
+          status: 'upcoming',
+          scheduled_at: '2020-01-15T00:30:00Z',
+          timezone: 'Pacific/Honolulu',
+        }),
+      )
+      mount('p_upcoming')
+      await flush()
+
+      expect(text()).toContain('14 января')
+      expect(text()).not.toContain('15 января')
     })
   })
 

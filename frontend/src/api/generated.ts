@@ -139,6 +139,7 @@ export interface AdminPracticeDetailResponse {
   booked: number
   capacity: number | null
   status: string
+  timezone: string
   attended: number
   roster: AdminRosterEntry[]
 }
@@ -679,7 +680,7 @@ export interface MasterNotificationSettingsUpdate {
   schedule?: NotificationScheduleUpdate | null
 }
 
-/** Public master profile representation. F7: payout field added -- extracted from data.get("payout"). None when master has not configured payout details yet. CR-01: min_withdrawal_cents and withdrawal_fee_cents added from settings so frontend does not hardcode financial constants. */
+/** Self-only master profile representation (GET/PATCH /masters/me/*). NOT public -- carries financial fields (frozen_cents, available_cents, payout) and is only ever returned from get_current_master-gated endpoints. MasterPublicResponse below is the actual public schema and MUST stay financial-field-free (see its own docstring). F7: payout field added -- extracted from data.get("payout"). None when master has not configured payout details yet. CR-01: min_withdrawal_cents and withdrawal_fee_cents added from settings so frontend does not hardcode financial constants. */
 export interface MasterProfileResponse {
   user_id: string
   status: string
@@ -1026,6 +1027,8 @@ export interface PracticeResponse {
   created_at: string
   updated_at: string | null
   zoom_host_join_url?: string | null
+  zoom_meeting_status?: string | null
+  deduplicated?: boolean
 }
 
 /** Compact practice representation for embedding in related responses. Used inside BookingWithPracticeResponse, WaitlistWithPracticeResponse, and PurchaseWithPracticeResponse to give the frontend enough data for list-view cards without a separate GET /practices/{id} call. CR-01: timezone added -- Practice ORM has timezone as NOT NULL, model_validate() picks it up automatically via from_attributes. Without this field, frontend fell back to Europe/Berlin for all practices regardless of actual timezone. status added -- lets list views (my bookings, dashboard nearest card) tell a live practice from a scheduled one without a separate GET /practices/{id} call. Picked up automatically via from_attributes (Practice ORM status is NOT NULL with a default). */
@@ -1044,6 +1047,7 @@ export interface PracticeSummary {
   price_cents: number
   currency: string
   zoom_link?: string | null
+  zoom_meeting_status?: string | null
 }
 
 /** POST /api/v1/practices/{id}/preview-purchase -- request body. Optional promo_code for pricing preview. */

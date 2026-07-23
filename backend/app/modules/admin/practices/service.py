@@ -217,6 +217,7 @@ async def get_admin_practice_detail(
         booked=booked,
         capacity=practice.max_participants,
         status=_temporal_status(practice.scheduled_at, now),
+        timezone=practice.timezone,
         attended=attended,
         roster=roster,
     )
