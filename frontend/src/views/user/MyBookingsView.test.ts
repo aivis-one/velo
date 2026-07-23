@@ -33,7 +33,8 @@ import * as bookingsApi from '@/api/bookings'
 // The REAL store, read where the assertion is about which error ref a failure
 // landed in -- the distinction the №442 root fix introduced.
 import { useBookingsStore } from '@/stores/bookings'
-import type { BookingWithPracticeResponse } from '@/api/types'
+import { useAuthStore } from '@/stores/auth'
+import type { BookingWithPracticeResponse, UserResponse } from '@/api/types'
 
 vi.mock('@/api/bookings')
 
@@ -103,6 +104,37 @@ function page(items: BookingWithPracticeResponse[], total = items.length) {
   return { items, total, limit: 20, offset: 0 }
 }
 
+// SW3: the viewer's profile timezone, distinct from every fixture's own
+// practice.timezone (default 'UTC') -- used to prove isToday/isTomorrow/
+// badgeFor read the VIEWER's tz, not the practice's own.
+const VIEWER_TZ = 'Europe/Moscow' // UTC+3
+
+function user(overrides: Partial<UserResponse> = {}): UserResponse {
+  return {
+    id: 'user_1',
+    telegram_id: 1,
+    role: 'user',
+    first_name: 'Аня',
+    last_name: null,
+    avatar_url: null,
+    timezone: VIEWER_TZ,
+    language: 'ru',
+    is_active: true,
+    balance_cents: 0,
+    created_at: '2026-01-01T00:00:00Z',
+    last_login_at: null,
+    onboarding_completed: true,
+    master_onboarding_completed: false,
+    phone: null,
+    bio: null,
+    email: null,
+    notifications: {} as UserResponse['notifications'],
+    master_notifications: null,
+    role_switch: null,
+    ...overrides,
+  }
+}
+
 let app: App | null = null
 let host: HTMLElement | null = null
 let pinia: Pinia
@@ -134,6 +166,7 @@ beforeEach(() => {
   pinia = createPinia()
   setActivePinia(pinia)
   vi.mocked(bookingsApi.getMyBookings).mockReset().mockResolvedValue(page([]))
+  useAuthStore().user = user()
   push.mockReset()
   back.mockReset()
 })
@@ -331,6 +364,31 @@ describe('MyBookingsView', () => {
 
       expect(text()).toContain('Предстоящие')
       expect(text()).toContain('В эфире')
+    })
+
+    it('SW3: badge uses the VIEWER profile timezone, not the practice\'s own -- distinguishing fixture', async () => {
+      // Same distinguishing instant/tz pair as CalendarView's SW2 test: 20:00
+      // UTC on the 20th (after NOW=12:00Z, not live, not ended). In the
+      // VIEWER's Moscow (UTC+3) that's 23:00 on the 20th -- same calendar day
+      // as NOW there (15:00) -- so the correct badge is "Сегодня". In the
+      // practice's OWN tz (Asia/Yekaterinburg, UTC+5, no DST) the same instant
+      // is 01:00 on the 21st while NOW there is 17:00 on the 20th, so the OLD
+      // buggy behaviour (reading b.practice.timezone) badges it "Завтра"
+      // instead -- a genuinely different label, not a coincidental match.
+      vi.mocked(bookingsApi.getMyBookings).mockResolvedValue(
+        page([
+          booking(
+            'tzcheck',
+            { status: 'confirmed' },
+            { scheduled_at: '2026-07-20T20:00:00Z', duration_minutes: 60, timezone: 'Asia/Yekaterinburg' },
+          ),
+        ]),
+      )
+      mount()
+      await flush()
+
+      expect(text()).toContain('Сегодня')
+      expect(text()).not.toContain('Завтра')
     })
   })
 
