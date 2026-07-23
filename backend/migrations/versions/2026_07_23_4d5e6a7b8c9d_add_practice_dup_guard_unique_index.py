@@ -39,6 +39,25 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     """Apply this migration."""
+    # MIG1: this table predates the dup-guard, so it may already hold duplicates
+    # from the pre-fix TOCTOU race. Soft-delete all but the earliest of each
+    # (master_id, title, scheduled_at, recurrence) group so the unique index
+    # below builds on any non-empty database.
+    op.execute(
+        """
+        UPDATE practices SET status = 'deleted'
+        WHERE id IN (
+            SELECT id FROM (
+                SELECT id, row_number() OVER (
+                    PARTITION BY master_id, title, scheduled_at,
+                                 COALESCE(data -> 'recurrence', 'null'::jsonb)
+                    ORDER BY created_at
+                ) AS rn
+                FROM practices WHERE status <> 'deleted'
+            ) s WHERE s.rn > 1
+        )
+        """
+    )
     op.create_index(
         "uq_practice_master_title_scheduled_recurrence",
         "practices",
