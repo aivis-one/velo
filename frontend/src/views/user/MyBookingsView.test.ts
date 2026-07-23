@@ -327,10 +327,13 @@ describe('MyBookingsView', () => {
       expect(text()).toContain('Завершена')
     })
 
-    it('a confirmed booking whose practice already ended is past and carries NO upcoming badge', async () => {
+    it('a confirmed booking whose practice already ended is past and badged «Подсчитывается», not an upcoming badge', async () => {
       // MyBookingsView.vue:198-201: the backend keeps confirmed until finalize
       // (settlement grace window), so status alone would mis-file it as upcoming
       // and paint a misleading «Сегодня» on a practice that is over.
+      // AT-2 (ПРОМТ №585): it's ALSO not silent any more -- a Zoom-tracked
+      // practice awaiting its attendance report gets an honest "still being
+      // decided" badge instead of no badge at all.
       vi.mocked(bookingsApi.getMyBookings).mockResolvedValue(
         page([
           booking(
@@ -347,6 +350,7 @@ describe('MyBookingsView', () => {
       expect(text()).not.toContain('Предстоящие')
       expect(text()).not.toContain('Сегодня')
       expect(text()).not.toContain('В эфире')
+      expect(text()).toContain('Подсчитывается')
     })
 
     it('a practice in progress is upcoming and badged «В эфире»', async () => {

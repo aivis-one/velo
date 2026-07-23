@@ -210,8 +210,16 @@ function badgeFor(b: BookingWithPracticeResponse): BookingBadge | null {
   if (b.status === 'attended') return { label: 'Завершена', variant: 'done' }
   if (b.status === 'cancelled') return { label: 'Отменена', variant: 'cancelled' }
   if (b.status === 'no_show') return { label: 'Не состоялась', variant: 'no_show' }
-  // Confirmed/pending but the practice is already over (awaiting backend
-  // finalize): it sits in "Прошедшие" with NO upcoming badge — no misleading
+  // AT-2: confirmed AND already ended -> a Zoom-tracked practice awaiting its
+  // attendance report (bookings/service.py deliberately leaves it CONFIRMED
+  // until the report ripens or the deadline fallback fires). Distinguish
+  // this from silence so it never reads as indistinguishable from a no-show
+  // at a glance -- an honest "still being decided" badge instead.
+  if (b.status === 'confirmed' && hasEnded(b)) {
+    return { label: 'Подсчитывается', variant: 'calculating' }
+  }
+  // Pending but the practice is already over (awaiting backend finalize):
+  // it sits in "Прошедшие" with NO upcoming badge — no misleading
   // "Сегодня" / "В эфире" on a practice that has ended.
   if (hasEnded(b)) return null
   // Upcoming -> live takes priority, then today / tomorrow; later dates none.
