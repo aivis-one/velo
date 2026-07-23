@@ -99,8 +99,18 @@ async def _make_verified_master(
     client: AsyncClient,
     db_session: AsyncSession,
     telegram_id: int = 56601,
+    admin_auth: dict | None = None,
 ) -> dict:
-    """Create user, apply, verify via admin. Returns master auth (post-verify)."""
+    """Create user, apply, verify via admin. Returns master auth (post-verify).
+
+    admin_auth (ПРОМТ №583): pass an already-obtained admin session to reuse
+    it instead of logging in fresh here. Each _make_admin_auth() call burns
+    2 of the 5-per-60s auth-rate-limit budget for ADMIN_TID (CRITICAL-4);
+    tests that build several masters and/or also call _make_admin_auth
+    themselves for an approve/reject action can exceed that budget within a
+    single test otherwise. Default (None) preserves the original behavior
+    for every other call site in this file.
+    """
     auth = await login_user(client, telegram_id=telegram_id, first_name="Master")
     await client.post(
         APPLY_URL,
@@ -108,7 +118,8 @@ async def _make_verified_master(
         headers=auth_headers(auth["session_token"]),
     )
 
-    admin_auth = await _make_admin_auth(client, db_session)
+    if admin_auth is None:
+        admin_auth = await _make_admin_auth(client, db_session)
     user_id = auth["user"]["id"]
     verify_resp = await client.post(
         VERIFY_URL.format(user_id=user_id),
@@ -397,7 +408,12 @@ async def test_approve_with_master_only_creates_scoped_direction(
     ).scalars().all()
     assert premise == [], f"premise violated: {label!r} already exists"
 
-    master = await _make_verified_master(client, db_session)
+    # ПРОМТ №583: one admin session, reused for every admin action below --
+    # this test builds TWO masters (via _make_verified_master) plus its own
+    # approve call, which at 2 fresh logins each would otherwise burn 6 of
+    # the 5-per-60s ADMIN_TID auth-rate-limit budget within a single test.
+    admin_auth = await _make_admin_auth(client, db_session)
+    master = await _make_verified_master(client, db_session, admin_auth=admin_auth)
     master_id = master["user"]["id"]
     master_headers = auth_headers(master["session_token"])
     await client.post(
@@ -406,7 +422,6 @@ async def test_approve_with_master_only_creates_scoped_direction(
         headers=master_headers,
     )
 
-    admin_auth = await _make_admin_auth(client, db_session)
     approve = await client.post(
         APPROVE_URL.format(user_id=master_id),
         json={"master_only": [label]},
@@ -429,7 +444,9 @@ async def test_approve_with_master_only_creates_scoped_direction(
 
     # Same isolation guarantee T22-6 proved for verify_master: a DIFFERENT
     # master's own catalog fetch must never see this scoped row.
-    other = await _make_verified_master(client, db_session, telegram_id=56602)
+    other = await _make_verified_master(
+        client, db_session, telegram_id=56602, admin_auth=admin_auth,
+    )
     other_taxonomy = await client.get(
         "/api/v1/taxonomy", headers=auth_headers(other["session_token"]),
     )
@@ -456,7 +473,11 @@ async def test_approve_with_master_only_and_promote_together(
     global_label = "Синтетическое направление ПРОМТ-571 (approve promote combo)"
     scoped_label = "Синтетическое направление ПРОМТ-571 (approve scoped combo)"
 
-    master = await _make_verified_master(client, db_session)
+    # ПРОМТ №583: one admin session, reused for setup and the approve call --
+    # keeps this test comfortably under the 5-per-60s ADMIN_TID auth-rate-
+    # limit budget (see the sibling master_only test above for the full count).
+    admin_auth = await _make_admin_auth(client, db_session)
+    master = await _make_verified_master(client, db_session, admin_auth=admin_auth)
     master_id = master["user"]["id"]
     master_headers = auth_headers(master["session_token"])
     await client.post(
@@ -465,7 +486,6 @@ async def test_approve_with_master_only_and_promote_together(
         headers=master_headers,
     )
 
-    admin_auth = await _make_admin_auth(client, db_session)
     approve = await client.post(
         APPROVE_URL.format(user_id=master_id),
         json={"promote": [global_label], "master_only": [scoped_label]},

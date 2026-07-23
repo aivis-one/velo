@@ -22,6 +22,7 @@
 #     - month period accepted
 # =============================================================================
 
+import itertools
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -117,6 +118,9 @@ async def _make_master(
     return user_id
 
 
+_practice_counter = itertools.count()
+
+
 async def _create_practice(
     db_session: AsyncSession,
     master_id: str,
@@ -124,12 +128,21 @@ async def _create_practice(
     scheduled_at: datetime,
     status: str = PracticeStatus.COMPLETED.value,
 ) -> Practice:
-    """Create a practice owned by the master with the given schedule/status."""
+    """Create a practice owned by the master with the given schedule/status.
+
+    MIG1 (uq_practice_master_title_scheduled_recurrence, ПРОМТ №583): several
+    tests in this file deliberately create multiple practices for the SAME
+    master at the SAME scheduled_at (to exercise period-window counting) --
+    a shared hardcoded title would collide with the new partial unique index
+    the moment two such rows are both non-deleted. The counter suffix keeps
+    every row unique on the index key without touching scheduled_at (which
+    the period-window assertions depend on). No test asserts an exact title.
+    """
     practice = Practice(
         master_id=UUID(master_id),
         practice_type=PracticeType.LIVE.value,
         status=status,
-        title="Overview Practice",
+        title=f"Overview Practice {next(_practice_counter)}",
         scheduled_at=scheduled_at,
         duration_minutes=60,
         timezone="UTC",

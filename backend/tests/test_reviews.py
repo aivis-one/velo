@@ -628,6 +628,13 @@ async def test_reviews_practice_not_found(
     master_auth = await _make_verified_master(
         client, db_session, telegram_id=89910,
     )
+    # ПРОМТ №583: _make_verified_master only flushes -- the role=MASTER
+    # change and the MasterProfile row must be COMMITTED before the request
+    # below, which hits get_current_master through a separate DB connection.
+    # Without this, the guard sees the old (non-master) role and rejects
+    # with 403 before ever reaching the 404 not-found branch this test
+    # means to exercise (mirrors test_reviews_not_owner's own commit()).
+    await db_session.commit()
 
     url = REVIEWS_URL.format(practice_id=uuid4())
     resp = await client.get(

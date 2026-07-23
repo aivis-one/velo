@@ -483,9 +483,14 @@ async def test_registrant_create_generic_exception_counts_against_cap(
     zoom_meeting = await _get_zoom_meeting(db_session, practice_id)
     assert zoom_meeting.status == ZoomMeetingStatus.ACTIVE.value
 
+    # ПРОМТ №583: a DISTINCT student user, not the master's own id -- _publish
+    # above already created the real HOST registrant for (zoom_meeting_id,
+    # master's user_id) via ensure_host_registrant, so reusing that id here
+    # collides with uq_zoom_registrant_meeting_user_active.
+    student = await login_user(client, telegram_id=79021, first_name="Student")
     registrant = ZoomRegistrant(
         zoom_meeting_id=zoom_meeting.id,
-        user_id=UUID(master["user"]["id"]),
+        user_id=UUID(student["user"]["id"]),
         booking_id=None,
         role=ZoomRegistrantRole.STUDENT.value,
         status=ZoomRegistrantStatus.CREATE_FAILED.value,
@@ -543,9 +548,14 @@ async def test_registrant_retry_429_does_not_force_create_failed(
     zoom_meeting = await _get_zoom_meeting(db_session, practice_id)
     assert zoom_meeting.status == ZoomMeetingStatus.ACTIVE.value
 
+    # ПРОМТ №583: a DISTINCT student user, not the master's own id -- _publish
+    # above already created the real HOST registrant for (zoom_meeting_id,
+    # master's user_id) via ensure_host_registrant, so reusing that id here
+    # collides with uq_zoom_registrant_meeting_user_active.
+    student = await login_user(client, telegram_id=79022, first_name="Student")
     registrant = ZoomRegistrant(
         zoom_meeting_id=zoom_meeting.id,
-        user_id=UUID(master["user"]["id"]),
+        user_id=UUID(student["user"]["id"]),
         booking_id=None,
         role=ZoomRegistrantRole.STUDENT.value,
         status=ZoomRegistrantStatus.PENDING.value,
