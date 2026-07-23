@@ -88,7 +88,7 @@ import { VButton, VInput } from '@/components/ui'
 import { useBalanceStore } from '@/stores/balance'
 import { useToast } from '@/composables/useToast'
 import { createTopup } from '@/api/payments'
-import { ApiResponseError } from '@/api/client'
+import { extractApiError } from '@/composables/useApiError'
 import { formatMoney } from '@/utils/format'
 import { eurStringToCents } from '@/utils/currency'
 
@@ -195,11 +195,7 @@ async function onTopup(): Promise<void> {
     // Redirect to Stripe checkout (or success URL in stub mode).
     window.location.href = response.checkout_url
   } catch (e) {
-    if (e instanceof ApiResponseError) {
-      toast.error(e.detail)
-    } else {
-      toast.error('Не удалось создать платёж')
-    }
+    toast.error(extractApiError(e, 'Не удалось создать платёж'))
   } finally {
     loading.value = false
   }

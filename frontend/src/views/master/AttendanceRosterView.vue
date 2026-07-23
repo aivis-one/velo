@@ -108,7 +108,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { getPractice, getAttendance } from '@/api/practices'
-import { ApiResponseError } from '@/api/client'
+import { extractApiError } from '@/composables/useApiError'
 import { VStatCard, VButton, VLoader, VEmptyState, VBadge } from '@/components/ui'
 import VShowMore from '@/components/shared/VShowMore.vue'
 import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
@@ -188,7 +188,7 @@ async function load(): Promise<void> {
     ])
     attendance.value = attendanceData
   } catch (e) {
-    error.value = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки'
+    error.value = extractApiError(e, 'Ошибка загрузки')
   } finally {
     loading.value = false
   }

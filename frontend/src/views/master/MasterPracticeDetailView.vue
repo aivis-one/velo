@@ -308,7 +308,7 @@ import {
   cancelPractice,
   getPracticeReviews,
 } from '@/api/practices'
-import { ApiResponseError } from '@/api/client'
+import { extractApiError } from '@/composables/useApiError'
 import {
   VStatCard,
   VButton,
@@ -539,7 +539,7 @@ async function doCancel(scope: 'this' | 'this_and_future'): Promise<void> {
     await masterStore.refreshMyPractices()
     router.back()
   } catch (e) {
-    toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось отменить практику')
+    toast.error(extractApiError(e, 'Не удалось отменить практику'))
   } finally {
     cancelling.value = false
     showCancel.value = false
@@ -555,7 +555,7 @@ async function doDelete(): Promise<void> {
     await masterStore.refreshMyPractices()
     router.back()
   } catch (e) {
-    toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось удалить практику')
+    toast.error(extractApiError(e, 'Не удалось удалить практику'))
   } finally {
     deleting.value = false
     showDelete.value = false
@@ -581,7 +581,7 @@ async function load(): Promise<void> {
     // Named reviews only exist for finished practices; non-fatal alongside the load.
     if (isPast.value) void loadReviews()
   } catch (e) {
-    error.value = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки'
+    error.value = extractApiError(e, 'Ошибка загрузки')
   } finally {
     loading.value = false
   }

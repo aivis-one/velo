@@ -252,7 +252,7 @@ import { practiceIconFor, RATING_ICON_COLOR } from '@/utils/displayHelpers'
 import { RATING_ICON } from '@/utils/ratingIcons'
 import { formatMoney, formatShortDate } from '@/utils/format'
 import { getIncome, getTransactions, getMasterReviews } from '@/api/masters'
-import { ApiResponseError } from '@/api/client'
+import { extractApiError } from '@/composables/useApiError'
 import type {
   IncomeResponse,
   MasterTransactionItem,
@@ -479,7 +479,7 @@ async function loadPayments(): Promise<void> {
     transactions.value = txRes.items
     txTotal.value = txRes.total
   } catch (e) {
-    paymentsError.value = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки'
+    paymentsError.value = extractApiError(e, 'Ошибка загрузки')
   } finally {
     paymentsLoading.value = false
   }

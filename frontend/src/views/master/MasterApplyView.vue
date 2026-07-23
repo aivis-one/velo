@@ -229,7 +229,7 @@ import {
 import { IconCheck, IconFile } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { applyMaster } from '@/api/masters'
-import { ApiResponseError } from '@/api/client'
+import { extractApiError } from '@/composables/useApiError'
 import { MASTER_APPLIED_KEY, masterRejectionSeenKey } from '@/utils/constants'
 import { LANGUAGES } from '@/utils/languages'
 import MethodTaxonomyPicker from '@/components/shared/MethodTaxonomyPicker.vue'
@@ -435,8 +435,7 @@ async function submit(skipDocuments = false): Promise<void> {
       router.push({ name: 'master-pending' })
     }
   } catch (e) {
-    const message = e instanceof ApiResponseError ? e.detail : 'Не удалось отправить заявку'
-    toast.error(message)
+    toast.error(extractApiError(e, 'Не удалось отправить заявку'))
   } finally {
     submitting.value = false
   }

@@ -415,6 +415,7 @@ import TimePickerSheet from '@/components/shared/TimePickerSheet.vue'
 import UseTemplateBlock from '@/components/shared/UseTemplateBlock.vue'
 import Banner from '@/components/shared/Banner.vue'
 import { ApiResponseError } from '@/api/client'
+import { extractApiError } from '@/composables/useApiError'
 import { DURATION_OPTIONS, catalogDirectionOptions, catalogStylesForDirection } from '@/utils/practiceOptions'
 import { ensureTaxonomyCatalog, parseMethods } from '@/utils/methodTaxonomy'
 import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
@@ -1010,7 +1011,7 @@ async function submit(): Promise<void> {
     } else if (e instanceof ApiResponseError && e.code === 'style_not_confirmed') {
       toast.error('Этот вид практики ещё не подтверждён в вашем профиле')
     } else {
-      toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось создать практику')
+      toast.error(extractApiError(e, 'Не удалось создать практику'))
     }
   } finally {
     submitting.value = false

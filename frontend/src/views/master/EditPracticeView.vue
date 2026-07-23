@@ -319,6 +319,7 @@ import { getPractice, updatePractice, deletePractice, cancelPractice } from '@/a
 import { formatShortDate, todayLocalISO } from '@/utils/format'
 import { masterPracticeBadge } from '@/utils/practiceStatus'
 import { ApiResponseError } from '@/api/client'
+import { extractApiError } from '@/composables/useApiError'
 import { DURATION_OPTIONS, catalogDirectionOptions, catalogStylesForDirection } from '@/utils/practiceOptions'
 import { ensureTaxonomyCatalog, parseMethods } from '@/utils/methodTaxonomy'
 import { eurStringToCents, centsToEurString } from '@/utils/currency'
@@ -518,7 +519,7 @@ onMounted(async () => {
     practice.value = p
     populateForm(p)
   } catch (e) {
-    toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось загрузить практику')
+    toast.error(extractApiError(e, 'Не удалось загрузить практику'))
   } finally {
     loading.value = false
   }
@@ -604,7 +605,7 @@ async function save(): Promise<void> {
     } else if (e instanceof ApiResponseError && e.code === 'style_not_confirmed') {
       toast.error('Этот вид практики ещё не подтверждён в вашем профиле')
     } else {
-      toast.error(e instanceof ApiResponseError ? e.detail : 'Ошибка сохранения')
+      toast.error(extractApiError(e, 'Ошибка сохранения'))
     }
   } finally {
     saving.value = false
@@ -622,7 +623,7 @@ async function publish(): Promise<void> {
     await masterStore.refreshMyPractices()
     router.push({ name: 'master-practices' })
   } catch (e) {
-    toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось опубликовать')
+    toast.error(extractApiError(e, 'Не удалось опубликовать'))
   } finally {
     transitioning.value = false
   }
@@ -646,7 +647,7 @@ async function cancel(scope: 'this' | 'this_and_future'): Promise<void> {
     await masterStore.refreshMyPractices()
     router.push({ name: 'master-practices' })
   } catch (e) {
-    toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось отменить')
+    toast.error(extractApiError(e, 'Не удалось отменить'))
   } finally {
     cancelling.value = false
   }
@@ -672,7 +673,7 @@ async function remove(): Promise<void> {
     await masterStore.refreshMyPractices()
     router.push({ name: 'master-practices' })
   } catch (e) {
-    toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось удалить')
+    toast.error(extractApiError(e, 'Не удалось удалить'))
   } finally {
     confirmDialog.loading = false
   }
