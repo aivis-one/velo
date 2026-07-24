@@ -33,6 +33,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -99,6 +100,25 @@ class PracticeDifficulty(enum.StrEnum):
     BEGINNER = "beginner"
     MEDIUM = "medium"
     HIGH = "high"
+
+
+class AudienceKind(enum.StrEnum):
+    """Who can see/book a practice (Master GROUPS P5, ПРОМТ №594).
+
+    PUBLIC:   everyone (default -- matches every practice's behavior before
+              this column existed, see the migration's backfill).
+    STUDENTS: anyone with >= 1 non-cancelled booking on this master's
+              practices (the same "derived «Ученики»" rule groups_service.py
+              already uses).
+    GROUPS:   members of at least one of the practice's target CUSTOM groups
+              (practice_audience_group). A blocked student is EXCLUDED from
+              all three -- see practices/audience_service.py, the single
+              shared predicate every enforcement point below reuses.
+    """
+
+    PUBLIC = "public"
+    STUDENTS = "students"
+    GROUPS = "groups"
 
 
 class Practice(JSONBMixin, UUIDMixin, TimestampMixin, Base):
@@ -193,6 +213,13 @@ class Practice(JSONBMixin, UUIDMixin, TimestampMixin, Base):
         server_default="eur",
     )
 
+    # -- Audience (Master GROUPS P5, ПРОМТ №594) --
+    audience_kind: Mapped[str] = mapped_column(
+        String(20),
+        default=AudienceKind.PUBLIC.value,
+        server_default=AudienceKind.PUBLIC.value,
+    )
+
     # -- Zoom (manual for MVP) --
     zoom_link: Mapped[str | None] = mapped_column(
         String(500), default=None,
@@ -228,4 +255,43 @@ class Practice(JSONBMixin, UUIDMixin, TimestampMixin, Base):
             f"<Practice id={self.id} type={self.practice_type} "
             f"status={self.status} title={self.title!r} "
             f"is_free={self.is_free} price_cents={self.price_cents}>"
+        )
+
+
+class PracticeAudienceGroup(UUIDMixin, Base):
+    """One of a practice's target CUSTOM groups (audience_kind='groups' only).
+
+    UNIQUE (practice_id, group_id) -- a group is listed at most once per
+    practice; POST/PATCH practice's group_ids write is idempotent-safe
+    against this constraint. ondelete=CASCADE both ways: deleting the
+    practice OR the group drops the row, nothing else to reconcile (mirrors
+    master_group_membership's identical CASCADE-both-ways shape).
+
+    group_id references masters/groups_models.py's MasterGroup by table name
+    only (no Python import -- same cross-module FK-by-string-name pattern
+    MasterGroupMembership already uses for its own FKs) to avoid a
+    practices <-> masters import cycle.
+    """
+
+    __tablename__ = "practice_audience_group"
+    __table_args__ = (
+        UniqueConstraint(
+            "practice_id", "group_id",
+            name="uq_practice_audience_group_practice_group",
+        ),
+    )
+
+    practice_id: Mapped[UUID] = mapped_column(
+        ForeignKey("practices.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    group_id: Mapped[UUID] = mapped_column(
+        ForeignKey("master_group.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<PracticeAudienceGroup practice_id={self.practice_id} "
+            f"group_id={self.group_id}>"
         )
