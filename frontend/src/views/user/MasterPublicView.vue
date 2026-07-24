@@ -30,13 +30,23 @@
     </div>
 
     <!-- Not found (404): the master genuinely doesn't exist / isn't verified. -->
-    <VEmptyState v-else-if="notFound" icon="warning" title="Мастер не найден" :description="error ?? undefined">
+    <VEmptyState
+      v-else-if="notFound"
+      icon="warning"
+      title="Мастер не найден"
+      :description="error ?? undefined"
+    >
       <VButton size="sm" @click="router.back()">Назад</VButton>
     </VEmptyState>
 
     <!-- Server/network error (B11 item 2): distinct from "not found" -- this
          master may well exist, the load just failed and is worth retrying. -->
-    <VEmptyState v-else-if="error || !profile" icon="warning" title="Не удалось загрузить" :description="error ?? undefined">
+    <VEmptyState
+      v-else-if="error || !profile"
+      icon="warning"
+      title="Не удалось загрузить"
+      :description="error ?? undefined"
+    >
       <VButton size="sm" @click="loadMaster(masterId)">Повторить</VButton>
     </VEmptyState>
 

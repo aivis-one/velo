@@ -331,7 +331,9 @@ describe('MasterPublicView', () => {
 
     it('getPractices is called with the master_id derived from the route, not hardcoded', async () => {
       routeParams.id = 'm_specific'
-      vi.mocked(mastersApi.getPublicMaster).mockResolvedValue(masterProfile({ user_id: 'm_specific' }))
+      vi.mocked(mastersApi.getPublicMaster).mockResolvedValue(
+        masterProfile({ user_id: 'm_specific' }),
+      )
       vi.mocked(practicesApi.getPractices).mockResolvedValue(page([]))
       mount()
       await flush()
@@ -379,8 +381,8 @@ describe('MasterPublicView', () => {
   })
 
   // ===========================================================================
-  describe('ask-master (V2 stub -- NOT disabled, unlike BookingConfirmedView\'s)', () => {
-    it('the button is fully enabled (a different stub shape than BookingConfirmedView\'s disabled textarea+button)', async () => {
+  describe("ask-master (V2 stub -- NOT disabled, unlike BookingConfirmedView's)", () => {
+    it("the button is fully enabled (a different stub shape than BookingConfirmedView's disabled textarea+button)", async () => {
       vi.mocked(mastersApi.getPublicMaster).mockResolvedValue(masterProfile())
       vi.mocked(practicesApi.getPractices).mockResolvedValue(page([]))
       mount()

@@ -146,7 +146,9 @@ function practice(overrides: Partial<PracticeResponse> = {}): PracticeResponse {
   }
 }
 
-function booking(overrides: Partial<BookingWithPracticeResponse> = {}): BookingWithPracticeResponse {
+function booking(
+  overrides: Partial<BookingWithPracticeResponse> = {},
+): BookingWithPracticeResponse {
   return {
     id: 'b1',
     practice_id: 'p1',
@@ -404,7 +406,10 @@ describe('PracticeLiveView', () => {
     it('a personal registrant link takes priority over the manual zoom_link -- opens the PERSONAL one', async () => {
       practicesState.selected = practice({ zoom_link: 'https://zoom.us/j/manual' })
       bookingsState.bookings = [
-        booking({ joined_at: '2026-07-20T10:01:00Z', zoom_registrant_join_url: 'https://zoom.us/w/personal?tk=abc' }),
+        booking({
+          joined_at: '2026-07-20T10:01:00Z',
+          zoom_registrant_join_url: 'https://zoom.us/w/personal?tk=abc',
+        }),
       ]
       mount()
 
@@ -425,7 +430,9 @@ describe('PracticeLiveView', () => {
 
     it('a personal link present: the "not counted" mark does NOT show', () => {
       practicesState.selected = practice({ zoom_link: 'https://zoom.us/j/manual' })
-      bookingsState.bookings = [booking({ zoom_registrant_join_url: 'https://zoom.us/w/personal?tk=abc' })]
+      bookingsState.bookings = [
+        booking({ zoom_registrant_join_url: 'https://zoom.us/w/personal?tk=abc' }),
+      ]
       mount()
 
       expect(text()).not.toContain('посещение не засчитается')
@@ -456,7 +463,10 @@ describe('PracticeLiveView', () => {
 
     it('pending_creation is still the honest "готовится" state, not "failed"', () => {
       // The discriminator: pending_creation must NOT read as a failure.
-      practicesState.selected = practice({ zoom_link: null, zoom_meeting_status: 'pending_creation' })
+      practicesState.selected = practice({
+        zoom_link: null,
+        zoom_meeting_status: 'pending_creation',
+      })
       bookingsState.bookings = [booking({ zoom_registrant_join_url: null, joined_at: null })]
       mount()
 
@@ -481,7 +491,10 @@ describe('PracticeLiveView', () => {
     it('a non-https personal link is never opened -- falls through to the manual link instead', async () => {
       practicesState.selected = practice({ zoom_link: 'https://zoom.us/j/manual' })
       bookingsState.bookings = [
-        booking({ joined_at: '2026-07-20T10:01:00Z', zoom_registrant_join_url: 'http://insecure.example/tk=abc' }),
+        booking({
+          joined_at: '2026-07-20T10:01:00Z',
+          zoom_registrant_join_url: 'http://insecure.example/tk=abc',
+        }),
       ]
       mount()
 
