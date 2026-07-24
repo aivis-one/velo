@@ -29,21 +29,17 @@
 // render, before onMounted has run at all. Proven below with a zero-tick
 // assertion (the mirror image of BookingConfirmedView's structural finding).
 //
-// ⭐ THE PRIZE -- confirmed by reading extractApiError (composables/useApiError.ts)
-// and the template's guard (.vue:31, `error || !profile`): despite the header
-// comment's claim ("Only verified masters resolve; 404 otherwise -> shown as
-// an empty state"), THERE IS NO SEPARATE EMPTY-VS-ERROR RUNG IN THE CODE.
-// extractApiError treats every ApiResponseError identically regardless of
-// status code (no 404 branch), and the template has exactly ONE combined
-// v-else-if for "error OR no profile" -- same hardcoded title
-// ("Мастер не найден") and the same single "Назад" action for BOTH a genuine
-// 404 (nothing to retry, "Назад" is correct) and a transient failure like a
-// 500 or network drop (the master may well exist -- "not found" is the WRONG
-// framing, and unlike CalendarView's distinct error rung, there is no
-// "Повторить" retry here at all). Proven below: a 404 and a plain network
-// Error produce the IDENTICAL title, differing only in the description text,
-// with no code path that could ever show a different title/icon for one vs.
-// the other. This is a real finding, not fixed here (flagged separately).
+// FIXED (B11 item 2, ПРОМТ №587): this file used to document a finding --
+// extractApiError treated every ApiResponseError identically regardless of
+// status code, and the template had exactly ONE combined v-else-if for
+// "error OR no profile", so a genuine 404 and a transient 500/network drop
+// both rendered the identical "Мастер не найден" title with no retry. Fixed
+// by deriving `notFound` from `e instanceof ApiResponseError && e.status ===
+// 404` in loadMaster() (.vue) and splitting the template into two
+// v-else-if rungs: "Мастер не найден" (404, "Назад" only) vs. "Не удалось
+// загрузить" (anything else, "Повторить" retry that re-runs loadMaster).
+// Proven below: a 404 keeps the old title/no-retry; a plain Error and a 500
+// both now get the retryable title instead.
 //
 // TWO INDEPENDENT FETCHES, confirmed NOT parallel and NOT equally fatal:
 // getPractices only runs AFTER getPublicMaster resolves (nested, sequential --
@@ -251,7 +247,7 @@ describe('MasterPublicView', () => {
       expect(content()?.textContent).toContain('Верифицирован')
     })
 
-    it('⭐ FINDING: a 404 ApiResponseError shows "Мастер не найден" with the backend\'s own detail', async () => {
+    it('FIXED (B11 item 2, ПРОМТ №587): a 404 ApiResponseError shows "Мастер не найден" with the backend\'s own detail, and NO retry action', async () => {
       vi.mocked(mastersApi.getPublicMaster).mockRejectedValue(
         new ApiResponseError(404, 'Мастер не найден или не верифицирован', 'not_found'),
       )
@@ -260,29 +256,45 @@ describe('MasterPublicView', () => {
 
       expect(emptyTitle()).toBe('Мастер не найден')
       expect(emptyDesc()).toBe('Мастер не найден или не верифицирован')
+      expect(emptyState()?.textContent).not.toContain('Повторить')
     })
 
-    it('⭐ FINDING: a plain network Error (NOT a 404) shows the EXACT SAME title "Мастер не найден" -- there is no distinct error rung, despite the header comment implying one', async () => {
+    it('FIXED: a plain network Error (NOT a 404) shows a DIFFERENT, retryable state -- "Не удалось загрузить" / "Попробуйте позже", with a "Повторить" button', async () => {
       vi.mocked(mastersApi.getPublicMaster).mockRejectedValue(new Error('ECONNRESET'))
       mount()
       await flush()
 
-      // Same title as the 404 case above -- a transient failure is framed
-      // identically to "this master doesn't exist", and offers no retry.
-      expect(emptyTitle()).toBe('Мастер не найден')
-      expect(emptyDesc()).toBe('Не удалось загрузить профиль мастера')
-      expect(emptyState()?.textContent).not.toContain('Повторить') // no retry affordance anywhere
+      expect(emptyTitle()).toBe('Не удалось загрузить')
+      expect(emptyDesc()).toBe('Попробуйте позже')
+      expect(emptyState()?.textContent).toContain('Повторить')
     })
 
-    it('⭐ FINDING corollary: a 500 ApiResponseError (backend reachable, real server error) STILL renders the identical "не найден" title', async () => {
+    it('FIXED corollary: a 500 ApiResponseError (backend reachable, real server error) ALSO gets the retryable state, not "не найден"', async () => {
       vi.mocked(mastersApi.getPublicMaster).mockRejectedValue(
         new ApiResponseError(500, 'Внутренняя ошибка сервера', 'internal_error'),
       )
       mount()
       await flush()
 
-      expect(emptyTitle()).toBe('Мастер не найден') // misleading for a 500 -- the master likely DOES exist
+      expect(emptyTitle()).toBe('Не удалось загрузить') // no longer "не найден" -- the master likely DOES exist
       expect(emptyDesc()).toBe('Внутренняя ошибка сервера')
+      expect(emptyState()?.textContent).toContain('Повторить')
+    })
+
+    it('retry: clicking "Повторить" on the 5xx/network state re-calls getPublicMaster and can recover into content', async () => {
+      vi.mocked(mastersApi.getPublicMaster).mockRejectedValueOnce(new Error('ECONNRESET'))
+      mount()
+      await flush()
+      expect(emptyTitle()).toBe('Не удалось загрузить')
+
+      vi.mocked(mastersApi.getPublicMaster).mockResolvedValueOnce(masterProfile())
+      vi.mocked(practicesApi.getPractices).mockResolvedValue(page([]))
+      emptyState()?.querySelector<HTMLButtonElement>('button')?.click()
+      await flush()
+
+      expect(mastersApi.getPublicMaster).toHaveBeenCalledTimes(2)
+      expect(emptyState()).toBeNull()
+      expect(content()?.textContent).toContain('Анна Соколова')
     })
   })
 
@@ -403,8 +415,13 @@ describe('MasterPublicView', () => {
       expect(back).toHaveBeenCalledTimes(1)
     })
 
-    it('"Назад" in the error/missing rung also calls router.back()', async () => {
-      vi.mocked(mastersApi.getPublicMaster).mockRejectedValue(new Error('boom'))
+    it('"Назад" in the not-found (404) rung calls router.back()', async () => {
+      // B11 item 2: a non-404 failure now lands on the RETRYABLE rung, whose
+      // sole button is "Повторить" (re-fetches), not "Назад" -- see the
+      // dedicated retry test above. Only the 404 rung still offers "Назад".
+      vi.mocked(mastersApi.getPublicMaster).mockRejectedValue(
+        new ApiResponseError(404, 'Мастер не найден', 'not_found'),
+      )
       mount()
       await flush()
 

@@ -12,7 +12,10 @@
       toast placeholder, V2)
 
   Backend: GET /api/v1/masters/:id (MasterPublicResponse). Only verified
-  masters resolve; 404 otherwise -> shown as an empty state.
+  masters resolve; 404 otherwise -> "Мастер не найден" (no retry, nothing to
+  retry). A 5xx/network failure is a DIFFERENT empty state -- "Не удалось
+  загрузить" with a "Повторить" retry -- since the master may well exist
+  (B11 item 2, ПРОМТ №587; before this both collapsed into "не найден").
 
   Route: /user/masters/:id  (name: user-master-public)
 -->
@@ -26,14 +29,15 @@
       <VLoader size="lg" />
     </div>
 
-    <!-- Error / not found -->
-    <VEmptyState
-      v-else-if="error || !profile"
-      icon="warning"
-      title="Мастер не найден"
-      :description="error ?? 'Профиль недоступен'"
-    >
+    <!-- Not found (404): the master genuinely doesn't exist / isn't verified. -->
+    <VEmptyState v-else-if="notFound" icon="warning" title="Мастер не найден" :description="error ?? undefined">
       <VButton size="sm" @click="router.back()">Назад</VButton>
+    </VEmptyState>
+
+    <!-- Server/network error (B11 item 2): distinct from "not found" -- this
+         master may well exist, the load just failed and is worth retrying. -->
+    <VEmptyState v-else-if="error || !profile" icon="warning" title="Не удалось загрузить" :description="error ?? undefined">
+      <VButton size="sm" @click="loadMaster(masterId)">Повторить</VButton>
     </VEmptyState>
 
     <!-- Content -->
@@ -129,6 +133,7 @@ import { IconCheck } from '@/components/icons'
 import CalendarPracticeCard from '@/components/shared/CalendarPracticeCard.vue'
 import { getPublicMaster } from '@/api/masters'
 import { getPractices } from '@/api/practices'
+import { ApiResponseError } from '@/api/client'
 import { extractApiError } from '@/composables/useApiError'
 import { useToast } from '@/composables/useToast'
 import { plural } from '@/utils/plural'
@@ -142,6 +147,12 @@ const profile = ref<MasterPublicResponse | null>(null)
 const upcoming = ref<PracticeResponse[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
+/** B11 item 2: 404 (master genuinely doesn't exist) is a DIFFERENT state
+ *  from a 5xx/network failure (server down, worth retrying) -- collapsing
+ *  them both into "Мастер не найден" told the user to give up on a master
+ *  who might well exist. Derived from the caught error's own status, no
+ *  backend field added. */
+const notFound = ref(false)
 
 const masterId = computed(() => String(route.params.id))
 
@@ -174,6 +185,7 @@ function onAsk(): void {
 async function loadMaster(id: string): Promise<void> {
   loading.value = true
   error.value = null
+  notFound.value = false
   try {
     profile.value = await getPublicMaster(id)
     // Upcoming practices by this master: reuse the public feed with a
@@ -195,7 +207,9 @@ async function loadMaster(id: string): Promise<void> {
       upcoming.value = []
     }
   } catch (e) {
-    error.value = extractApiError(e, 'Не удалось загрузить профиль мастера')
+    const is404 = e instanceof ApiResponseError && e.status === 404
+    notFound.value = is404
+    error.value = extractApiError(e, is404 ? 'Профиль недоступен' : 'Попробуйте позже')
     profile.value = null
   } finally {
     loading.value = false
