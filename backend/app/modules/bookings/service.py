@@ -78,6 +78,7 @@ from app.modules.payments.refund import (
     early_finalize_booking,
     refund_booking,
 )
+from app.modules.practices.audience_service import assert_viewer_can_access_practice
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.promos.models import Promo
 from app.modules.users.models import User
@@ -238,6 +239,13 @@ async def create_booking(
 
     if practice.master_id == user.id:
         raise BadRequestError("Cannot book your own practice")
+
+    # P5 (ПРОМТ №594, the carried seam from P1): reject a viewer blocked by
+    # this practice's master, or outside its configured audience. Shared
+    # with confirm_waitlist (waitlist/service.py, the OTHER booking-creation
+    # path) and upsert_checkin (diary/checkins_service.py) -- one predicate,
+    # not reimplemented per call site.
+    await assert_viewer_can_access_practice(user.id, practice, session)
 
     active_count = await _get_active_booking_count(session, practice_id)
     # max_participants=None means unlimited capacity -- skip the check.
