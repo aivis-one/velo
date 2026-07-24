@@ -211,7 +211,9 @@ function user(overrides: Partial<UserResponse> = {}): UserResponse {
   }
 }
 
-function booking(overrides: Partial<BookingWithPracticeResponse> = {}): BookingWithPracticeResponse {
+function booking(
+  overrides: Partial<BookingWithPracticeResponse> = {},
+): BookingWithPracticeResponse {
   return {
     id: 'b1',
     practice_id: 'p1',
@@ -395,7 +397,7 @@ describe('CheckinView', () => {
       expect(text()).toContain('Мастер Лена')
     })
 
-    it('SW4: the date is rendered in the VIEWER\'s timezone, not the practice\'s own', async () => {
+    it("SW4: the date is rendered in the VIEWER's timezone, not the practice's own", async () => {
       // formatDate(scheduled_at, viewerTz.value) -- .vue:153-154 (ПРОМТ №577
       // fix), matching PracticeDetailView/EntryView, this flow's siblings. The
       // fixture's practice.timezone (America/New_York, UTC-4 in July) is
@@ -691,7 +693,7 @@ describe('CheckinView', () => {
       await flush()
     })
 
-    it('the VIEW\'s own guard is what blocks the second tap -- not the store\'s', async () => {
+    it("the VIEW's own guard is what blocks the second tap -- not the store's", async () => {
       // `upsertCheckin` called once proves only that ONE of the two guards held:
       // the view's (.vue:137) or the store's (diary.ts:70). $onAction counts the
       // calls the VIEW makes, so this isolates .vue:137. Delete that line and
@@ -883,7 +885,7 @@ describe('CheckinView', () => {
       expect(getMyBookingsMock).toHaveBeenCalledTimes(1)
     })
 
-    it('a non-API failure falls back to the store\'s own message', async () => {
+    it("a non-API failure falls back to the store's own message", async () => {
       upsertCheckinMock.mockRejectedValue(new TypeError('boom'))
       mount()
       await flush()
@@ -893,6 +895,71 @@ describe('CheckinView', () => {
 
       expect(toastError).toHaveBeenCalledWith('Не удалось отправить check-in')
       expect(successTitle()).toBe('')
+    })
+
+    // P5 (ПРОМТ №594): the audience/block gate on POST .../checkin
+    // (upsert_checkin, audience_service.py) -- covers the retroactive case
+    // (a booking made before the master narrowed the audience or blocked
+    // this viewer). The store surfaces the machine `code`; the view maps it
+    // to the app's own Russian message, composing the groups case from the
+    // ALREADY-LOADED practice's own audience_group_names (no raw backend
+    // string, no second round-trip).
+    describe('the closed-practice gate (P5, ПРОМТ №594)', () => {
+      it('blocked_by_master shows the exact copy', async () => {
+        upsertCheckinMock.mockRejectedValue(
+          new ApiResponseError(403, 'You are blocked', 'blocked_by_master'),
+        )
+        mount()
+        await flush()
+
+        submitBtn()?.click()
+        await flush()
+
+        expect(toastError).toHaveBeenCalledWith('Мастер ограничил вам доступ к этой практике')
+      })
+
+      it('not_a_student shows the exact copy', async () => {
+        upsertCheckinMock.mockRejectedValue(
+          new ApiResponseError(403, 'Students only', 'not_a_student'),
+        )
+        mount()
+        await flush()
+
+        submitBtn()?.click()
+        await flush()
+
+        expect(toastError).toHaveBeenCalledWith('Эта практика доступна только ученикам мастера')
+      })
+
+      it('not_in_audience composes the group name(s) from the loaded practice', async () => {
+        getPracticeMock.mockResolvedValue(practice({ audience_group_names: ['VIP', 'Утро'] }))
+        upsertCheckinMock.mockRejectedValue(
+          new ApiResponseError(403, 'Not a group member', 'not_in_audience'),
+        )
+        mount()
+        await flush()
+
+        submitBtn()?.click()
+        await flush()
+
+        expect(toastError).toHaveBeenCalledWith('Вы не состоите в группе «VIP», «Утро»')
+      })
+
+      it('not_in_audience with no group names on the practice falls back to a generic phrasing', async () => {
+        getPracticeMock.mockResolvedValue(practice({ audience_group_names: [] }))
+        upsertCheckinMock.mockRejectedValue(
+          new ApiResponseError(403, 'Not a group member', 'not_in_audience'),
+        )
+        mount()
+        await flush()
+
+        submitBtn()?.click()
+        await flush()
+
+        expect(toastError).toHaveBeenCalledWith(
+          'Вы не состоите в группе, которой открыта эта практика',
+        )
+      })
     })
 
     it('the form is submittable again after a failure -- the ref is released', async () => {
@@ -924,9 +991,7 @@ describe('CheckinView', () => {
       // booking.id -- two different ids one line apart. Sending the practiceId
       // here would 404 (or worse, hit another resource) while the optimistic
       // dismiss still made it look like it worked.
-      getMyBookingsMock.mockResolvedValue(
-        bookingsPage([booking({ id: 'b77', practice_id: 'p1' })]),
-      )
+      getMyBookingsMock.mockResolvedValue(bookingsPage([booking({ id: 'b77', practice_id: 'p1' })]))
       mount()
       await flush()
 

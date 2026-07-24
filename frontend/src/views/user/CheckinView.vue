@@ -178,8 +178,31 @@ async function onSubmit(): Promise<void> {
     // full reload (fetchMyBookings is a no-op while the list is non-empty).
     void bookingsStore.refreshBookings()
   } else {
-    toast.error(result.error)
+    toast.error(closedPracticeMessage(result.code) ?? result.error)
   }
+}
+
+// P5 (ПРОМТ №594): the check-in gate (audience_service.py, via
+// upsert_checkin) rejects a viewer who is blocked, or no longer in the
+// practice's audience (the retroactive case -- a booking made before the
+// master narrowed the audience or blocked this viewer). Maps the backend's
+// machine code to the app's own Russian message; the groups case is
+// composed from the practice response's own audience_group_names (already
+// loaded, no second round-trip) -- never a raw backend string.
+function closedPracticeMessage(code: string | undefined): string | null {
+  if (code === 'blocked_by_master') {
+    return 'Мастер ограничил вам доступ к этой практике'
+  }
+  if (code === 'not_a_student') {
+    return 'Эта практика доступна только ученикам мастера'
+  }
+  if (code === 'not_in_audience') {
+    const names = practice.value?.audience_group_names ?? []
+    return names.length
+      ? `Вы не состоите в группе «${names.join('», «')}»`
+      : 'Вы не состоите в группе, которой открыта эта практика'
+  }
+  return null
 }
 
 function onSkip(): void {
