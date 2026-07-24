@@ -387,6 +387,17 @@ const router = createRouter({
       component: () => import('@/views/master/MasterApplyView.vue'),
     },
     {
+      // P4 (ПРОМТ №593): landing for a group's reusable invite deeplink
+      // (startapp=group_invite__<token>). Standalone, like /master/invite/:token
+      // -- but no beforeEnter guard: unlike applyGuard's master-only bounce
+      // logic, ANY authenticated user (any role) may join a group, and
+      // App.vue's own auth gate (isAuthenticated) already ensures RouterView
+      // -- and therefore this route -- never renders for a logged-out visitor.
+      path: '/groups/join/:token',
+      name: 'group-join',
+      component: () => import('@/views/master/GroupJoinView.vue'),
+    },
+    {
       path: '/master/pending',
       name: 'master-pending',
       beforeEnter: masterPendingGuard,
