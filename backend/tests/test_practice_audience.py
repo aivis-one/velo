@@ -25,13 +25,24 @@
 #   - POST /practices (create_practice): group_ids must be the master's OWN
 #     custom groups (rejects another master's group with 400); a valid
 #     'groups' create returns audience_group_names.
+#   - PATCH /practices/{id} (update_practice, ПРОМТ №596 FIX 3): the
+#     audience-switching branch matrix -- switch to 'groups' (sets targets),
+#     switch away (clears stale practice_audience_group rows), groups ->
+#     different groups (replaces targets), re-send 'groups' without new
+#     group_ids (reuses existing targets), reject another master's/unknown
+#     group id.
+#   - POST /waitlist/{id}/confirm (confirm_waitlist, ПРОМТ №596 FIX 4): the
+#     OTHER booking-creation path enforces the identical gate as
+#     create_booking.
 # =============================================================================
 
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.bookings.models import Booking, BookingStatus
@@ -49,11 +60,13 @@ from app.modules.practices.models import (
     PracticeType,
 )
 from app.modules.users.models import User, UserRole
+from app.modules.waitlist.models import Waitlist, WaitlistStatus
 from tests.helpers import auth_headers, full_cleanup_range, login_user
 
 PRACTICES_URL = "/api/v1/practices"
 BOOKINGS_URL = "/api/v1/bookings"
 CHECKIN_URL = "/api/v1/practices/{practice_id}/checkin"
+WAITLIST_CONFIRM_URL = "/api/v1/waitlist/{waitlist_id}/confirm"
 
 _TID_MIN = 99300
 _TID_MAX = 99399
@@ -444,3 +457,307 @@ async def test_create_practice_with_own_groups_returns_group_names(
     body = resp.json()
     assert body["audience_kind"] == "groups"
     assert body["audience_group_names"] == ["Утро"]
+
+
+# ===================================================================
+# Update-practice audience switching (ПРОМТ №596, FIX 3 -- previously
+# untested branch matrix in update_practice, practices/service.py)
+# ===================================================================
+
+
+async def _target_group_ids(db_session: AsyncSession, practice_id) -> set:
+    rows = (
+        await db_session.execute(
+            select(PracticeAudienceGroup.group_id).where(
+                PracticeAudienceGroup.practice_id == practice_id,
+            )
+        )
+    ).scalars().all()
+    return set(rows)
+
+
+@pytest.mark.asyncio
+async def test_update_practice_switch_to_groups_sets_targets(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    master = await _make_verified_master(client, db_session, 99320)
+    headers = auth_headers(master["session_token"])
+    group = await _custom_group(db_session, master["user"]["id"], name="Вечер")
+    await db_session.commit()
+
+    created = await client.post(PRACTICES_URL, json=_practice_body(), headers=headers)
+    assert created.status_code == 201
+    practice_id = created.json()["id"]
+    assert created.json()["audience_kind"] == "public"
+
+    resp = await client.patch(
+        f"{PRACTICES_URL}/{practice_id}",
+        json={"audience_kind": "groups", "group_ids": [str(group.id)]},
+        headers=headers,
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["audience_kind"] == "groups"
+    assert resp.json()["audience_group_names"] == ["Вечер"]
+    assert await _target_group_ids(db_session, practice_id) == {group.id}
+
+
+@pytest.mark.asyncio
+async def test_update_practice_switch_away_from_groups_clears_stale_targets(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    master = await _make_verified_master(client, db_session, 99321)
+    headers = auth_headers(master["session_token"])
+    group = await _custom_group(db_session, master["user"]["id"], name="Утро")
+    await db_session.commit()
+
+    created = await client.post(
+        PRACTICES_URL,
+        json=_practice_body(
+            audience_kind=AudienceKind.GROUPS.value, group_ids=[str(group.id)],
+        ),
+        headers=headers,
+    )
+    assert created.status_code == 201
+    practice_id = created.json()["id"]
+    assert await _target_group_ids(db_session, practice_id) == {group.id}
+
+    # Switch away WITHOUT sending group_ids -- the stale row must be cleared,
+    # not left dangling (it would otherwise resurrect on a later switch back).
+    resp = await client.patch(
+        f"{PRACTICES_URL}/{practice_id}",
+        json={"audience_kind": "public"},
+        headers=headers,
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["audience_kind"] == "public"
+    assert await _target_group_ids(db_session, practice_id) == set()
+
+
+@pytest.mark.asyncio
+async def test_update_practice_switch_groups_to_different_groups_replaces_targets(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    master = await _make_verified_master(client, db_session, 99322)
+    headers = auth_headers(master["session_token"])
+    group_a = await _custom_group(db_session, master["user"]["id"], name="A")
+    group_b = await _custom_group(db_session, master["user"]["id"], name="B")
+    await db_session.commit()
+
+    created = await client.post(
+        PRACTICES_URL,
+        json=_practice_body(
+            audience_kind=AudienceKind.GROUPS.value, group_ids=[str(group_a.id)],
+        ),
+        headers=headers,
+    )
+    assert created.status_code == 201
+    practice_id = created.json()["id"]
+    assert await _target_group_ids(db_session, practice_id) == {group_a.id}
+
+    resp = await client.patch(
+        f"{PRACTICES_URL}/{practice_id}",
+        json={"group_ids": [str(group_b.id)]},
+        headers=headers,
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["audience_group_names"] == ["B"]
+    assert await _target_group_ids(db_session, practice_id) == {group_b.id}
+
+
+@pytest.mark.asyncio
+async def test_update_practice_reuses_existing_targets_when_group_ids_omitted(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    """audience_kind='groups' sent WITHOUT group_ids in the same request is
+    valid only because the practice already has target groups from before
+    (service.py's existing_count check) -- confirms that branch, distinct
+    from the "sets targets" / "replaces targets" cases above which DO send
+    group_ids."""
+    master = await _make_verified_master(client, db_session, 99323)
+    headers = auth_headers(master["session_token"])
+    group = await _custom_group(db_session, master["user"]["id"], name="Стабильная")
+    await db_session.commit()
+
+    created = await client.post(
+        PRACTICES_URL,
+        json=_practice_body(
+            audience_kind=AudienceKind.GROUPS.value, group_ids=[str(group.id)],
+        ),
+        headers=headers,
+    )
+    practice_id = created.json()["id"]
+
+    # Re-send audience_kind='groups' (e.g. alongside an unrelated field
+    # change) WITHOUT group_ids -- must keep the existing target, not 400.
+    resp = await client.patch(
+        f"{PRACTICES_URL}/{practice_id}",
+        json={"audience_kind": "groups", "title": "Renamed"},
+        headers=headers,
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["audience_group_names"] == ["Стабильная"]
+    assert await _target_group_ids(db_session, practice_id) == {group.id}
+
+
+@pytest.mark.asyncio
+async def test_update_practice_group_ids_rejects_another_masters_group(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    master_a = await _make_verified_master(client, db_session, 99324)
+    master_b = await _make_verified_master(client, db_session, 99325)
+    headers_a = auth_headers(master_a["session_token"])
+    foreign_group = await _custom_group(db_session, master_b["user"]["id"])
+    await db_session.commit()
+
+    created = await client.post(PRACTICES_URL, json=_practice_body(), headers=headers_a)
+    practice_id = created.json()["id"]
+
+    resp = await client.patch(
+        f"{PRACTICES_URL}/{practice_id}",
+        json={"audience_kind": "groups", "group_ids": [str(foreign_group.id)]},
+        headers=headers_a,
+    )
+
+    assert resp.status_code == 400
+    assert await _target_group_ids(db_session, practice_id) == set()
+
+
+@pytest.mark.asyncio
+async def test_update_practice_group_ids_rejects_unknown_id(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    master = await _make_verified_master(client, db_session, 99326)
+    headers = auth_headers(master["session_token"])
+    await db_session.commit()
+
+    created = await client.post(PRACTICES_URL, json=_practice_body(), headers=headers)
+    practice_id = created.json()["id"]
+
+    resp = await client.patch(
+        f"{PRACTICES_URL}/{practice_id}",
+        json={"audience_kind": "groups", "group_ids": [str(uuid4())]},
+        headers=headers,
+    )
+
+    assert resp.status_code == 400
+
+
+# ===================================================================
+# Waitlist-confirmation gate (ПРОМТ №596, FIX 4) -- confirm_waitlist is the
+# OTHER booking-creation path (waitlist/service.py); a HELD notification
+# must not convert into a booking for a now-blocked/out-of-audience user
+# any more than a fresh POST /bookings can.
+# ===================================================================
+
+
+async def _notified_waitlist_entry(
+    db_session: AsyncSession, practice_id, user_id: str,
+) -> Waitlist:
+    """A NOTIFIED entry, constructed directly (bypassing join_waitlist,
+    which a blocked/out-of-audience user could not legitimately reach in
+    the first place) -- simulates the retroactive case: notified, THEN
+    blocked, before tapping confirm."""
+    entry = Waitlist(
+        practice_id=practice_id,
+        user_id=user_id,
+        position=1,
+        status=WaitlistStatus.NOTIFIED.value,
+        joined_at=datetime.now(UTC),
+        notified_at=datetime.now(UTC),
+        expires_at=datetime.now(UTC) + timedelta(hours=1),
+    )
+    db_session.add(entry)
+    await db_session.flush()
+    return entry
+
+
+@pytest.mark.asyncio
+async def test_confirm_waitlist_rejects_a_blocked_viewer(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    master = await _make_verified_master(client, db_session, 99327)
+    master_id = master["user"]["id"]
+    practice = await _create_practice(
+        db_session, master_id, audience_kind=AudienceKind.PUBLIC.value,
+    )
+    blocked_auth = await login_user(client, telegram_id=99328, first_name="Blocked")
+    blocked_id = blocked_auth["user"]["id"]
+    entry = await _notified_waitlist_entry(db_session, practice.id, blocked_id)
+    await _block(db_session, master_id, blocked_id)
+    await db_session.commit()
+
+    resp = await client.post(
+        WAITLIST_CONFIRM_URL.format(waitlist_id=entry.id),
+        headers=auth_headers(blocked_auth["session_token"]),
+    )
+
+    assert resp.status_code == 403
+    assert resp.json()["code"] == "blocked_by_master"
+
+
+@pytest.mark.asyncio
+async def test_confirm_waitlist_rejects_a_viewer_outside_the_audience(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    master = await _make_verified_master(client, db_session, 99329)
+    master_id = master["user"]["id"]
+    practice = await _create_practice(
+        db_session, master_id, audience_kind=AudienceKind.STUDENTS.value,
+    )
+    stranger_auth = await login_user(client, telegram_id=99330, first_name="Stranger")
+    entry = await _notified_waitlist_entry(
+        db_session, practice.id, stranger_auth["user"]["id"],
+    )
+    await db_session.commit()
+
+    resp = await client.post(
+        WAITLIST_CONFIRM_URL.format(waitlist_id=entry.id),
+        headers=auth_headers(stranger_auth["session_token"]),
+    )
+
+    assert resp.status_code == 403
+    assert resp.json()["code"] == "not_a_student"
+
+
+# ===================================================================
+# Group rename while targeted by a 'groups' practice (ПРОМТ №596, FIX 5) --
+# audience_group_names is resolved via a live JOIN (practices/service.py's
+# group_names_for_practice), never cached/duplicated, so a rename must
+# self-correct with no extra write on the practice side.
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_rename_group_updates_targeting_practices_audience_group_names(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    master = await _make_verified_master(client, db_session, 99331)
+    headers = auth_headers(master["session_token"])
+    group = await _custom_group(db_session, master["user"]["id"], name="Утро")
+    await db_session.commit()
+
+    created = await client.post(
+        PRACTICES_URL,
+        json=_practice_body(
+            audience_kind=AudienceKind.GROUPS.value, group_ids=[str(group.id)],
+        ),
+        headers=headers,
+    )
+    assert created.status_code == 201
+    practice_id = created.json()["id"]
+    assert created.json()["audience_group_names"] == ["Утро"]
+
+    rename = await client.patch(
+        f"/api/v1/masters/me/groups/{group.id}",
+        json={"name": "Утренняя практика"},
+        headers=headers,
+    )
+    assert rename.status_code == 200
+
+    detail = await client.get(f"{PRACTICES_URL}/{practice_id}", headers=headers)
+    assert detail.status_code == 200
+    assert detail.json()["audience_group_names"] == ["Утренняя практика"]
