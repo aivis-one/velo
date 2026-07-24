@@ -133,10 +133,33 @@ async def assert_viewer_can_access_practice(
     the machine code, the frontend) can tell WHICH reason applies.
 
     Codes: "blocked_by_master", "not_a_student", "not_in_audience" (the
-    groups case). Frontend maps each to its own Russian message -- see
-    diary/checkins_service.py upsert_checkin's docstring for the exact
-    strings and where they surface.
+    groups case, also the fail-closed default for an unrecognized
+    audience_kind -- see below). Frontend maps each to its own Russian
+    message -- see diary/checkins_service.py upsert_checkin's docstring for
+    the exact strings and where they surface.
+
+    OWNER BYPASS (P5 hardening, ПРОМТ №596): matches list_public_practices's
+    own `or_(Practice.master_id == user.id, viewer_audience_clause(user.id))`
+    filter (listing_service.py) -- so the gate and the feed filter agree by
+    construction, not by caller discipline. VERIFIED INERT today: every call
+    site already rejects a master acting on their OWN practice BEFORE ever
+    reaching this function --
+      - create_booking: `if practice.master_id == user.id: raise
+        BadRequestError("Cannot book your own practice")`
+        (bookings/service.py:240-241)
+      - confirm_waitlist: unreachable transitively -- a Waitlist row can only
+        exist via join_waitlist, which itself rejects `practice.master_id ==
+        user.id` with "Cannot join waitlist for your own practice"
+        (waitlist/service.py:136-137)
+      - upsert_checkin: unreachable transitively -- requires an existing
+        CONFIRMED Booking (diary/checkins_service.py), and a booking can only
+        be created via the two gated paths above
+    So this bypass changes no live behavior; it removes the shared
+    function's dependence on that caller discipline continuing to hold.
     """
+    if practice.master_id == user_id:
+        return
+
     if await _clause_true_for(practice.id, _blocked_clause(user_id), session):
         raise ForbiddenError(
             "You are blocked by this practice's master", code="blocked_by_master",
@@ -155,11 +178,24 @@ async def assert_viewer_can_access_practice(
             )
         return
 
-    # AudienceKind.GROUPS.
-    if not await _clause_true_for(
-        practice.id, _is_group_member_clause(user_id), session,
-    ):
-        raise ForbiddenError(
-            "You are not a member of this practice's target group(s)",
-            code="not_in_audience",
-        )
+    if practice.audience_kind == AudienceKind.GROUPS.value:
+        if not await _clause_true_for(
+            practice.id, _is_group_member_clause(user_id), session,
+        ):
+            raise ForbiddenError(
+                "You are not a member of this practice's target group(s)",
+                code="not_in_audience",
+            )
+        return
+
+    # FAIL-CLOSED (P5 hardening, ПРОМТ №596): an unrecognized audience_kind
+    # is DENIED, not silently allowed -- matches viewer_audience_clause's SQL
+    # `or_`, which likewise matches none of its three explicit branches and
+    # so evaluates false for anything else. AudienceKind has exactly three
+    # members today (models.py), so this is unreachable in practice; it
+    # exists so a future 4th value fails closed here too, instead of
+    # silently falling through to the GROUPS rule (the previous implicit-
+    # else shape) or, worse, being allowed.
+    raise ForbiddenError(
+        "Unrecognized audience_kind", code="not_in_audience",
+    )
