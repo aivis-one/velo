@@ -1,10 +1,14 @@
 // =============================================================================
-// VELO Frontend -- MasterGroupsView Screen Tests (Master GROUPS P2, ПРОМТ №591)
+// VELO Frontend -- MasterGroupsView Screen Tests (Master GROUPS P2, ПРОМТ №591;
+// invite wiring P4, ПРОМТ №593)
 // =============================================================================
 //
 // PATTERN B (local-ref, no store): mirrors MasterStudentsView.test.ts -- state
 // lives in local refs fed by direct @/api/groups calls, no Pinia needed. The
 // seam is @/api/groups (a hand-written module, mocked wholesale below).
+//
+// P4: navigator.clipboard does not exist in happy-dom -- defined per test
+// (same pattern as MasterPromocodesView.test.ts's writeText mock).
 // =============================================================================
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -38,6 +42,7 @@ function group(id: string, overrides: Partial<GroupListItem> = {}): GroupListIte
   }
 }
 
+let writeText: ReturnType<typeof vi.fn>
 let app: App | null = null
 let host: HTMLElement | null = null
 
@@ -78,11 +83,19 @@ beforeEach(() => {
   vi.mocked(groupsApi.createGroup).mockReset()
   vi.mocked(groupsApi.renameGroup).mockReset()
   vi.mocked(groupsApi.deleteGroup).mockReset()
+  vi.mocked(groupsApi.createGroupInvite).mockReset()
   push.mockReset()
   back.mockReset()
   toastInfo.mockReset()
   toastError.mockReset()
   toastSuccess.mockReset()
+
+  writeText = vi.fn().mockResolvedValue(undefined)
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    writable: true,
+    value: { writeText },
+  })
 })
 
 afterEach(() => {
@@ -226,9 +239,12 @@ describe('MasterGroupsView', () => {
       expect(push).toHaveBeenCalledWith({ name: 'master-group-create' })
     })
 
-    it('the invite button does NOT navigate and does not call any create endpoint (P4 stub)', async () => {
+    it('«Пригласить в группу» creates the invite, copies it, and toasts (P4)', async () => {
       vi.mocked(groupsApi.getGroups).mockResolvedValue({
         items: [group('g1', { kind: 'custom', name: 'VIP' })],
+      })
+      vi.mocked(groupsApi.createGroupInvite).mockResolvedValue({
+        invite_url: 'https://t.me/velo_bot?startapp=group_invite__abc123',
       })
       mount()
       await flush()
@@ -236,8 +252,38 @@ describe('MasterGroupsView', () => {
       host?.querySelector<HTMLElement>('.groups__invite-btn')?.click()
       await flush()
 
+      expect(groupsApi.createGroupInvite).toHaveBeenCalledWith('g1')
+      expect(writeText).toHaveBeenCalledWith('https://t.me/velo_bot?startapp=group_invite__abc123')
+      expect(toastSuccess).toHaveBeenCalledWith('Ссылка скопирована')
       expect(push).not.toHaveBeenCalled()
-      expect(toastInfo).toHaveBeenCalledWith('Скоро')
+    })
+
+    it('a failed invite create surfaces an error toast, not a silent no-op', async () => {
+      vi.mocked(groupsApi.getGroups).mockResolvedValue({
+        items: [group('g1', { kind: 'custom', name: 'VIP' })],
+      })
+      vi.mocked(groupsApi.createGroupInvite).mockRejectedValue(new Error('boom'))
+      mount()
+      await flush()
+
+      host?.querySelector<HTMLElement>('.groups__invite-btn')?.click()
+      await flush()
+
+      expect(writeText).not.toHaveBeenCalled()
+      expect(toastError).toHaveBeenCalledWith('Не удалось создать ссылку')
+    })
+
+    it('system groups («Ученики»/«Удалённые») render no invite button', async () => {
+      vi.mocked(groupsApi.getGroups).mockResolvedValue({
+        items: [
+          group('students', { kind: 'students', name: 'Ученики' }),
+          group('deleted', { kind: 'deleted', name: 'Удалённые' }),
+        ],
+      })
+      mount()
+      await flush()
+
+      expect(host?.querySelectorAll('.groups__invite-btn')).toHaveLength(0)
     })
   })
 

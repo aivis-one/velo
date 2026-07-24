@@ -10,9 +10,11 @@
   VBottomSheet (rename), VConfirmDialog (delete confirm), VShowMore (the
   "+ ещё N групп" expander) -- no bespoke visual component, DS tokens only.
 
-  Invite (P4, not wired here): each row's «Пригласить в группу» action is a
-  stub -- copyGroupInvite() just toasts "Скоро" (TODO(P4)). Do not invent a
-  link before the real endpoint exists.
+  Invite (P4, ПРОМТ №593): each row's «Пригласить в группу» calls POST
+  .../invite, copies the returned link to the clipboard (B2 pattern, same as
+  AdminMasterInviteView/MasterPromocodesView), and toasts. CUSTOM groups only
+  -- the two virtual groups never render this action (see the v-if guard
+  below), matching the backend's 400-on-system-slug.
 -->
 
 <template>
@@ -49,9 +51,11 @@
             <template #trailing>
               <div class="groups__row-actions" @click.stop>
                 <button
+                  v-if="group.kind === 'custom'"
                   type="button"
                   class="groups__invite-btn"
                   aria-label="Пригласить в группу"
+                  :disabled="invitingId === group.id"
                   @click="copyGroupInvite(group.id)"
                 >
                   <IconShare :size="20" />
@@ -140,7 +144,7 @@ import { IconShare, IconPen, IconPlus } from '@/components/icons'
 // EntryView.vue's delete action) -- import the component file directly.
 import IconTrash from '@/components/icons/IconTrash.vue'
 import VShowMore from '@/components/shared/VShowMore.vue'
-import { getGroups, renameGroup, deleteGroup } from '@/api/groups'
+import { getGroups, renameGroup, deleteGroup, createGroupInvite } from '@/api/groups'
 import { useToast } from '@/composables/useToast'
 import { extractApiError } from '@/composables/useApiError'
 import { plural } from '@/utils/plural'
@@ -188,9 +192,23 @@ function onCreate(): void {
   router.push({ name: 'master-group-create' })
 }
 
-// -- Invite (P4 stub, TODO(P4): real link generation) --
-function copyGroupInvite(_groupId: string): void {
-  toast.info('Скоро')
+// -- Invite (P4, ПРОМТ №593) --
+const invitingId = ref<string | null>(null)
+async function copyGroupInvite(groupId: string): Promise<void> {
+  if (invitingId.value) return
+  invitingId.value = groupId
+  try {
+    const res = await createGroupInvite(groupId)
+    // Clipboard needs no backend — write the link straight to the
+    // clipboard (B2, same pattern as AdminMasterInviteView/
+    // MasterPromocodesView; no shared clipboard composable exists yet).
+    await navigator.clipboard.writeText(res.invite_url)
+    toast.success('Ссылка скопирована')
+  } catch (e) {
+    toast.error(extractApiError(e, 'Не удалось создать ссылку'))
+  } finally {
+    invitingId.value = null
+  }
 }
 
 // -- Rename --
@@ -302,6 +320,11 @@ async function onDeleteConfirm(): Promise<void> {
 
 .groups__invite-btn:active {
   opacity: 0.85;
+}
+
+.groups__invite-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .groups__add-btn {
