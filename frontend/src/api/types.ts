@@ -45,7 +45,6 @@ export type {
   CreateCompanyPromoRequest,
   CreateDiaryEntryRequest,
   CreateMasterPromoRequest,
-  CreatePracticeRequest,
   CreateReportRequest,
   CreateWithdrawalRequest,
   DiaryEntryResponse,
@@ -124,7 +123,6 @@ export type {
   TopupRequest,
   TopupResponse,
   UpdateDiaryEntryRequest,
-  UpdatePracticeRequest,
   UpdateReportRequest,
   MasterApplicationInfo,
   UserResponse,
@@ -146,9 +144,33 @@ export type {
 // and switch these two back to the plain re-export above.
 import type {
   BookingWithPracticeResponse as GeneratedBookingWithPracticeResponse,
+  CreatePracticeRequest as GeneratedCreatePracticeRequest,
   PracticeResponse as GeneratedPracticeResponse,
   PracticeSummary as GeneratedPracticeSummary,
+  UpdatePracticeRequest as GeneratedUpdatePracticeRequest,
 } from './generated'
+
+// -- P5 bridge (Master GROUPS, ПРОМТ №594): audience_kind + group_ids, ahead
+// of the next generated.ts regen -- same "never hand-edited" posture as the
+// T21-1 bridge above. Remove once a regen picks these up natively.
+export type PracticeAudienceKind = 'public' | 'students' | 'groups'
+
+export interface CreatePracticeRequest extends GeneratedCreatePracticeRequest {
+  /** Default 'public' server-side when omitted -- matches every practice's
+   * behavior before this feature existed. */
+  audience_kind?: PracticeAudienceKind
+  /** Required (non-empty) only when audience_kind='groups'; the master's
+   * OWN custom groups (rejects another master's group / a system slug with
+   * a 400). */
+  group_ids?: string[]
+}
+
+export interface UpdatePracticeRequest extends GeneratedUpdatePracticeRequest {
+  /** Both optional (PATCH semantics): omitted = unchanged. group_ids, when
+   * sent, REPLACES the practice's full target-group set. */
+  audience_kind?: PracticeAudienceKind
+  group_ids?: string[]
+}
 
 export interface PracticeResponse extends GeneratedPracticeResponse {
   /** The practice owner's own Zoom host-registrant link. Populated only on
@@ -171,6 +193,16 @@ export interface PracticeResponse extends GeneratedPracticeResponse {
    * detail, update, delete, cancel), same fixture-compatibility reason as
    * the other bridged fields above. */
   deduplicated?: boolean
+  /** P5 (ПРОМТ №594): 'public' | 'students' | 'groups'. Optional/undefined
+   * for the same fixture-compatibility reason as the other bridged fields
+   * above -- defaults to 'public' server-side, but existing test fixtures
+   * built before this field existed simply omit it. */
+  audience_kind?: PracticeAudienceKind
+  /** The practice's target CUSTOM groups' names (audience_kind='groups'
+   * only; empty/undefined otherwise). Static per-practice data, not a
+   * per-viewer flag -- CheckinView.vue composes the "Вы не состоите в
+   * группе «...»" message from this directly, no second round-trip. */
+  audience_group_names?: string[]
 }
 
 export interface PracticeSummary extends GeneratedPracticeSummary {
