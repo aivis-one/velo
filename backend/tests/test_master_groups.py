@@ -40,7 +40,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.masters.groups_models import (
-    MasterGroup,
     MasterGroupMembership,
     MasterStudent,
 )
@@ -48,7 +47,7 @@ from app.modules.masters.models import MasterProfile
 from app.modules.payments.models import Purchase, PurchaseStatus
 from app.modules.practices.models import Practice, PracticeStatus, PracticeType
 from app.modules.users.models import User, UserRole
-from tests.helpers import auth_headers, login_user
+from tests.helpers import auth_headers, full_cleanup_range, login_user
 
 GROUPS_URL = "/api/v1/masters/me/groups"
 GROUP_URL = "/api/v1/masters/me/groups/{group_id}"
@@ -72,53 +71,17 @@ _TID_MAX = 99799
 
 @pytest.fixture(autouse=True)
 async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
-    await _do_cleanup(db_session)
+    # TD-032: full_cleanup_range is the single source of FK-safe delete
+    # order (ledgers, the 5 group tables, practices/bookings/purchases,
+    # users) -- a hand-rolled DELETE list here previously omitted
+    # user_ledger/master_ledger and orphaned refund rows into a
+    # ForeignKeyViolationError once the master-groups fixtures started
+    # committing (№600).
+    await full_cleanup_range(db_session, _TID_MIN, _TID_MAX, delete_users=True)
+    await db_session.commit()
     yield
-    await _do_cleanup(db_session)
-
-
-async def _do_cleanup(session: AsyncSession) -> None:
-    await session.rollback()
-
-    user_ids_subq = select(User.id).where(User.telegram_id.between(_TID_MIN, _TID_MAX))
-    master_group_ids_subq = select(MasterGroup.id).where(
-        MasterGroup.master_id.in_(user_ids_subq)
-    )
-
-    await session.execute(
-        MasterGroupMembership.__table__.delete().where(
-            MasterGroupMembership.group_id.in_(master_group_ids_subq)
-        )
-    )
-    await session.execute(
-        MasterGroup.__table__.delete().where(MasterGroup.master_id.in_(user_ids_subq))
-    )
-    await session.execute(
-        MasterStudent.__table__.delete().where(
-            MasterStudent.master_id.in_(user_ids_subq)
-        )
-    )
-    await session.execute(
-        Purchase.__table__.delete().where(Purchase.user_id.in_(user_ids_subq))
-    )
-    await session.execute(
-        Booking.__table__.delete().where(Booking.user_id.in_(user_ids_subq))
-    )
-    await session.execute(
-        Practice.__table__.delete().where(Practice.master_id.in_(user_ids_subq))
-    )
-    await session.execute(
-        MasterProfile.__table__.delete().where(MasterProfile.user_id.in_(user_ids_subq))
-    )
-    from app.core.audit import AuditLog
-
-    await session.execute(
-        AuditLog.__table__.delete().where(AuditLog.actor_id.in_(user_ids_subq))
-    )
-    await session.execute(
-        User.__table__.delete().where(User.telegram_id.between(_TID_MIN, _TID_MAX))
-    )
-    await session.commit()
+    await full_cleanup_range(db_session, _TID_MIN, _TID_MAX, delete_users=True)
+    await db_session.commit()
 
 
 # ===================================================================
