@@ -231,7 +231,7 @@ class CreatePracticeRequest(BaseModel):
     # required (non-empty) only when audience_kind='groups'; the service
     # verifies each id is one of THIS master's own CUSTOM groups (rejects
     # another master's group / a system slug with a 400).
-    audience_kind: str = AudienceKind.PUBLIC.value
+    audience_kind: AudienceKind = AudienceKind.PUBLIC
     group_ids: list[UUID] = Field(default_factory=list)
 
     @field_validator("audience_kind")
@@ -422,7 +422,7 @@ class UpdatePracticeRequest(BaseModel):
     # one is sent, the service validates it against the practice's current
     # STORED audience_kind (same "sent value vs stored value" posture as
     # style's own W-1 note below).
-    audience_kind: str | None = None
+    audience_kind: AudienceKind | None = None
     group_ids: list[UUID] | None = None
 
     @field_validator("audience_kind")
@@ -657,7 +657,7 @@ class PracticeResponse(BaseModel):
     # this practice targets), not a per-viewer flag -- the frontend uses it
     # to compose the "Вы не состоите в группе «...»" check-in error message
     # without a second round-trip.
-    audience_kind: str = AudienceKind.PUBLIC.value
+    audience_kind: AudienceKind = AudienceKind.PUBLIC
     audience_group_names: list[str] = []
 
     # -- Series meta (E3 batch 2; computed by the service for series roots) --
