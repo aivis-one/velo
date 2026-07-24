@@ -95,11 +95,7 @@
         <!-- Вид практики = style. Показываем только если у направления есть виды
              (Q4=А: без явного «Без вида», не выбрано = null, необязательное). -->
         <div v-if="styleOptionsForForm.length > 0" class="create-practice__railed">
-          <VSelect
-            v-model="form.style"
-            placeholder="Вид практики"
-            :options="styleOptionsForForm"
-          />
+          <VSelect v-model="form.style" placeholder="Вид практики" :options="styleOptionsForForm" />
         </div>
 
         <!-- Уровень сложности = difficulty (локальные мужские лейблы, Q1=Б). -->
@@ -132,7 +128,10 @@
             >
               {{ form.date ? dateDisplay : 'Дата' }}
             </button>
-            <span class="create-practice__seal" :class="{ 'create-practice__seal--done': !!form.date }">
+            <span
+              class="create-practice__seal"
+              :class="{ 'create-practice__seal--done': !!form.date }"
+            >
               <IconRequired v-if="!form.date" :size="22" />
               <IconRequiredDone v-else :size="22" />
             </span>
@@ -154,7 +153,10 @@
             >
               {{ form.time || 'Время' }}
             </button>
-            <span class="create-practice__seal" :class="{ 'create-practice__seal--done': !!form.time }">
+            <span
+              class="create-practice__seal"
+              :class="{ 'create-practice__seal--done': !!form.time }"
+            >
               <IconRequired v-if="!form.time" :size="22" />
               <IconRequiredDone v-else :size="22" />
             </span>
@@ -288,6 +290,42 @@
       </div>
 
       <!-- ================================================================
+           Для кого практика  (P5, ПРОМТ №594): audience_kind single-select,
+           + a multi-select of the master's own custom groups when 'groups'
+           is chosen. No SVG mock exists -- MINIMAL DS-language design.
+           ================================================================ -->
+      <div class="create-practice__section">
+        <h2 class="velo-section-title">Для кого практика</h2>
+
+        <div class="create-practice__railed">
+          <VCard class="create-practice__repeat" padding="none">
+            <VRadioGroup v-model="form.audience_kind" :options="AUDIENCE_OPTIONS" />
+          </VCard>
+
+          <template v-if="form.audience_kind === 'groups'">
+            <div v-if="customGroups.length" class="create-practice__audience-chips">
+              <VChip
+                v-for="g in customGroups"
+                :key="g.id"
+                size="md"
+                clickable
+                :active="form.audience_group_ids.includes(g.id)"
+                @click="onAudienceGroupChipClick(g.id)"
+              >
+                {{ g.name }}
+              </VChip>
+            </div>
+            <p v-else class="create-practice__audience-empty">
+              Пока нет ни одной группы. Создайте группу на экране «Мои группы».
+            </p>
+            <span v-if="errors.audience_group_ids" class="create-practice__field-error">{{
+              errors.audience_group_ids
+            }}</span>
+          </template>
+        </div>
+      </div>
+
+      <!-- ================================================================
            Оплата  (платная опция убрана — пока только «Бесплатно», operator
            2026-06-18 Q2=А; «Платно» + цену вернём одной строкой при надобности)
            ================================================================ -->
@@ -348,12 +386,16 @@
       <div class="create-practice__section">
         <h2 class="velo-section-title">Подключение</h2>
         <p class="create-practice__hint">
-          Ссылка на Zoom создаётся автоматически. Указывайте свою только как запасной
-          вариант — посещение по ней не засчитается автоматически.
+          Ссылка на Zoom создаётся автоматически. Указывайте свою только как запасной вариант —
+          посещение по ней не засчитается автоматически.
         </p>
 
         <div class="create-practice__railed">
-          <VInput v-model="form.zoom_link" placeholder="Запасная ссылка на Zoom" @focus="onFieldFocus" />
+          <VInput
+            v-model="form.zoom_link"
+            placeholder="Запасная ссылка на Zoom"
+            @focus="onFieldFocus"
+          />
         </div>
       </div>
 
@@ -403,12 +445,15 @@ import {
   VCheckbox,
   VRadioGroup,
   VDayPicker,
+  VChip,
 } from '@/components/ui'
 import { IconRequired, IconRequiredDone } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
 import { createPractice, updatePractice } from '@/api/practices'
+import { getGroups } from '@/api/groups'
+import type { GroupListItem } from '@/api/groups'
 import { formatShortDate, todayLocalISO } from '@/utils/format'
 import DatePickerSheet from '@/components/shared/DatePickerSheet.vue'
 import TimePickerSheet from '@/components/shared/TimePickerSheet.vue'
@@ -416,7 +461,11 @@ import UseTemplateBlock from '@/components/shared/UseTemplateBlock.vue'
 import Banner from '@/components/shared/Banner.vue'
 import { ApiResponseError } from '@/api/client'
 import { extractApiError } from '@/composables/useApiError'
-import { DURATION_OPTIONS, catalogDirectionOptions, catalogStylesForDirection } from '@/utils/practiceOptions'
+import {
+  DURATION_OPTIONS,
+  catalogDirectionOptions,
+  catalogStylesForDirection,
+} from '@/utils/practiceOptions'
 import { ensureTaxonomyCatalog, parseMethods } from '@/utils/methodTaxonomy'
 import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 import type { TaxonomyListResponse } from '@/api/taxonomy'
@@ -450,6 +499,8 @@ const masterStore = useMasterStore()
 // warmed it this session); if cold, fetched here before the master is likely
 // to have opened the Направление select.
 const catalog = ref<TaxonomyListResponse | null>(null)
+// P5 (ПРОМТ №594): the master's own custom groups (loaded in onMounted below).
+const customGroups = ref<GroupListItem[]>([])
 onMounted(() => {
   void masterStore.fetchMyPractices()
   void ensureTaxonomyCatalog().then((c) => {
@@ -460,6 +511,13 @@ onMounted(() => {
   // styleOptionsForForm below). No-op if already loaded elsewhere this
   // session (fetchMyProfile's own cache, same as fetchMyPractices above).
   void masterStore.fetchMyProfile()
+  // P5 (ПРОМТ №594): the master's own custom groups, for «Конкретные
+  // группы»'s multi-select. «Удалённые» is a system slug (never a real
+  // MasterGroup row) and «Ученики» isn't a target-able group either --
+  // getGroups() already returns both alongside custom ones, so filter here.
+  void getGroups().then((res) => {
+    customGroups.value = res.items.filter((g) => g.kind === 'custom')
+  })
 })
 
 const submitting = ref(false)
@@ -494,6 +552,24 @@ const RECURRENCE_END_OPTIONS = [
 
 // «Платно» убрано (operator 2026-06-18 Q2=А) — пока только бесплатные практики.
 const PAYMENT_OPTIONS = [{ value: 'free', label: 'Бесплатно' }]
+
+// P5 (ПРОМТ №594): «Для кого практика» -- no SVG mock exists for this
+// control, MINIMAL DS-language design (VRadioGroup, same recipe as
+// RECURRENCE_OPTIONS/PAYMENT_OPTIONS above -- no new visual component).
+const AUDIENCE_OPTIONS = [
+  { value: 'public', label: 'Публичная' },
+  { value: 'students', label: 'Все ученики' },
+  { value: 'groups', label: 'Конкретные группы' },
+]
+
+// Named wrapper (B7-hook edge: an inline multi-statement @click handler can
+// be reformatted across lines by the pre-commit hook's prettier pass and
+// lose its semicolon, breaking the Vue template compiler).
+function onAudienceGroupChipClick(groupId: string): void {
+  const idx = form.audience_group_ids.indexOf(groupId)
+  if (idx === -1) form.audience_group_ids.push(groupId)
+  else form.audience_group_ids.splice(idx, 1)
+}
 
 // Уровень сложности — локальные мужские лейблы под слово «уровень» (Q1=Б);
 // глобальный DIFFICULTY_LABEL (женский род, под «практика») не трогаем.
@@ -531,6 +607,12 @@ const form = reactive({
   timezone: authStore.user?.timezone ?? 'Europe/Moscow',
   max_participants_raw: '', // string input, parsed to int|null on submit
   is_free: true, // «Платно» removed — practices are free for now (Q2=А)
+  // P5 (ПРОМТ №594): «Для кого практика» — single-select kind, + a
+  // multi-select of the master's OWN custom groups when kind='groups'.
+  // Default 'public' -- matches every practice's behavior before this
+  // feature existed.
+  audience_kind: 'public' as 'public' | 'students' | 'groups',
+  audience_group_ids: [] as string[],
   description: '',
   what_to_prepare: '',
   contraindications: '',
@@ -553,6 +635,7 @@ const errors = reactive({
   recurrence_days: '',
   recurrence_end_date: '',
   recurrence_count: '',
+  audience_group_ids: '',
 })
 
 // «Использовать шаблон» source: all the master's practices, newest-created
@@ -707,18 +790,18 @@ function isMeaningfulDraft(d: DraftShape | null): boolean {
   const s = (v: unknown): string => (typeof v === 'string' ? v.trim() : '')
   return Boolean(
     s(d.title) ||
-      d.direction ||
-      d.difficulty ||
-      d.style ||
-      d.date ||
-      d.time ||
-      d.duration_minutes ||
-      s(d.max_participants_raw) ||
-      s(d.description) ||
-      s(d.what_to_prepare) ||
-      s(d.contraindications) ||
-      s(d.zoom_link) ||
-      d.is_recurring,
+    d.direction ||
+    d.difficulty ||
+    d.style ||
+    d.date ||
+    d.time ||
+    d.duration_minutes ||
+    s(d.max_participants_raw) ||
+    s(d.description) ||
+    s(d.what_to_prepare) ||
+    s(d.contraindications) ||
+    s(d.zoom_link) ||
+    d.is_recurring,
   )
 }
 
@@ -868,6 +951,12 @@ function validate(): boolean {
     errors.recurrence_count = 'Укажите число повторений (не меньше 1)'
     ok = false
   }
+  // P5 (ПРОМТ №594): «Конкретные группы» needs at least one group chosen --
+  // matches the backend's own group_ids-non-empty-when-groups check.
+  if (form.audience_kind === 'groups' && form.audience_group_ids.length === 0) {
+    errors.audience_group_ids = 'Выберите хотя бы одну группу'
+    ok = false
+  }
   return ok
 }
 
@@ -947,6 +1036,10 @@ async function submit(): Promise<void> {
       currency: 'eur',
       // E3: when recurring, send the series spec; non-recurring → null.
       recurrence: form.is_recurring ? buildRecurrence() : null,
+      // P5 (ПРОМТ №594): audience_kind + group_ids (only meaningful --
+      // and only sent -- for 'groups').
+      audience_kind: form.audience_kind,
+      group_ids: form.audience_kind === 'groups' ? form.audience_group_ids : [],
     })
 
     // A4 V6 (ПРОМТ №572): `deduplicated` is the EXPLICIT backend signal that
@@ -1117,7 +1210,8 @@ async function submit(): Promise<void> {
 
 .create-practice__repeat-title {
   font-family: var(--font-body);
-  font-size: var(--text-base);  color: var(--velo-text-primary);
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
 }
 
 /* -- Date/time picker trigger field (mirrors the white VInput plate) -- */
@@ -1169,6 +1263,22 @@ async function submit(): Promise<void> {
   font-size: var(--text-xs);
   color: var(--velo-error);
   margin-top: var(--space-1);
+}
+
+/* -- Для кого практика (P5, ПРОМТ №594): group multi-select chips, same
+   token recipe as AddToGroupSheet's .add-to-group__chips/__empty. -- */
+.create-practice__audience-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.create-practice__audience-empty {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--velo-text-muted);
+  margin: var(--space-3) 0 0;
 }
 
 /* -- Повторение: карточка повтора (grow) + печать обязательности справа (Q2=В). -- */

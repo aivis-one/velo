@@ -81,10 +81,21 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createApp, nextTick, type App } from 'vue'
 import CreatePracticeView from '@/views/master/CreatePracticeView.vue'
 import * as practicesApi from '@/api/practices'
+import * as groupsApi from '@/api/groups'
 import { ApiResponseError } from '@/api/client'
-import type { CreatePracticeRequest, MasterProfileResponse, PracticeResponse, UserResponse } from '@/api/types'
+import type {
+  CreatePracticeRequest,
+  MasterProfileResponse,
+  PracticeResponse,
+  UserResponse,
+} from '@/api/types'
 
 vi.mock('@/api/practices')
+// P5 (ПРОМТ №594): «Для кого практика» -> «Конкретные группы» fetches the
+// master's own custom groups on mount. Mocked wholesale (like practicesApi
+// above) -- an unmocked call here would hit the real network in EVERY test
+// in this file, not just the audience-specific ones below.
+vi.mock('@/api/groups')
 
 // Seamed at the helper, not at @/api/taxonomy: the real one caches for the whole
 // file (see the banner). Resolving null = catalog cold -> hardcoded fallback.
@@ -389,6 +400,7 @@ beforeEach(() => {
     .mockResolvedValue(practice({ id: 'p_new', status: 'scheduled' }))
   fetchMyPractices.mockReset().mockResolvedValue(undefined)
   refreshMyPractices.mockReset().mockResolvedValue(undefined)
+  vi.mocked(groupsApi.getGroups).mockReset().mockResolvedValue({ items: [] })
   push.mockReset()
   back.mockReset()
   replace.mockReset()
@@ -413,7 +425,9 @@ afterEach(() => {
   // signature is that the FIRST sheet test in the file passes and every later one
   // fails while the screen is perfectly healthy. This screen parks three sheets
   // (date, end-date, time), all .v-sheet__overlay.
-  document.body.querySelectorAll('.v-sheet__overlay, .v-modal__overlay').forEach((el) => el.remove())
+  document.body
+    .querySelectorAll('.v-sheet__overlay, .v-modal__overlay')
+    .forEach((el) => el.remove())
 
   localStorage.clear()
   window.history.replaceState({}, '')
@@ -460,7 +474,7 @@ describe('CreatePracticeView', () => {
       expect(opts).toHaveLength(1)
     })
 
-    it('narrows to the master\'s own confirmed methods once the profile has loaded (T21-6, ПРОМТ №546)', async () => {
+    it("narrows to the master's own confirmed methods once the profile has loaded (T21-6, ПРОМТ №546)", async () => {
       // Same cold catalog as above (ensureTaxonomyCatalog mocked to null) --
       // the filter is driven by MasterProfileResponse.methods, resolved via
       // parseMethods against the hardcoded DIRECTION_OPTIONS fallback, not by
@@ -580,7 +594,7 @@ describe('CreatePracticeView', () => {
       expect(sentBody().max_participants).toBeNull()
     })
 
-    it('refuses a wall-clock that has already passed in the MASTER\'s timezone', async () => {
+    it("refuses a wall-clock that has already passed in the MASTER's timezone", async () => {
       // :727-735. Frozen at 12:00Z = 15:00 Moscow, so 12:00 Moscow TODAY is three
       // hours gone. The backend rejects a past scheduled_at with a 422 the master
       // cannot read; this gate is the only thing that explains it to them.
@@ -655,6 +669,9 @@ describe('CreatePracticeView', () => {
         price_cents: 0,
         currency: 'eur',
         recurrence: null,
+        // P5 (ПРОМТ №594): untouched «Для кого практика» -> the default.
+        audience_kind: 'public',
+        group_ids: [],
       })
     })
 
@@ -680,7 +697,7 @@ describe('CreatePracticeView', () => {
       expect(text()).toContain('Бесплатно')
     })
 
-    it('interprets the typed wall-clock in the MASTER\'s zone, not the browser\'s', async () => {
+    it("interprets the typed wall-clock in the MASTER's zone, not the browser's", async () => {
       // :814-817. THE timezone round-trip. The master types 12:00; what is stored
       // is an instant, and every student later sees it rendered in their own zone.
       // A screen that read the browser's zone would schedule a Tokyo master's
@@ -715,7 +732,7 @@ describe('CreatePracticeView', () => {
       expect(sentBody().scheduled_at).toBe('2026-07-25T09:00:00.000Z')
     })
 
-    it('sends duration as a NUMBER, not the select\'s string', async () => {
+    it("sends duration as a NUMBER, not the select's string", async () => {
       // parseInt (:838). Shipping "90" to a backend expecting an int is a 422.
       mount()
       await flush()
@@ -759,15 +776,15 @@ describe('CreatePracticeView', () => {
     }
 
     function radio(label: string): HTMLButtonElement | undefined {
-      return Array.from(host?.querySelectorAll<HTMLButtonElement>('button[role="radio"]') ?? []).find(
-        (b) => b.textContent?.includes(label),
-      )
+      return Array.from(
+        host?.querySelectorAll<HTMLButtonElement>('button[role="radio"]') ?? [],
+      ).find((b) => b.textContent?.includes(label))
     }
 
     function day(label: string): HTMLButtonElement | undefined {
-      return Array.from(
-        host?.querySelectorAll<HTMLButtonElement>('.v-day-picker__day') ?? [],
-      ).find((b) => b.textContent?.trim() === label)
+      return Array.from(host?.querySelectorAll<HTMLButtonElement>('.v-day-picker__day') ?? []).find(
+        (b) => b.textContent?.trim() === label,
+      )
     }
 
     it('a NON-recurring practice is a one-off: live, and no spec at all', async () => {
@@ -1020,7 +1037,7 @@ describe('CreatePracticeView', () => {
       })
     })
 
-    it('ПРОМТ №559 / A4 V6 (ПРОМТ №572): a dedup-returned ALREADY-scheduled practice skips the publish PATCH AND is honestly presented as the master\'s existing practice, not a new one', async () => {
+    it("ПРОМТ №559 / A4 V6 (ПРОМТ №572): a dedup-returned ALREADY-scheduled practice skips the publish PATCH AND is honestly presented as the master's existing practice, not a new one", async () => {
       // The backend's own duplicate-submission check (create_practice)
       // returns the master's EARLIER submission unchanged, status='scheduled'
       // already, when this looks like a retry within its short window --
@@ -1193,7 +1210,7 @@ describe('CreatePracticeView', () => {
   })
 
   describe('«Использовать шаблон»', () => {
-    it('offers the master\'s own practices, newest-created first', async () => {
+    it("offers the master's own practices, newest-created first", async () => {
       // :546-548 sorts by created_at DESC because the backend list order is not
       // guaranteed (operator Q2=А).
       masterState.practices = [
@@ -1206,8 +1223,8 @@ describe('CreatePracticeView', () => {
       host?.querySelector<HTMLElement>('.use-template__head')?.click()
       await flush()
 
-      const titles = Array.from(host?.querySelectorAll('.use-template__card-title') ?? []).map((e) =>
-        e.textContent?.trim(),
+      const titles = Array.from(host?.querySelectorAll('.use-template__card-title') ?? []).map(
+        (e) => e.textContent?.trim(),
       )
       expect(titles).toEqual(['Новая', 'Старая'])
     })
@@ -1432,7 +1449,7 @@ describe('CreatePracticeView', () => {
       expect(button('Создать практику')).toBeDefined()
     })
 
-    it('one master\'s draft is never offered to another', async () => {
+    it("one master's draft is never offered to another", async () => {
       // DRAFT_KEY is scoped per user id (:597). A shared key would leak one
       // master's unfinished practice into another master's form.
       seedDraft({ title: 'Чужой черновик' }, 'velo:create-practice-draft:u2')
@@ -1491,6 +1508,95 @@ describe('CreatePracticeView', () => {
 
       expect(push).toHaveBeenCalledWith({ name: 'master-practices' })
       expect(back).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('«Для кого практика» (P5, ПРОМТ №594)', () => {
+    it('defaults to public with no group_ids when left untouched', async () => {
+      mount()
+      await flush()
+      await fillMinimalForm()
+
+      submitForm()
+      await flush()
+
+      expect(sentBody().audience_kind).toBe('public')
+      expect(sentBody().group_ids).toEqual([])
+    })
+
+    it('«Все ученики» sends audience_kind=students', async () => {
+      mount()
+      await flush()
+      await fillMinimalForm()
+
+      button('Все ученики')?.click()
+      await flush()
+      submitForm()
+      await flush()
+
+      expect(sentBody().audience_kind).toBe('students')
+      expect(sentBody().group_ids).toEqual([])
+    })
+
+    it('the group multi-select renders ONLY for «Конкретные группы»', async () => {
+      vi.mocked(groupsApi.getGroups).mockResolvedValue({
+        items: [
+          { id: 'g1', kind: 'custom', name: 'VIP', members_count: 3 },
+          { id: 'g2', kind: 'custom', name: 'Утро', members_count: 1 },
+        ],
+      })
+      mount()
+      await flush()
+
+      expect(text()).not.toContain('VIP')
+
+      button('Конкретные группы')?.click()
+      await flush()
+      expect(text()).toContain('VIP')
+      expect(text()).toContain('Утро')
+
+      button('Публичная')?.click()
+      await flush()
+      expect(text()).not.toContain('VIP')
+    })
+
+    it('picking a group chip sends its id in group_ids', async () => {
+      vi.mocked(groupsApi.getGroups).mockResolvedValue({
+        items: [{ id: 'g1', kind: 'custom', name: 'VIP', members_count: 3 }],
+      })
+      mount()
+      await flush()
+      await fillMinimalForm()
+
+      button('Конкретные группы')?.click()
+      await flush()
+      const chip = Array.from(host?.querySelectorAll<HTMLElement>('.v-chip') ?? []).find((c) =>
+        c.textContent?.includes('VIP'),
+      )
+      chip?.click()
+      await flush()
+      submitForm()
+      await flush()
+
+      expect(sentBody().audience_kind).toBe('groups')
+      expect(sentBody().group_ids).toEqual(['g1'])
+    })
+
+    it('«Конкретные группы» with nothing picked blocks submit with a field error', async () => {
+      vi.mocked(groupsApi.getGroups).mockResolvedValue({
+        items: [{ id: 'g1', kind: 'custom', name: 'VIP', members_count: 3 }],
+      })
+      mount()
+      await flush()
+      await fillMinimalForm()
+
+      button('Конкретные группы')?.click()
+      await flush()
+      submitForm()
+      await flush()
+
+      expect(practicesApi.createPractice).not.toHaveBeenCalled()
+      expect(text()).toContain('Выберите хотя бы одну группу')
     })
   })
 
