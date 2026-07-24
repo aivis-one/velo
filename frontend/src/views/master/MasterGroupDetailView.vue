@@ -105,7 +105,21 @@
           icon="group"
           :title="search ? 'Никого не найдено' : 'Участников пока нет'"
           :description="search ? 'Попробуйте изменить запрос' : emptyDescription"
-        />
+        >
+          <!-- Empty-group invite CTA (P4, ПРОМТ №593): only for an actually
+               empty CUSTOM group (no search filter active, kind==='custom')
+               -- matches the backend's 400-on-system-slug, and a search-empty
+               state should offer "clear the search", not "invite someone". -->
+          <VButton
+            v-if="!search && kind === 'custom'"
+            size="sm"
+            variant="outline"
+            :loading="inviting"
+            @click="onInviteClick"
+          >
+            Пригласить в группу
+          </VButton>
+        </VEmptyState>
       </template>
     </div>
 
@@ -177,7 +191,7 @@ import IconTrash from '@/components/icons/IconTrash.vue'
 import AddTagSheet from '@/components/shared/AddTagSheet.vue'
 import AddToGroupSheet from '@/components/shared/AddToGroupSheet.vue'
 import RemoveFromGroupSheet from '@/components/shared/RemoveFromGroupSheet.vue'
-import { getGroupMembers, getGroups, unblockStudent } from '@/api/groups'
+import { getGroupMembers, getGroups, unblockStudent, createGroupInvite } from '@/api/groups'
 import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 import { useToast } from '@/composables/useToast'
 import { extractApiError } from '@/composables/useApiError'
@@ -305,6 +319,24 @@ function onUnblockClick(member: GroupMemberItem, close: () => void): void {
   openUnblock(member)
   close()
 }
+// -- Invite (P4, ПРОМТ №593; empty-group CTA) --
+const inviting = ref(false)
+async function onInviteClick(): Promise<void> {
+  if (inviting.value) return
+  inviting.value = true
+  try {
+    const res = await createGroupInvite(groupId.value)
+    // Clipboard needs no backend — write the link straight to the
+    // clipboard (B2, same pattern as MasterGroupsView's row invite).
+    await navigator.clipboard.writeText(res.invite_url)
+    toast.success('Ссылка скопирована')
+  } catch (e) {
+    toast.error(extractApiError(e, 'Не удалось создать ссылку'))
+  } finally {
+    inviting.value = false
+  }
+}
+
 async function onUnblockConfirm(): Promise<void> {
   const target = unblockTarget.value
   if (!target) return

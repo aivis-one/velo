@@ -1,12 +1,16 @@
 // =============================================================================
 // VELO Frontend -- MasterGroupDetailView Screen Tests
-// (Master GROUPS P2 ПРОМТ №591, unblock added P3 ПРОМТ №592)
+// (Master GROUPS P2 ПРОМТ №591, unblock added P3 ПРОМТ №592, invite CTA P4
+// ПРОМТ №593)
 // =============================================================================
 //
 // One component parametrised by :id (a custom group's UUID, or the system
 // slugs "students" / "deleted") -- `kind` is derived from the id string
 // itself, so these three cases are exercised by mutating routeParams.id,
 // same idiom as MasterPublicView.test.ts's route-param mutation tests.
+//
+// P4: navigator.clipboard does not exist in happy-dom -- defined per test
+// (same pattern as MasterGroupsView.test.ts's writeText mock).
 // =============================================================================
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -50,6 +54,7 @@ function customGroups(items: GroupListItem[] = []) {
   return { items }
 }
 
+let writeText: ReturnType<typeof vi.fn>
 let app: App | null = null
 let host: HTMLElement | null = null
 
@@ -91,10 +96,18 @@ beforeEach(() => {
   vi.mocked(groupsApi.addGroupMember).mockReset()
   vi.mocked(groupsApi.removeGroupMember).mockReset()
   vi.mocked(groupsApi.unblockStudent).mockReset()
+  vi.mocked(groupsApi.createGroupInvite).mockReset()
   push.mockReset()
   back.mockReset()
   toastError.mockReset()
   toastSuccess.mockReset()
+
+  writeText = vi.fn().mockResolvedValue(undefined)
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    writable: true,
+    value: { writeText },
+  })
 })
 
 afterEach(() => {
@@ -443,6 +456,82 @@ describe('MasterGroupDetailView', () => {
       // itself stays in the DOM, but Vue has already applied the leave
       // classes (same idiom AdminMethodRequestsView.test.ts uses).
       expect(modalOverlay()?.classList.contains('v-modal-leave-active')).toBe(true)
+    })
+  })
+
+  describe('empty-group invite CTA (P4, ПРОМТ №593)', () => {
+    it('an empty CUSTOM group shows «Пригласить в группу», which creates + copies + toasts', async () => {
+      routeParams.id = 'g1' // custom
+      vi.mocked(groupsApi.getGroupMembers).mockResolvedValue(page([]))
+      vi.mocked(groupsApi.createGroupInvite).mockResolvedValue({
+        invite_url: 'https://t.me/velo_bot?startapp=group_invite__xyz',
+      })
+      mount()
+      await flush()
+
+      const invite = Array.from(host?.querySelectorAll<HTMLElement>('button') ?? []).find(
+        (b) => b.textContent?.trim() === 'Пригласить в группу',
+      )
+      expect(invite).toBeDefined()
+      invite?.click()
+      await flush()
+
+      expect(groupsApi.createGroupInvite).toHaveBeenCalledWith('g1')
+      expect(writeText).toHaveBeenCalledWith('https://t.me/velo_bot?startapp=group_invite__xyz')
+      expect(toastSuccess).toHaveBeenCalledWith('Ссылка скопирована')
+    })
+
+    it('never renders on the system groups («Ученики»/«Удалённые»), even when empty', async () => {
+      for (const id of ['students', 'deleted']) {
+        routeParams.id = id
+        vi.mocked(groupsApi.getGroupMembers).mockResolvedValue(page([]))
+        mount()
+        await flush()
+
+        const invite = Array.from(host?.querySelectorAll<HTMLElement>('button') ?? []).find(
+          (b) => b.textContent?.trim() === 'Пригласить в группу',
+        )
+        expect(invite).toBeUndefined()
+
+        app?.unmount()
+        host?.remove()
+      }
+    })
+
+    it('does not render while a search filter is active (empty-search offers "clear", not "invite")', async () => {
+      vi.useFakeTimers()
+      routeParams.id = 'g1'
+      vi.mocked(groupsApi.getGroupMembers).mockResolvedValue(page([]))
+      mount()
+      await flush()
+
+      const input = host?.querySelector<HTMLInputElement>('input')
+      input!.value = 'zzz'
+      input!.dispatchEvent(new Event('input'))
+      vi.advanceTimersByTime(300)
+      await flush()
+
+      const invite = Array.from(host?.querySelectorAll<HTMLElement>('button') ?? []).find(
+        (b) => b.textContent?.trim() === 'Пригласить в группу',
+      )
+      expect(invite).toBeUndefined()
+    })
+
+    it('a failed invite create surfaces an error toast', async () => {
+      routeParams.id = 'g1'
+      vi.mocked(groupsApi.getGroupMembers).mockResolvedValue(page([]))
+      vi.mocked(groupsApi.createGroupInvite).mockRejectedValue(new Error('boom'))
+      mount()
+      await flush()
+
+      const invite = Array.from(host?.querySelectorAll<HTMLElement>('button') ?? []).find(
+        (b) => b.textContent?.trim() === 'Пригласить в группу',
+      )
+      invite?.click()
+      await flush()
+
+      expect(writeText).not.toHaveBeenCalled()
+      expect(toastError).toHaveBeenCalledWith('Не удалось создать ссылку')
     })
   })
 })
