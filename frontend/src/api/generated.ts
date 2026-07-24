@@ -37,6 +37,11 @@ export interface AISummaryResponse {
   generated_at: string
 }
 
+/** POST /masters/me/groups/{id}/members. */
+export interface AddGroupMemberRequest {
+  student_user_id: string
+}
+
 /** Response for verify/reject actions. */
 export interface AdminMasterActionResponse {
   user_id: string
@@ -324,6 +329,13 @@ export interface AuthResponse {
   session_token: string
 }
 
+/** POST /masters/me/students/{student_user_id}/block. cancelled_bookings_count: how many FUTURE confirmed bookings on this master's practices were cancelled (and refunded via the reused refund_booking() path) as a side effect of the block. */
+export interface BlockStudentResponse {
+  student_user_id: string
+  blocked_at: string
+  cancelled_bookings_count: number
+}
+
 /** Booking with full practice details for single-booking view. Used by GET /api/v1/bookings/{id}. Returns the complete PracticeResponse so the frontend can render a full detail page (deep link from notification, master dashboard, etc.). */
 export interface BookingDetailResponse {
   id: string
@@ -457,6 +469,11 @@ export interface CreateDirectionRequest {
   display_order?: number
 }
 
+/** POST /masters/me/groups. */
+export interface CreateGroupRequest {
+  name: string
+}
+
 /** POST /api/v1/masters/me/promos -- create a master promo code. Master promos: master absorbs the discount from their revenue. type and master_id are set automatically by the service layer. */
 export interface CreateMasterPromoRequest {
   code: string
@@ -488,6 +505,8 @@ export interface CreatePracticeRequest {
   difficulty: string
   style?: string | null
   recurrence?: RecurrenceSpec | null
+  audience_kind?: string
+  group_ids?: string[]
 }
 
 /** User submits a new report. */
@@ -546,6 +565,11 @@ export interface DismissReportRequest {
   resolution_note?: string | null
 }
 
+/** GET /masters/me/tags -- P3 addendum (ПРОМТ №592), closes the P2 tag-palette gap (P2 derived it client-side from the loaded page only). */
+export interface DistinctTagsResponse {
+  tags: string[]
+}
+
 /** PATCH /admin/masters/{user_id}/methods -- new flat method set (T3). Admin-authored direct edit of a master's methods during review. Mirrors the apply-side rule (min 1, max 20). Distinct from the master's own method-change request (M3). */
 export interface EditMasterMethodsRequest {
   methods: string[]
@@ -590,6 +614,39 @@ export interface FeedbackResponse {
   updated_at: string | null
 }
 
+/** POST /masters/me/groups/{id}/invite -- create-or-return the group's reusable join link. Idempotent: repeat calls return the SAME url. */
+export interface GroupInviteResponse {
+  invite_url: string
+}
+
+/** One row in GET /masters/me/groups. id: uuid string for a custom group, or the literal "students" / "deleted" for the two virtual groups. kind: "students" | "deleted" | "custom". members_count: the derived/blocked/membership count respectively. */
+export interface GroupListItem {
+  id: string
+  kind: 'students' | 'deleted' | 'custom'
+  name: string
+  members_count: number
+}
+
+/** GET /masters/me/groups. */
+export interface GroupListResponse {
+  items: GroupListItem[]
+}
+
+/** One row in GET /masters/me/groups/{id}/members. tag: this student's tag against the CURRENT master (master_student.tag), null if never tagged. Present regardless of which group (virtual or custom) is being listed -- the tag is a master<->student annotation, not a group property. */
+export interface GroupMemberItem {
+  id: string
+  name: string
+  avatar_url: string | null
+  tag: string | null
+}
+
+/** A single custom group (create/rename response). */
+export interface GroupResponse {
+  id: string
+  name: string
+  members_count: number
+}
+
 /** GET /api/v1/masters/me/income?period=week|month. income_cents -- gross booked turnover for the current calendar period: signed sum of title-tagged sale (+) / commission (-) / refund (-) movements, frozen sales included. Matches the transaction feed, not realized/available earnings. prev_income_cents -- same sum for the previous calendar period. delta_pct -- signed percent change vs the previous period, or null when the previous period had no net-positive turnover. */
 export interface IncomeResponse {
   income_cents: number
@@ -601,6 +658,18 @@ export interface IncomeResponse {
 export interface InviteMasterResponse {
   invite_link: string
   issued_at: string
+}
+
+/** POST /masters/groups/join -- the token from the group_invite__{token} deeplink. Same bound as ClaimMasterInviteRequest.token (masters/schemas.py) -- both are secrets.token_urlsafe(32) outputs. */
+export interface JoinGroupRequest {
+  token: string
+}
+
+/** POST /masters/groups/join -- the resolved group + its master, for the join confirmation screen. */
+export interface JoinGroupResponse {
+  group_id: string
+  group_name: string
+  master_name: string
 }
 
 /** A practice with a low check-in rate in the period. */
@@ -849,6 +918,14 @@ export interface PaginatedFeedbacksResponse {
   offset: number
 }
 
+/** GET /masters/me/groups/{id}/members -- paginated, searchable. */
+export interface PaginatedGroupMembersResponse {
+  items: GroupMemberItem[]
+  total: number
+  limit: number
+  offset: number
+}
+
 /** GET /api/v1/masters/me/reviews -- paginated cross-practice feed. */
 export interface PaginatedMasterReviewsResponse {
   items: MasterReviewItem[]
@@ -1016,6 +1093,8 @@ export interface PracticeResponse {
   direction?: string | null
   style?: string | null
   difficulty?: string | null
+  audience_kind?: string
+  audience_group_names?: string[]
   recurrence_days?: number[] | null
   total_sessions?: number | null
   completed_sessions?: number | null
@@ -1158,6 +1237,11 @@ export interface RejectWithdrawalRequest {
   note: string
 }
 
+/** PATCH /masters/me/groups/{id}. */
+export interface RenameGroupRequest {
+  name: string
+}
+
 /** Single report -- returned to both user and admin. */
 export interface ReportResponse {
   id: string
@@ -1221,6 +1305,11 @@ export interface SeriesPoint {
   value: number
 }
 
+/** PUT /masters/me/students/{student_user_id}/tag. tag: null clears the tag (deletes the master_student row if it would otherwise be empty -- i.e. not blocked either). */
+export interface SetStudentTagRequest {
+  tag: string | null
+}
+
 /** One recent check-in by the student (on this master's practices). */
 export interface StudentCheckinItem {
   mood: number
@@ -1246,6 +1335,17 @@ export interface StudentFeedbackItem {
   created_at: string
 }
 
+/** One custom group in GET /masters/me/students/{id}/groups. */
+export interface StudentGroupItem {
+  id: string
+  name: string
+}
+
+/** GET /masters/me/students/{student_user_id}/groups -- P3 addendum (ПРОМТ №592). The CUSTOM groups this student is in for this master (powers the profile's group chips). Virtual groups ("Ученики"/ "Удалённые") are never listed here -- they aren't membership rows. */
+export interface StudentGroupsResponse {
+  groups: StudentGroupItem[]
+}
+
 /** One student in the master's students list. needs_attention is True when the student's MOST RECENT feedback on this master's practices is in the negative bucket (rating 1-3) -- the same signal that feeds the dashboard "needs attention" block (consistent with the reviews projection). */
 export interface StudentListItem {
   id: string
@@ -1253,6 +1353,12 @@ export interface StudentListItem {
   avatar_url: string | null
   practices_count: number
   needs_attention: boolean
+}
+
+/** Response for the tag upsert/clear. */
+export interface StudentTagResponse {
+  student_user_id: string
+  tag: string | null
 }
 
 /** A direction (Направление) with its nested styles. Shape matches AdminCatalogView.vue's local CatalogDirection type (value/label/styles[]) so the stage-3 FE swap is a drop-in. */
@@ -1341,6 +1447,8 @@ export interface UpdatePracticeRequest {
   direction?: string | null
   difficulty?: string | null
   style?: string | null
+  audience_kind?: string | null
+  group_ids?: string[] | null
 }
 
 /** User edits their own pending report (reason only). */
