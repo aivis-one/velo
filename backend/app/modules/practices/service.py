@@ -77,7 +77,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import structlog
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -93,7 +93,13 @@ from app.modules.practices.enrichment_service import (
     series_meta_for_practices,
     series_meta_kwargs,
 )
-from app.modules.practices.models import Practice, PracticeStatus, PracticeType
+from app.modules.practices.models import (
+    AudienceKind,
+    Practice,
+    PracticeAudienceGroup,
+    PracticeStatus,
+    PracticeType,
+)
 from app.modules.practices.schemas import (
     CreatePracticeRequest,
     PracticeResponse,
@@ -101,6 +107,7 @@ from app.modules.practices.schemas import (
 )
 from app.modules.practices.series_service import generate_series_occurrences
 from app.modules.practices.taxonomy_models import TaxonomyDirection, TaxonomyStyle
+from app.modules.masters.groups_models import MasterGroup
 from app.modules.masters.models import MasterProfile
 from app.modules.users.models import User
 
@@ -176,6 +183,72 @@ _TAXONOMY_FIELDS = ("direction", "style", "difficulty")
 # ===================================================================
 # Helpers
 # ===================================================================
+
+
+async def _owned_group_ids_or_400(
+    master_id: UUID, group_ids: list[UUID], session: AsyncSession,
+) -> None:
+    """Validate every group_id in a create/update audience payload belongs
+    to a CUSTOM group owned by master_id (Master GROUPS P5, ПРОМТ №594).
+
+    Rejects another master's group, an unknown id, or a system slug (which
+    never resolves to a real MasterGroup row in the first place) with a
+    single 400 -- P-08 does not apply here (the master is choosing among
+    THEIR OWN resources, not probing another's).
+    """
+    if not group_ids:
+        return
+    owned = (
+        await session.execute(
+            select(MasterGroup.id).where(
+                MasterGroup.id.in_(group_ids), MasterGroup.master_id == master_id,
+            )
+        )
+    ).scalars().all()
+    if set(owned) != set(group_ids):
+        raise BadRequestError(
+            "group_ids must be your own custom groups"
+        )
+
+
+async def _set_practice_audience_groups(
+    practice_id: UUID, group_ids: list[UUID], session: AsyncSession,
+) -> None:
+    """REPLACE the practice's full target-group set with group_ids
+    (delete-then-insert -- these are small sets, no need for a diff)."""
+    await session.execute(
+        delete(PracticeAudienceGroup).where(
+            PracticeAudienceGroup.practice_id == practice_id,
+        )
+    )
+    for group_id in group_ids:
+        session.add(
+            PracticeAudienceGroup(practice_id=practice_id, group_id=group_id)
+        )
+    await session.flush()
+
+
+async def group_names_for_practice(
+    practice: Practice, session: AsyncSession,
+) -> list[str]:
+    """PracticeResponse.audience_group_names -- the practice's target
+    CUSTOM groups' names, alphabetical. Empty for anything but
+    audience_kind='groups' (nothing to look up). Public (like
+    user_flags_for_practices / series_meta_for_practices) -- called from
+    both this module (get_practice_detail) and router.py (create/update
+    endpoints' owner-facing responses)."""
+    if practice.audience_kind != AudienceKind.GROUPS.value:
+        return []
+    stmt = (
+        select(MasterGroup.name)
+        .join(
+            PracticeAudienceGroup,
+            PracticeAudienceGroup.group_id == MasterGroup.id,
+        )
+        .where(PracticeAudienceGroup.practice_id == practice.id)
+        .order_by(MasterGroup.name)
+    )
+    return list((await session.execute(stmt)).scalars().all())
 
 
 def _enforce_pricing(
@@ -554,6 +627,7 @@ def practice_to_response(
     zoom_host_join_url: str | None = None,
     zoom_meeting_status: str | None = None,
     deduplicated: bool = False,
+    audience_group_names: list[str] | None = None,
 ) -> PracticeResponse:
     """Build PracticeResponse from ORM object with master_name and master_methods.
 
@@ -617,6 +691,14 @@ def practice_to_response(
     # builder (update/delete/cancel/list/detail) leaves the schema default
     # (False) -- deduplication is a CREATE-time concept only.
     resp.deduplicated = deduplicated
+
+    # audience_kind is picked up automatically via from_attributes (matches
+    # the ORM column name 1:1). audience_group_names has no ORM attribute --
+    # the caller resolves it (async, via _group_names_for_practice) and
+    # passes it through; every caller that doesn't leaves the schema
+    # default ([]).
+    if audience_group_names is not None:
+        resp.audience_group_names = audience_group_names
 
     return resp
 
@@ -825,6 +907,10 @@ async def create_practice(
     await _validate_taxonomy(body.direction, body.style, session)
     await _assert_master_confirmed_taxonomy(user.id, body.direction, body.style, session)
     price_cents = _enforce_pricing(body.is_free, body.price_cents)
+    # P5 (ПРОМТ №594): reject a group_id that isn't one of THIS master's own
+    # custom groups (another master's group, an unknown id, or a system
+    # slug) before anything is inserted.
+    await _owned_group_ids_or_400(user.id, body.group_ids, session)
 
     practice = Practice(
         master_id=user.id,
@@ -842,6 +928,7 @@ async def create_practice(
         is_free=body.is_free,
         price_cents=price_cents,
         currency=body.currency,
+        audience_kind=body.audience_kind,
     )
 
     # Calendar taxonomy -> data.taxonomy (JSONB sandbox).
@@ -881,6 +968,9 @@ async def create_practice(
         # Re-raise rather than silently returning nothing a caller isn't
         # prepared to handle.
         raise
+
+    if body.group_ids:
+        await _set_practice_audience_groups(practice.id, body.group_ids, session)
 
     logger.info(
         "practice_created",
@@ -1009,6 +1099,10 @@ async def get_practice_detail(
     # creation from create_failed, not just the owner.
     from app.modules.zoom.service import get_zoom_meeting_status
     zoom_meeting_status = await get_zoom_meeting_status(practice.id, session)
+    # P5 (ПРОМТ №594): needed by CheckinView.vue to compose "Вы не состоите
+    # в группе «...»" client-side without a second round-trip -- see this
+    # endpoint's own callers for the full message-mapping story.
+    audience_group_names = await group_names_for_practice(practice, session)
     return practice_to_response(
         practice,
         master_name,
@@ -1019,6 +1113,7 @@ async def get_practice_detail(
         zoom_link_visible=zoom_visible,
         zoom_host_join_url=host_join_url,
         zoom_meeting_status=zoom_meeting_status,
+        audience_group_names=audience_group_names,
         **series_meta_kwargs(series_meta.get(practice.id)),
         **attendance_counts_kwargs(attendance.get(practice.id)),
     )
@@ -1078,6 +1173,41 @@ async def update_practice(
         if field in update_data
     }
 
+    # P5 (ПРОМТ №594): group_ids is NOT a column either (practice_audience_
+    # group is a separate table) -- pull it out before the setattr loop for
+    # the same reason as taxonomy above. audience_kind IS a real column and
+    # flows through the loop unchanged.
+    group_ids_sent = "group_ids" in update_data
+    group_ids_value: list[UUID] = update_data.pop("group_ids", None) or []
+    final_audience_kind = update_data.get("audience_kind", practice.audience_kind)
+
+    if group_ids_sent:
+        if final_audience_kind == AudienceKind.GROUPS.value and not group_ids_value:
+            raise BadRequestError(
+                "group_ids must be non-empty when audience_kind='groups'"
+            )
+        if final_audience_kind != AudienceKind.GROUPS.value and group_ids_value:
+            raise BadRequestError(
+                "group_ids is only allowed when audience_kind='groups'"
+            )
+        await _owned_group_ids_or_400(user.id, group_ids_value, session)
+    elif final_audience_kind == AudienceKind.GROUPS.value:
+        # Switching TO (or staying on) 'groups' without sending new
+        # group_ids in THIS request -- only valid if the practice already
+        # has target groups from before; otherwise it would end up
+        # audience_kind='groups' with nobody able to ever see it.
+        existing_count = (
+            await session.execute(
+                select(func.count(PracticeAudienceGroup.id)).where(
+                    PracticeAudienceGroup.practice_id == practice.id,
+                )
+            )
+        ).scalar_one()
+        if existing_count == 0:
+            raise BadRequestError(
+                "group_ids must be non-empty when audience_kind='groups'"
+            )
+
     # Guard NOT NULL fields against explicit null (P-02).
     for field in _NOT_NULL_FIELDS:
         if field in update_data and update_data[field] is None:
@@ -1129,9 +1259,27 @@ async def update_practice(
     # draft -> scheduled publication and materialize series occurrences below.
     old_status = practice.status
 
+    # P5 (ПРОМТ №594): capture the PRE-update audience_kind before the
+    # setattr loop overwrites it, so the "transitioning away from groups"
+    # branch below can tell.
+    old_audience_kind = practice.audience_kind
+
     # Apply only provided column fields.
     for field, value in update_data.items():
         setattr(practice, field, value)
+
+    if group_ids_sent:
+        await _set_practice_audience_groups(practice.id, group_ids_value, session)
+    elif (
+        "audience_kind" in update_data
+        and old_audience_kind == AudienceKind.GROUPS.value
+        and final_audience_kind != AudienceKind.GROUPS.value
+    ):
+        # Switched AWAY from 'groups' without sending group_ids -- the old
+        # target-group rows are now meaningless; clear them so they don't
+        # linger as stale state a later switch BACK to 'groups' would
+        # silently resurrect.
+        await _set_practice_audience_groups(practice.id, [], session)
 
     # Apply Calendar taxonomy updates into data.taxonomy (JSONB).
     # deepcopy + set_jsonb so SQLAlchemy detects the change. Only the keys

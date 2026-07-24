@@ -80,6 +80,7 @@ from app.modules.practices.service import (
     create_practice,
     delete_practice,
     get_practice_detail,
+    group_names_for_practice,
     practice_to_response,
     update_practice,
 )
@@ -248,11 +249,13 @@ async def create_practice_endpoint(
     # through, where the returned practice IS already published and DOES
     # have a real status).
     zoom_meeting_status = await get_zoom_meeting_status(practice.id, session)
+    audience_group_names = await group_names_for_practice(practice, session)
     return practice_to_response(
         practice, user.first_name,
         zoom_link_visible=True, zoom_host_join_url=host_join_url,
         zoom_meeting_status=zoom_meeting_status,
         deduplicated=deduplicated,
+        audience_group_names=audience_group_names,
     )
 
 
@@ -530,10 +533,12 @@ async def update_practice_endpoint(
     # A4 V2 (ПРОМТ №572): so a master publishing a draft (creating the Zoom
     # meeting) sees "готовится" immediately instead of a stale None.
     zoom_meeting_status = await get_zoom_meeting_status(practice.id, session)
+    audience_group_names = await group_names_for_practice(practice, session)
     return practice_to_response(
         practice, user.first_name,
         zoom_link_visible=True, zoom_host_join_url=host_join_url,
         zoom_meeting_status=zoom_meeting_status,
+        audience_group_names=audience_group_names,
     )
 
 

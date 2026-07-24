@@ -77,6 +77,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.config import settings
 from app.modules.practices.models import (
+    AudienceKind,
     Practice,
     PracticeStatus,
     PracticeType,
@@ -223,6 +224,43 @@ class CreatePracticeRequest(BaseModel):
     # stays a single tagged practice (e.g. the seed's demo series); generation
     # simply no-ops. Persisted into data.recurrence by the service layer.
     recurrence: RecurrenceSpec | None = None
+
+    # -- Audience (Master GROUPS P5, ПРОМТ №594) --
+    # Default 'public' -- matches every practice's behavior before this
+    # feature existed (see the migration's backfill note). group_ids is
+    # required (non-empty) only when audience_kind='groups'; the service
+    # verifies each id is one of THIS master's own CUSTOM groups (rejects
+    # another master's group / a system slug with a 400).
+    audience_kind: str = AudienceKind.PUBLIC.value
+    group_ids: list[UUID] = Field(default_factory=list)
+
+    @field_validator("audience_kind")
+    @classmethod
+    def audience_kind_must_be_valid(cls, v: str) -> str:
+        """Validate audience_kind against the fixed AudienceKind enum."""
+        allowed = {k.value for k in AudienceKind}
+        if v not in allowed:
+            raise ValueError(
+                f"audience_kind must be one of {sorted(allowed)}, got '{v}'"
+            )
+        return v
+
+    @model_validator(mode="after")
+    def _check_group_ids_match_audience_kind(self) -> "CreatePracticeRequest":
+        """group_ids only makes sense (and is required) when audience_kind
+        ='groups' -- reject a contradiction (group_ids sent with a
+        different kind, or 'groups' with an empty list) at the schema
+        level, same posture as _check_recurrence_requires_series above."""
+        if self.audience_kind == AudienceKind.GROUPS.value:
+            if not self.group_ids:
+                raise ValueError(
+                    "group_ids must be non-empty when audience_kind='groups'"
+                )
+        elif self.group_ids:
+            raise ValueError(
+                "group_ids is only allowed when audience_kind='groups'"
+            )
+        return self
 
     @field_validator("practice_type")
     @classmethod
@@ -375,6 +413,51 @@ class UpdatePracticeRequest(BaseModel):
     style: str | None = Field(
         default=None, max_length=settings.practice_style_max_length,
     )
+
+    # -- Audience (Master GROUPS P5, ПРОМТ №594) --
+    # Both optional (PATCH semantics): omitted = unchanged. group_ids, when
+    # SENT, REPLACES the practice's full target-group set (an empty list
+    # clears it). Cross-field consistency (audience_kind vs group_ids) is
+    # only checked here when BOTH are sent in the SAME request -- when only
+    # one is sent, the service validates it against the practice's current
+    # STORED audience_kind (same "sent value vs stored value" posture as
+    # style's own W-1 note below).
+    audience_kind: str | None = None
+    group_ids: list[UUID] | None = None
+
+    @field_validator("audience_kind")
+    @classmethod
+    def audience_kind_must_be_valid(
+        cls, v: str | None,
+    ) -> str | None:
+        """Validate audience_kind against the fixed AudienceKind enum."""
+        if v is None:
+            return v
+        allowed = {k.value for k in AudienceKind}
+        if v not in allowed:
+            raise ValueError(
+                f"audience_kind must be one of {sorted(allowed)}, got '{v}'"
+            )
+        return v
+
+    @model_validator(mode="after")
+    def _check_group_ids_match_audience_kind(self) -> "UpdatePracticeRequest":
+        """Only rejects an outright CONTRADICTION sent in this same request
+        -- audience_kind explicitly changed away from 'groups' while
+        group_ids is also (non-emptily) sent, or explicitly set TO 'groups'
+        with an empty group_ids. See the fields' own docstring for why a
+        one-sided send (only audience_kind, or only group_ids) is left to
+        the service instead."""
+        if self.audience_kind is not None and self.group_ids is not None:
+            if self.audience_kind == AudienceKind.GROUPS.value and not self.group_ids:
+                raise ValueError(
+                    "group_ids must be non-empty when audience_kind='groups'"
+                )
+            if self.audience_kind != AudienceKind.GROUPS.value and self.group_ids:
+                raise ValueError(
+                    "group_ids is only allowed when audience_kind='groups'"
+                )
+        return self
 
     @field_validator("practice_type")
     @classmethod
@@ -564,6 +647,18 @@ class PracticeResponse(BaseModel):
     direction: str | None = None
     style: str | None = None
     difficulty: str | None = None
+
+    # -- Audience (Master GROUPS P5, ПРОМТ №594) --
+    # audience_kind: model_validate() auto-populates this from the ORM
+    # column (default 'public', same as every practice before this feature).
+    # audience_group_names: NOT auto-populated (no ORM relationship) -- the
+    # service fills it from practice_audience_group only when audience_kind
+    # ='groups'; empty otherwise. Static per-practice data (which groups
+    # this practice targets), not a per-viewer flag -- the frontend uses it
+    # to compose the "Вы не состоите в группе «...»" check-in error message
+    # without a second round-trip.
+    audience_kind: str = AudienceKind.PUBLIC.value
+    audience_group_names: list[str] = []
 
     # -- Series meta (E3 batch 2; computed by the service for series roots) --
     # Populated only for a `series` practice whose ROOT carries a recurrence
