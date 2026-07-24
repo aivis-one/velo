@@ -9,6 +9,9 @@
 
 // -- Enums --------------------------------------------------------------------
 
+/** Who can see/book a practice (Master GROUPS P5, ПРОМТ №594). PUBLIC: everyone (default -- matches every practice's behavior before this column existed, see the migration's backfill). STUDENTS: anyone with >= 1 non-cancelled booking on this master's practices (the same "derived «Ученики»" rule groups_service.py already uses). GROUPS: members of at least one of the practice's target CUSTOM groups (practice_audience_group). A blocked student is EXCLUDED from all three -- see practices/audience_service.py, the single shared predicate every enforcement point below reuses. */
+export type AudienceKind = 'public' | 'students' | 'groups'
+
 /** Booking lifecycle statuses. */
 export type BookingStatus = 'pending' | 'confirmed' | 'attended' | 'no_show' | 'cancelled'
 
@@ -505,7 +508,7 @@ export interface CreatePracticeRequest {
   difficulty: string
   style?: string | null
   recurrence?: RecurrenceSpec | null
-  audience_kind?: string
+  audience_kind?: AudienceKind
   group_ids?: string[]
 }
 
@@ -1093,7 +1096,7 @@ export interface PracticeResponse {
   direction?: string | null
   style?: string | null
   difficulty?: string | null
-  audience_kind?: string
+  audience_kind?: AudienceKind
   audience_group_names?: string[]
   recurrence_days?: number[] | null
   total_sessions?: number | null
@@ -1447,7 +1450,7 @@ export interface UpdatePracticeRequest {
   direction?: string | null
   difficulty?: string | null
   style?: string | null
-  audience_kind?: string | null
+  audience_kind?: AudienceKind | null
   group_ids?: string[] | null
 }
 
