@@ -1,17 +1,13 @@
 <!--
-  VELO Frontend -- AddTagSheet (Master GROUPS P2, ПРОМТ №591)
+  VELO Frontend -- AddTagSheet (Master GROUPS P2 ПРОМТ №591, palette wired P3 ПРОМТ №592)
 
   "Добавить тег" -- a free-text field + the master's existing tags as
   single-select VChips (owner Q1=A: one tag per student, so at most one
   chip is ever active; tapping a chip fills the text field with it).
 
-  ⚠ PALETTE-SOURCE GAP: P1 has no "list my distinct tags" endpoint. The
-  `existingTags` palette passed in by the caller is therefore whatever tags
-  are visible on the CURRENTLY LOADED member page (GroupDetailView derives
-  it client-side from the members it already fetched) -- not a true
-  cross-group, all-students palette. A later phase should either add a
-  dedicated endpoint or accept this as the permanent behavior; not invented
-  here per the PROMPT's explicit instruction not to fabricate one.
+  Palette (P3): GET /masters/me/tags, fetched by this sheet itself on open
+  -- closes the P2 gap (the palette used to be derived client-side from
+  whatever page of members the caller happened to have loaded).
 
   PUT /masters/me/students/{id}/tag on save; null (empty field) clears it.
 -->
@@ -28,11 +24,11 @@
 
     <VInput v-model="tag" label="Новый тег" placeholder="Введите тег" />
 
-    <template v-if="existingTags.length">
+    <template v-if="palette.length">
       <p class="add-tag__label">Существующие теги</p>
       <div class="add-tag__chips">
         <VChip
-          v-for="t in existingTags"
+          v-for="t in palette"
           :key="t"
           size="md"
           clickable
@@ -49,7 +45,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { VBottomSheet, VInput, VChip } from '@/components/ui'
-import { setStudentTag } from '@/api/groups'
+import { setStudentTag, getMyTags } from '@/api/groups'
 import { useToast } from '@/composables/useToast'
 import { extractApiError } from '@/composables/useApiError'
 
@@ -58,19 +54,26 @@ const props = defineProps<{
   studentId: string
   studentName: string
   currentTag: string | null
-  /** Client-side palette (see the module docstring's palette-source gap). */
-  existingTags: string[]
 }>()
 
 const emit = defineEmits<{ close: []; saved: [] }>()
 
 const toast = useToast()
 const tag = ref('')
+const palette = ref<string[]>([])
 
 watch(
   () => props.open,
-  (isOpen) => {
-    if (isOpen) tag.value = props.currentTag ?? ''
+  async (isOpen) => {
+    if (!isOpen) return
+    tag.value = props.currentTag ?? ''
+    try {
+      const res = await getMyTags()
+      palette.value = res.tags
+    } catch {
+      // Non-fatal: the free-text field alone still works without a palette.
+      palette.value = []
+    }
   },
 )
 
