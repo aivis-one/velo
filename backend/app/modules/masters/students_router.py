@@ -1,27 +1,31 @@
 # =============================================================================
-# VELO Backend -- Master Students Router (E5, tag/block P1 ПРОМТ №590)
+# VELO Backend -- Master Students Router (E5, tag/block P1 ПРОМТ №590,
+# tag-palette + per-student groups P3 ПРОМТ №592)
 # =============================================================================
 #
 # Master-facing "my students" CRM aggregate + the per-student tag/block
-# annotation (groups feature P1).
+# annotation (groups feature P1) + two small P3 addenda.
 #
 # ENDPOINTS:
-#   GET    /api/v1/masters/me/students             -- searchable, paginated list
-#   GET    /api/v1/masters/me/students/{id}         -- per-student detail aggregate
-#   PUT    /api/v1/masters/me/students/{id}/tag     -- upsert/clear the tag
-#   POST   /api/v1/masters/me/students/{id}/block   -- block, cancel/refund future
-#   DELETE /api/v1/masters/me/students/{id}/block   -- unblock
+#   GET    /api/v1/masters/me/students                -- searchable, paginated list
+#   GET    /api/v1/masters/me/students/{id}            -- per-student detail aggregate
+#   PUT    /api/v1/masters/me/students/{id}/tag        -- upsert/clear the tag
+#   POST   /api/v1/masters/me/students/{id}/block      -- block, cancel/refund future
+#   DELETE /api/v1/masters/me/students/{id}/block      -- unblock
+#   GET    /api/v1/masters/me/tags                     -- P3: distinct tag palette
+#   GET    /api/v1/masters/me/students/{id}/groups     -- P3: this student's groups
 #
 # Mounted as a SEPARATE router (like finance) so the dynamic /{user_id} route
 # on the main masters router (single-segment) never shadows these two-segment
 # /me/students* paths. The static /me/students is declared before the dynamic
-# /me/students/{student_id}; the /tag and /block sub-paths never collide with
-# the bare {student_id} route (different path shapes, matched by FastAPI on
-# path+method).
+# /me/students/{student_id}; the /tag, /block and /groups sub-paths never
+# collide with the bare {student_id} route (different path shapes, matched by
+# FastAPI on path+method). /me/tags is its own top-level static path, no
+# collision with anything.
 #
 # AUTH: get_current_master on all endpoints (verified master only).
-# SESSION: get_db_reader for the two GETs (read-only), get_db_session for
-# the tag/block mutations (P-01 -- router flushes, service never commits).
+# SESSION: get_db_reader for every GET (read-only), get_db_session for the
+# tag/block mutations (P-01 -- router flushes, service never commits).
 # =============================================================================
 
 from uuid import UUID
@@ -34,11 +38,16 @@ from app.core.database import get_db_reader, get_db_session
 from app.modules.auth.dependencies import get_current_master
 from app.modules.masters.groups_schemas import (
     BlockStudentResponse,
+    DistinctTagsResponse,
     SetStudentTagRequest,
+    StudentGroupItem,
+    StudentGroupsResponse,
     StudentTagResponse,
 )
 from app.modules.masters.groups_service import (
     block_student,
+    list_distinct_tags,
+    list_student_custom_groups,
     set_student_tag,
     unblock_student,
 )
@@ -150,3 +159,32 @@ async def unblock_student_endpoint(
     user, _profile = master_tuple
     await unblock_student(user.id, student_id, session)
     await session.flush()
+
+
+@router.get("/me/tags", response_model=DistinctTagsResponse)
+async def list_my_tags_endpoint(
+    master_tuple: tuple[User, MasterProfile] = Depends(get_current_master),
+    session: AsyncSession = Depends(get_db_reader),
+) -> DistinctTagsResponse:
+    """P3 addendum (ПРОМТ №592): every distinct tag this master has used,
+    alphabetical. Closes the P2 tag-palette gap (AddTagSheet used to derive
+    its palette from whatever page of members happened to be loaded)."""
+    user, _profile = master_tuple
+    tags = await list_distinct_tags(user.id, session)
+    return DistinctTagsResponse(tags=tags)
+
+
+@router.get("/me/students/{student_id}/groups", response_model=StudentGroupsResponse)
+async def list_student_groups_endpoint(
+    student_id: UUID,
+    master_tuple: tuple[User, MasterProfile] = Depends(get_current_master),
+    session: AsyncSession = Depends(get_db_reader),
+) -> StudentGroupsResponse:
+    """P3 addendum (ПРОМТ №592): the CUSTOM groups this student is in for
+    this master (powers the profile's group chips). Never includes the two
+    virtuals -- they aren't membership rows."""
+    user, _profile = master_tuple
+    groups = await list_student_custom_groups(user.id, student_id, session)
+    return StudentGroupsResponse(
+        groups=[StudentGroupItem(id=g.id, name=g.name) for g in groups],
+    )

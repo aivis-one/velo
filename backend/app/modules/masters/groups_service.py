@@ -671,3 +671,46 @@ async def unblock_student(
         master_id=str(master_id),
         student_user_id=str(student_user_id),
     )
+
+
+# ===========================================================================
+# P3 addenda (ПРОМТ №592): tag palette + a student's custom groups
+# ===========================================================================
+
+
+async def list_distinct_tags(master_id: UUID, session: AsyncSession) -> list[str]:
+    """GET /masters/me/tags -- every distinct tag this master has used,
+    alphabetical. Closes the P2 palette-source gap (AddTagSheet used to
+    derive its palette from whatever page of members happened to be
+    loaded)."""
+    stmt = (
+        select(MasterStudent.tag)
+        .where(
+            MasterStudent.master_id == master_id,
+            MasterStudent.tag.is_not(None),
+        )
+        .distinct()
+        .order_by(MasterStudent.tag)
+    )
+    return list((await session.execute(stmt)).scalars().all())
+
+
+async def list_student_custom_groups(
+    master_id: UUID, student_user_id: UUID, session: AsyncSession,
+) -> list[MasterGroup]:
+    """GET /masters/me/students/{id}/groups -- the CUSTOM groups this
+    student is in for this master (powers the profile's group chips).
+    Never includes the two virtuals -- they aren't membership rows."""
+    stmt = (
+        select(MasterGroup)
+        .join(
+            MasterGroupMembership,
+            MasterGroupMembership.group_id == MasterGroup.id,
+        )
+        .where(
+            MasterGroup.master_id == master_id,
+            MasterGroupMembership.student_user_id == student_user_id,
+        )
+        .order_by(MasterGroup.name)
+    )
+    return list((await session.execute(stmt)).scalars().all())

@@ -118,3 +118,26 @@ class BlockStudentResponse(BaseModel):
     student_user_id: UUID
     blocked_at: datetime
     cancelled_bookings_count: int
+
+
+class DistinctTagsResponse(BaseModel):
+    """GET /masters/me/tags -- P3 addendum (ПРОМТ №592), closes the P2
+    tag-palette gap (P2 derived it client-side from the loaded page only)."""
+
+    tags: list[str]
+
+
+class StudentGroupItem(BaseModel):
+    """One custom group in GET /masters/me/students/{id}/groups."""
+
+    id: UUID
+    name: str
+
+
+class StudentGroupsResponse(BaseModel):
+    """GET /masters/me/students/{student_user_id}/groups -- P3 addendum
+    (ПРОМТ №592). The CUSTOM groups this student is in for this master
+    (powers the profile's group chips). Virtual groups ("Ученики"/
+    "Удалённые") are never listed here -- they aren't membership rows."""
+
+    groups: list[StudentGroupItem]

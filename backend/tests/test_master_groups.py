@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Tests: Master Groups (P1, ПРОМТ №590)
+# VELO Backend -- Tests: Master Groups (P1, ПРОМТ №590; P3 addenda ПРОМТ №592)
 # =============================================================================
 #
 # telegram_id range: 99700-99799
@@ -24,6 +24,9 @@
 #   Unblock: back in «Ученики», custom membership NOT restored, tag kept
 #   Derived «Ученики»: non-cancelled (pending/confirmed/attended/no_show)
 #     minus blocked -- widened from the ATTENDED-only students_service query
+#   P3 addenda: GET /masters/me/tags (distinct alphabetical, deduped, empty
+#     when unused); GET .../students/{id}/groups (this master's custom
+#     groups only -- never another master's, never the two virtuals)
 # =============================================================================
 
 from collections.abc import AsyncGenerator
@@ -53,6 +56,8 @@ GROUP_MEMBERS_URL = "/api/v1/masters/me/groups/{group_id}/members"
 GROUP_MEMBER_URL = "/api/v1/masters/me/groups/{group_id}/members/{student_id}"
 TAG_URL = "/api/v1/masters/me/students/{student_id}/tag"
 BLOCK_URL = "/api/v1/masters/me/students/{student_id}/block"
+MY_TAGS_URL = "/api/v1/masters/me/tags"
+STUDENT_GROUPS_URL = "/api/v1/masters/me/students/{student_id}/groups"
 
 _TID_MIN = 99700
 _TID_MAX = 99799
@@ -978,3 +983,105 @@ async def test_derived_students_widened_beyond_attended_only(
 
     assert resp.status_code == 200
     assert resp.json()["total"] == len(counted_statuses)  # cancelled excluded
+
+
+# ===================================================================
+# P3 addenda (ПРОМТ №592): GET /masters/me/tags, GET .../students/{id}/groups
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_my_tags_returns_distinct_alphabetical_tags(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    master = await _make_verified_master(client, db_session, 99728)
+    headers = auth_headers(master["session_token"])
+    s1 = await _login(client, 99747, "S1")
+    s2 = await _login(client, 99748, "S2")
+    s3 = await _login(client, 99749, "S3")
+
+    await client.put(
+        TAG_URL.format(student_id=s1), json={"tag": "Постоянный"}, headers=headers,
+    )
+    await client.put(
+        TAG_URL.format(student_id=s2), json={"tag": "Новичок"}, headers=headers,
+    )
+    # Same tag reused by a second student -- must not duplicate in the palette.
+    await client.put(
+        TAG_URL.format(student_id=s3), json={"tag": "Постоянный"}, headers=headers,
+    )
+
+    resp = await client.get(MY_TAGS_URL, headers=headers)
+
+    assert resp.status_code == 200
+    assert resp.json()["tags"] == ["Новичок", "Постоянный"]  # alphabetical, deduped
+
+
+@pytest.mark.asyncio
+async def test_my_tags_empty_when_nobody_tagged(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    master = await _make_verified_master(client, db_session, 99729)
+    headers = auth_headers(master["session_token"])
+
+    resp = await client.get(MY_TAGS_URL, headers=headers)
+
+    assert resp.status_code == 200
+    assert resp.json()["tags"] == []
+
+
+@pytest.mark.asyncio
+async def test_student_groups_lists_only_this_masters_custom_groups(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    master_a = await _make_verified_master(client, db_session, 99750)
+    headers_a = auth_headers(master_a["session_token"])
+    master_b = await _make_verified_master(client, db_session, 99751)
+    headers_b = auth_headers(master_b["session_token"])
+
+    group_a1 = await client.post(GROUPS_URL, json={"name": "VIP"}, headers=headers_a)
+    # Created but never joined -- proves the response isn't "every group this
+    # master has", only groups this STUDENT is actually a member of.
+    await client.post(GROUPS_URL, json={"name": "Утро"}, headers=headers_a)
+    group_b = await client.post(
+        GROUPS_URL, json={"name": "Другой мастер"}, headers=headers_b,
+    )
+
+    student_id = await _login(client, 99752, "Student")
+    await client.post(
+        GROUP_MEMBERS_URL.format(group_id=group_a1.json()["id"]),
+        json={"student_user_id": student_id},
+        headers=headers_a,
+    )
+    # Membership under master_b must never leak into master_a's response.
+    await client.post(
+        GROUP_MEMBERS_URL.format(group_id=group_b.json()["id"]),
+        json={"student_user_id": student_id},
+        headers=headers_b,
+    )
+
+    resp = await client.get(
+        STUDENT_GROUPS_URL.format(student_id=student_id), headers=headers_a,
+    )
+
+    assert resp.status_code == 200
+    names = [g["name"] for g in resp.json()["groups"]]
+    assert names == ["VIP"]
+    assert "Утро" not in names  # never joined
+    assert "Другой мастер" not in names  # a different master's group
+
+
+@pytest.mark.asyncio
+async def test_student_groups_empty_when_no_custom_membership(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    master = await _make_verified_master(client, db_session, 99753)
+    headers = auth_headers(master["session_token"])
+    student_id = await _login(client, 99754, "Student")
+
+    resp = await client.get(
+        STUDENT_GROUPS_URL.format(student_id=student_id), headers=headers,
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["groups"] == []
