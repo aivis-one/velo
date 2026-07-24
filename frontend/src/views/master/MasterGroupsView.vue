@@ -61,19 +61,13 @@
                     <VMenuItem
                       :icon="IconPen"
                       ariaLabel="Переименовать"
-                      @click="
-                        openRename(group)
-                        close()
-                      "
+                      @click="onRenameClick(group, close)"
                     />
                     <VMenuItem
                       :icon="IconTrash"
                       ariaLabel="Удалить группу"
                       danger
-                      @click="
-                        openDelete(group)
-                        close()
-                      "
+                      @click="onDeleteClick(group, close)"
                     />
                   </template>
                 </VMenu>
@@ -206,6 +200,14 @@ function openRename(group: GroupListItem): void {
   renameTarget.value = group
   renameName.value = group.name
 }
+/** Single-expression wrapper for the VMenu default-slot's `close` (a
+ *  semicolon-joined inline handler here would be reformatted across
+ *  lines by prettier and lose its semicolon, breaking the Vue template
+ *  compiler -- one function call per @click avoids that entirely). */
+function onRenameClick(group: GroupListItem, close: () => void): void {
+  openRename(group)
+  close()
+}
 async function onRenameSave(): Promise<void> {
   const target = renameTarget.value
   if (!target || !renameName.value.trim()) return
@@ -228,6 +230,10 @@ const deleteMessage = computed((): string =>
 )
 function openDelete(group: GroupListItem): void {
   deleteTarget.value = group
+}
+function onDeleteClick(group: GroupListItem, close: () => void): void {
+  openDelete(group)
+  close()
 }
 async function onDeleteConfirm(): Promise<void> {
   const target = deleteTarget.value

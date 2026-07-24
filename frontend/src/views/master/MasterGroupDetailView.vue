@@ -67,28 +67,19 @@
                     <VMenuItem
                       :icon="IconPlus"
                       ariaLabel="Добавить в группу"
-                      @click="
-                        openAddToGroup(member)
-                        close()
-                      "
+                      @click="onAddToGroupClick(member, close)"
                     />
                     <VMenuItem
                       :icon="IconPen"
                       ariaLabel="Добавить тег"
-                      @click="
-                        openAddTag(member)
-                        close()
-                      "
+                      @click="onAddTagClick(member, close)"
                     />
                     <VMenuItem
                       v-if="kind === 'custom'"
                       :icon="IconTrash"
                       ariaLabel="Удалить из группы"
                       danger
-                      @click="
-                        openRemoveFromGroup(member)
-                        close()
-                      "
+                      @click="onRemoveFromGroupClick(member, close)"
                     />
                   </template>
                 </VMenu>
@@ -263,6 +254,23 @@ function openAddToGroup(member: GroupMemberItem): void {
 const removeTarget = ref<GroupMemberItem | null>(null)
 function openRemoveFromGroup(member: GroupMemberItem): void {
   removeTarget.value = member
+}
+
+// Single-expression wrappers for the VMenu default-slot's `close` (a
+// semicolon-joined inline handler here would be reformatted across lines
+// by prettier and lose its semicolon, breaking the Vue template compiler
+// -- one function call per @click avoids that entirely).
+function onAddToGroupClick(member: GroupMemberItem, close: () => void): void {
+  openAddToGroup(member)
+  close()
+}
+function onAddTagClick(member: GroupMemberItem, close: () => void): void {
+  openAddTag(member)
+  close()
+}
+function onRemoveFromGroupClick(member: GroupMemberItem, close: () => void): void {
+  openRemoveFromGroup(member)
+  close()
 }
 </script>
 
