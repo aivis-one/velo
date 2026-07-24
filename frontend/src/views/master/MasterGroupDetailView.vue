@@ -83,6 +83,18 @@
                     />
                   </template>
                 </VMenu>
+                <!-- «Удалённые» (P3, ПРОМТ №592): the one action here is
+                     Unblock -- everything else (add to group / tag) is
+                     meaningless for a blocked student. -->
+                <VMenu v-else ariaLabel="Меню участника">
+                  <template #default="{ close }">
+                    <VMenuItem
+                      :icon="IconCheck"
+                      ariaLabel="Разблокировать"
+                      @click="onUnblockClick(member, close)"
+                    />
+                  </template>
+                </VMenu>
               </div>
             </template>
           </VListRow>
@@ -103,7 +115,6 @@
       :student-id="tagTarget.id"
       :student-name="tagTarget.name"
       :current-tag="tagTarget.tag"
-      :existing-tags="existingTags"
       @close="tagTarget = null"
       @saved="load"
     />
@@ -129,6 +140,17 @@
       @close="removeTarget = null"
       @saved="load"
     />
+
+    <!-- Unblock confirm («Удалённые» rows only, P3 ПРОМТ №592) -->
+    <VConfirmDialog
+      :open="!!unblockTarget"
+      :title="unblockTitle"
+      :message="unblockMessage"
+      confirm-label="Разблокировать"
+      :loading="unblocking"
+      @confirm="onUnblockConfirm"
+      @cancel="unblockTarget = null"
+    />
   </div>
 </template>
 
@@ -146,16 +168,18 @@ import {
   VMenu,
   VMenuItem,
   VTag,
+  VConfirmDialog,
 } from '@/components/ui'
-import { IconSearch, IconPlus, IconPen } from '@/components/icons'
+import { IconSearch, IconPlus, IconPen, IconCheck } from '@/components/icons'
 // IconTrash is not re-exported from the icons barrel (same pattern as
 // EntryView.vue's delete action) -- import the component file directly.
 import IconTrash from '@/components/icons/IconTrash.vue'
 import AddTagSheet from '@/components/shared/AddTagSheet.vue'
 import AddToGroupSheet from '@/components/shared/AddToGroupSheet.vue'
 import RemoveFromGroupSheet from '@/components/shared/RemoveFromGroupSheet.vue'
-import { getGroupMembers, getGroups } from '@/api/groups'
+import { getGroupMembers, getGroups, unblockStudent } from '@/api/groups'
 import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
+import { useToast } from '@/composables/useToast'
 import { extractApiError } from '@/composables/useApiError'
 import type { GroupMemberItem, GroupListItem, GroupKind } from '@/api/groups'
 
@@ -222,17 +246,6 @@ onMounted(() => {
   loadCustomGroups()
 })
 
-// ⚠ PALETTE-SOURCE GAP (see AddTagSheet's own docstring): derived from the
-// currently loaded member page only -- P1 has no "list my distinct tags"
-// endpoint. Deduped, most-recent-first is not meaningful here so plain order.
-const existingTags = computed((): string[] => {
-  const seen = new Set<string>()
-  for (const m of members.value) {
-    if (m.tag) seen.add(m.tag)
-  }
-  return Array.from(seen)
-})
-
 function openProfile(member: GroupMemberItem): void {
   router.push({
     name: 'master-student-profile',
@@ -271,6 +284,41 @@ function onAddTagClick(member: GroupMemberItem, close: () => void): void {
 function onRemoveFromGroupClick(member: GroupMemberItem, close: () => void): void {
   openRemoveFromGroup(member)
   close()
+}
+
+// -- Unblock («Удалённые» rows only, P3 ПРОМТ №592) --
+const toast = useToast()
+const unblockTarget = ref<GroupMemberItem | null>(null)
+const unblocking = ref(false)
+const unblockTitle = computed(() =>
+  unblockTarget.value ? `Разблокировать ${unblockTarget.value.name}?` : '',
+)
+const unblockMessage = computed(() =>
+  unblockTarget.value
+    ? `${unblockTarget.value.name} вернется в группу «Ученики» и снова сможет видеть и бронировать ваши практики.`
+    : '',
+)
+function openUnblock(member: GroupMemberItem): void {
+  unblockTarget.value = member
+}
+function onUnblockClick(member: GroupMemberItem, close: () => void): void {
+  openUnblock(member)
+  close()
+}
+async function onUnblockConfirm(): Promise<void> {
+  const target = unblockTarget.value
+  if (!target) return
+  unblocking.value = true
+  try {
+    await unblockStudent(target.id)
+    toast.success('Пользователь разблокирован')
+    unblockTarget.value = null
+    await load()
+  } catch (e) {
+    toast.error(extractApiError(e, 'Не удалось разблокировать'))
+  } finally {
+    unblocking.value = false
+  }
 }
 </script>
 

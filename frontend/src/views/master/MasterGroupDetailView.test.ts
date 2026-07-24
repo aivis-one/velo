@@ -1,5 +1,6 @@
 // =============================================================================
-// VELO Frontend -- MasterGroupDetailView Screen Tests (Master GROUPS P2, ПРОМТ №591)
+// VELO Frontend -- MasterGroupDetailView Screen Tests
+// (Master GROUPS P2 ПРОМТ №591, unblock added P3 ПРОМТ №592)
 // =============================================================================
 //
 // One component parametrised by :id (a custom group's UUID, or the system
@@ -77,6 +78,9 @@ function rows(): HTMLElement[] {
 function sheetOverlay(): HTMLElement | null {
   return document.body.querySelector<HTMLElement>('.v-sheet__overlay')
 }
+function modalOverlay(): HTMLElement | null {
+  return document.body.querySelector<HTMLElement>('.v-modal__overlay')
+}
 
 beforeEach(() => {
   routeParams.id = 'g1'
@@ -86,6 +90,7 @@ beforeEach(() => {
   vi.mocked(groupsApi.setStudentTag).mockReset()
   vi.mocked(groupsApi.addGroupMember).mockReset()
   vi.mocked(groupsApi.removeGroupMember).mockReset()
+  vi.mocked(groupsApi.unblockStudent).mockReset()
   push.mockReset()
   back.mockReset()
   toastError.mockReset()
@@ -98,6 +103,7 @@ afterEach(() => {
   app = null
   host = null
   document.body.querySelectorAll('.v-sheet__overlay').forEach((el) => el.remove())
+  document.body.querySelectorAll('.v-modal__overlay').forEach((el) => el.remove())
   vi.clearAllMocks()
   vi.useRealTimers()
 })
@@ -197,13 +203,18 @@ describe('MasterGroupDetailView', () => {
       expect(items).toHaveLength(2)
     })
 
-    it('«Удалённые»: read-only, NO «⋯» menu at all', async () => {
+    it('«Удалённые» (P3): only ONE «⋯» action -- «Разблокировать», nothing else', async () => {
       routeParams.id = 'deleted'
       vi.mocked(groupsApi.getGroupMembers).mockResolvedValue(page([member('s1', { name: 'Анна' })]))
       mount()
       await flush()
 
-      expect(host?.querySelector('.v-menu__trigger')).toBeNull()
+      host?.querySelector<HTMLElement>('.v-menu__trigger')?.click()
+      await flush()
+
+      const items = host?.querySelectorAll<HTMLElement>('.v-menu-item') ?? []
+      expect(items).toHaveLength(1)
+      expect(items[0]?.getAttribute('aria-label')).toBe('Разблокировать')
     })
   })
 
@@ -362,6 +373,76 @@ describe('MasterGroupDetailView', () => {
         (b) => b.getAttribute('aria-label'),
       )
       expect(labels).not.toContain('Удалить из группы')
+    })
+  })
+
+  describe('Unblock («Удалённые» rows only, P3 ПРОМТ №592)', () => {
+    it('opens the confirm with the member name in the title and message', async () => {
+      routeParams.id = 'deleted'
+      vi.mocked(groupsApi.getGroupMembers).mockResolvedValue(page([member('s1', { name: 'Анна' })]))
+      mount()
+      await flush()
+
+      host?.querySelector<HTMLElement>('.v-menu__trigger')?.click()
+      await flush()
+      host?.querySelector<HTMLElement>('.v-menu-item')?.click()
+      await flush()
+
+      const dialogText = modalOverlay()?.textContent ?? ''
+      expect(dialogText).toContain('Разблокировать Анна?')
+      expect(dialogText).toContain(
+        'Анна вернется в группу «Ученики» и снова сможет видеть и бронировать ваши практики.',
+      )
+    })
+
+    it('confirming calls unblockStudent, toasts, and reloads the (now shorter) list', async () => {
+      routeParams.id = 'deleted'
+      vi.mocked(groupsApi.getGroupMembers).mockResolvedValueOnce(
+        page([member('s1', { name: 'Анна' })]),
+      )
+      vi.mocked(groupsApi.unblockStudent).mockResolvedValue(undefined)
+      mount()
+      await flush()
+
+      host?.querySelector<HTMLElement>('.v-menu__trigger')?.click()
+      await flush()
+      host?.querySelector<HTMLElement>('.v-menu-item')?.click()
+      await flush()
+
+      vi.mocked(groupsApi.getGroupMembers).mockResolvedValueOnce(page([])) // reloaded: gone
+      const confirmBtn = Array.from(modalOverlay()?.querySelectorAll('button') ?? []).find(
+        (b) => b.textContent?.trim() === 'Разблокировать',
+      )
+      confirmBtn?.click()
+      await flush()
+
+      expect(groupsApi.unblockStudent).toHaveBeenCalledWith('s1')
+      expect(toastSuccess).toHaveBeenCalledWith('Пользователь разблокирован')
+      expect(groupsApi.getGroupMembers).toHaveBeenCalledTimes(2) // initial + reload
+    })
+
+    it('«Отмена» dismisses without calling unblockStudent', async () => {
+      routeParams.id = 'deleted'
+      vi.mocked(groupsApi.getGroupMembers).mockResolvedValue(page([member('s1', { name: 'Анна' })]))
+      mount()
+      await flush()
+
+      host?.querySelector<HTMLElement>('.v-menu__trigger')?.click()
+      await flush()
+      host?.querySelector<HTMLElement>('.v-menu-item')?.click()
+      await flush()
+
+      const cancelBtn = Array.from(modalOverlay()?.querySelectorAll('button') ?? []).find(
+        (b) => b.textContent?.trim() === 'Отмена',
+      )
+      cancelBtn?.click()
+      await flush()
+
+      expect(groupsApi.unblockStudent).not.toHaveBeenCalled()
+      // happy-dom never runs the real leave transition -- the overlay node
+      // itself stays in the DOM, but Vue has already applied the leave
+      // classes (same idiom AdminMethodRequestsView.test.ts uses).
+      expect(modalOverlay()?.classList.contains('v-modal-leave-active')).toBe(true)
     })
   })
 })
