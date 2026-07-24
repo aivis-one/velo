@@ -76,9 +76,9 @@
 //     visual-only». Untrue since E7: loadStats really calls
 //     GET /masters/me/stats?period and watch(period) really refetches
 //     (.vue:258-260,288-292). Asserted as the live behaviour it is.
-//   - .vue:21,78 «Мои ученики (stub — no screen yet)». Untrue: onStudents()
-//     pushes to 'master-students' (.vue:328-330) and that route exists and
-//     resolves MasterStudentsView (router/index.ts:324-329). It navigates.
+//   - «Мои ученики (stub — no screen yet)». Untrue: onGroups() pushes to
+//     'master-groups' (P2, ПРОМТ №591 -- was onStudents/'master-students')
+//     and that route exists and resolves MasterGroupsView. It navigates.
 // Both reported. Neither faked.
 //
 // No order dependence: every test mounts its own app, beforeEach builds a fresh
@@ -988,17 +988,14 @@ describe('MasterDashboardView', () => {
       expect(push).toHaveBeenCalledWith({ name: 'master-practice-new' })
     })
 
-    it('«Мои ученики» NAVIGATES -- the «stub» comment is stale', async () => {
-      // .vue:21,78 call this a stub with no screen. onStudents (.vue:328-330)
-      // pushes 'master-students', and router/index.ts:324-329 resolves it to a
-      // real MasterStudentsView. The code is the behaviour; the comment is wrong.
+    it('«Мои группы» navigates to master-groups (P2, ПРОМТ №591)', async () => {
       mount()
       await flush()
 
       host?.querySelector<HTMLElement>('.v-menu-row')?.click()
       await flush()
 
-      expect(push).toHaveBeenCalledWith({ name: 'master-students' })
+      expect(push).toHaveBeenCalledWith({ name: 'master-groups' })
       expect(toastInfo).not.toHaveBeenCalled()
     })
 
@@ -1091,7 +1088,11 @@ describe('MasterDashboardView', () => {
         page([practice('withHost', { zoom_host_join_url: 'https://zoom.us/w/host?tk=xyz' })]),
       )
       vi.mocked(practicesApi.createZoomStartTicket).mockRejectedValue(
-        new ApiResponseError(400, 'No active Zoom meeting for this practice', 'zoom_meeting_not_active'),
+        new ApiResponseError(
+          400,
+          'No active Zoom meeting for this practice',
+          'zoom_meeting_not_active',
+        ),
       )
       mount()
       await flush()
@@ -1187,7 +1188,9 @@ describe('MasterDashboardView', () => {
 
       it('a successful retry toasts success and refreshes the list', async () => {
         vi.mocked(mastersApi.getMyPractices).mockResolvedValue(
-          page([practice('failed1', { title: 'Провалившаяся', zoom_meeting_status: 'create_failed' })]),
+          page([
+            practice('failed1', { title: 'Провалившаяся', zoom_meeting_status: 'create_failed' }),
+          ]),
         )
         vi.mocked(practicesApi.retryZoomMeeting).mockResolvedValue(
           practice('failed1', { title: 'Провалившаяся', zoom_meeting_status: 'active' }),
@@ -1224,7 +1227,9 @@ describe('MasterDashboardView', () => {
         actionIn(blocks()[0]!, 'Повторить')?.click()
         await flush()
 
-        expect(toastError).toHaveBeenCalledWith('Всё ещё не удалось создать встречу. Попробуйте позже')
+        expect(toastError).toHaveBeenCalledWith(
+          'Всё ещё не удалось создать встречу. Попробуйте позже',
+        )
         expect(toastSuccess).not.toHaveBeenCalled()
       })
 

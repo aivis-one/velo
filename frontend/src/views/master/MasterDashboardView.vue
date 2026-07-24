@@ -8,7 +8,8 @@
     - Greeting + notification bell (badge only when unread > 0).
     - Stats: label + period toggle (Неделя / Месяц) + 3 VStatCard with optional
       delta trend. Period toggle = the user-dashboard pattern (NOT VSegment).
-    - "Мои ученики" row (VMenuRow).
+    - "Мои группы" row (VMenuRow) -> master-groups (P2, ПРОМТ №591; was
+      "Мои ученики" -> master-students).
     - Zero state only: "Создать первую практику" (VButton) -> create.
     - "Саммари недели" (VCard placeholder).
     - "Ближайшие практики": up to 2 upcoming practice cards, each with
@@ -17,9 +18,9 @@
   STUBS (no backend yet -> roadmap for Zod; non-working taps show a toast):
     - Stats: only the practices total is real; participants/income + all deltas
       and the Неделя/Месяц period scoping have no API -> "—", toggle visual-only.
-    - Notification bell (no feed), "Мои ученики" (no screen), AI summary
-      "Подробнее" (no master-AI), practice checkin-count + recurrence meta
-      (no fields) -> rendered only when the data exists (v-if), absent for now.
+    - Notification bell (no feed), AI summary "Подробнее" (no master-AI),
+      practice checkin-count + recurrence meta (no fields) -> rendered only
+      when the data exists (v-if), absent for now.
 -->
 
 <template>
@@ -75,9 +76,9 @@
       </div>
 
       <!-- ================================================================
-           МОИ УЧЕНИКИ (stub — no screen yet)
+           МОИ ГРУППЫ (P2, ПРОМТ №591 -- was «Мои ученики» / master-students)
            ================================================================ -->
-      <VMenuRow label="Мои ученики" @click="onStudents">
+      <VMenuRow label="Мои группы" @click="onGroups">
         <template #icon><IconGroup :size="24" /></template>
       </VMenuRow>
 
@@ -263,8 +264,22 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { VButton, VLoader, VStatCard, VCard, VMenuRow, VSegmentTrack, VBadge } from '@/components/ui'
-import { IconBellPlain, IconGroup, IconCheckin, IconRepeat, IconHourglass } from '@/components/icons'
+import {
+  VButton,
+  VLoader,
+  VStatCard,
+  VCard,
+  VMenuRow,
+  VSegmentTrack,
+  VBadge,
+} from '@/components/ui'
+import {
+  IconBellPlain,
+  IconGroup,
+  IconCheckin,
+  IconRepeat,
+  IconHourglass,
+} from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { useAuthStore } from '@/stores/auth'
 import { useSafeArea } from '@/composables/useSafeArea'
@@ -380,8 +395,8 @@ function practiceWhen(p: PracticeResponse): string {
 function onBell(): void {
   toast.info('Уведомления пока недоступны')
 }
-function onStudents(): void {
-  router.push({ name: 'master-students' })
+function onGroups(): void {
+  router.push({ name: 'master-groups' })
 }
 // Tap the card → the practice screen (edit/cancel/delete live there via «…»).
 function openPractice(p: PracticeResponse): void {

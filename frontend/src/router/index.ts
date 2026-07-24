@@ -336,6 +336,27 @@ const router = createRouter({
           component: () => import('@/views/master/MasterStudentProfileView.vue'),
         },
         {
+          path: 'groups',
+          name: 'master-groups',
+          beforeEnter: masterStatusGuard,
+          meta: { hideTabBar: true },
+          component: () => import('@/views/master/MasterGroupsView.vue'),
+        },
+        {
+          path: 'groups/new',
+          name: 'master-group-create',
+          beforeEnter: masterStatusGuard,
+          meta: { hideTabBar: true },
+          component: () => import('@/views/master/MasterGroupCreateView.vue'),
+        },
+        {
+          path: 'groups/:id',
+          name: 'master-group-detail',
+          beforeEnter: masterStatusGuard,
+          meta: { hideTabBar: true },
+          component: () => import('@/views/master/MasterGroupDetailView.vue'),
+        },
+        {
           path: 'summary',
           name: 'master-summary',
           beforeEnter: masterStatusGuard,
