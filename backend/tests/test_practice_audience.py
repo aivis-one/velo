@@ -356,7 +356,7 @@ async def test_checkin_rejects_a_viewer_no_longer_in_the_audience(
     )
 
     assert resp.status_code == 403
-    assert resp.json()["code"] == "not_in_audience"
+    assert resp.json()["error"] == "not_in_audience"
 
 
 # ===================================================================
@@ -385,7 +385,7 @@ async def test_create_booking_rejects_a_blocked_viewer(
     )
 
     assert resp.status_code == 403
-    assert resp.json()["code"] == "blocked_by_master"
+    assert resp.json()["error"] == "blocked_by_master"
 
 
 @pytest.mark.asyncio
@@ -407,7 +407,7 @@ async def test_create_booking_rejects_a_viewer_outside_the_audience(
     )
 
     assert resp.status_code == 403
-    assert resp.json()["code"] == "not_a_student"
+    assert resp.json()["error"] == "not_a_student"
 
 
 # ===================================================================
@@ -696,7 +696,7 @@ async def test_confirm_waitlist_rejects_a_blocked_viewer(
     )
 
     assert resp.status_code == 403
-    assert resp.json()["code"] == "blocked_by_master"
+    assert resp.json()["error"] == "blocked_by_master"
 
 
 @pytest.mark.asyncio
@@ -720,7 +720,7 @@ async def test_confirm_waitlist_rejects_a_viewer_outside_the_audience(
     )
 
     assert resp.status_code == 403
-    assert resp.json()["code"] == "not_a_student"
+    assert resp.json()["error"] == "not_a_student"
 
 
 # ===================================================================

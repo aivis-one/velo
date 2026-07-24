@@ -142,7 +142,11 @@ async def _make_verified_master(
             data={"account": {"status": "verified"}, "profile": {"bio": "m"}},
         )
     )
-    await db_session.flush()
+    # The role + profile are read back by get_current_master() through the
+    # request's OWN session (get_db_reader() -> a separate connection from
+    # this fixture's db_session) -- a flush alone is invisible across
+    # sessions under READ COMMITTED. Must commit for the API call to see it.
+    await db_session.commit()
     return auth
 
 
@@ -804,6 +808,9 @@ async def test_block_cancels_and_refunds_future_confirmed_bookings(
         student_id,
         status=BookingStatus.PENDING.value,
     )
+    # Same cross-session visibility rule as _make_verified_master: the BLOCK
+    # endpoint reads practices/bookings through its own request session.
+    await db_session.commit()
 
     resp = await client.post(BLOCK_URL.format(student_id=student_id), headers=headers)
 
@@ -840,6 +847,7 @@ async def test_blocked_student_excluded_from_derived_students(
     await _booking(
         db_session, past_practice, student_id, status=BookingStatus.ATTENDED.value
     )
+    await db_session.commit()
 
     before = await client.get(
         GROUP_MEMBERS_URL.format(group_id="students"),
@@ -886,6 +894,7 @@ async def test_unblock_returns_to_students_without_restoring_custom_group_but_ke
     await _booking(
         db_session, past_practice, student_id, status=BookingStatus.ATTENDED.value
     )
+    await db_session.commit()
 
     await client.post(BLOCK_URL.format(student_id=student_id), headers=headers)
 
@@ -978,6 +987,7 @@ async def test_derived_students_widened_beyond_attended_only(
         cancelled_student_id,
         status=BookingStatus.CANCELLED.value,
     )
+    await db_session.commit()
 
     resp = await client.get(
         GROUP_MEMBERS_URL.format(group_id="students"), headers=headers
