@@ -10,6 +10,8 @@
     - Video placeholder (no real video in MVP; Zoom is external)
     - Info card: title + master + "В эфире" badge
     - Actions:
+        no booking for this practice -- N1 (ПРОМТ №587): honest inline
+          "Вы не записаны" empty state instead of the badges/"Войти" button
         "Войти"            -- join (sets joined_at) + open Zoom link
         "Check-in"         -- go to the check-in form
         "Покинуть практику" -- leave (sets left_at) + back to dashboard
@@ -57,34 +59,48 @@
 
     <!-- Actions -->
     <div class="live__actions">
-      <!-- D3 ladder (ПРОМТ №541): the manual-link state must be visibly
-           distinct from a real personal link -- silent fall-through is the
-           defect being fixed, so this badge is never optional decoration. -->
-      <VBadge v-if="zoomLink.kind === 'manual'" variant="warning" class="live__zoom-note">
-        Ссылка от мастера — посещение не засчитается автоматически
-      </VBadge>
+      <!-- N1 (ПРОМТ №587, recon №586): no booking for THIS practice at all --
+           canJoin (below) already permanently disables "Войти" in this case
+           (not a security hole: the backend also fail-closes the zoom_link),
+           but a disabled button with no explanation was a UX dead end. An
+           honest inline state instead -- no auto-redirect, no surprise
+           navigation. -->
+      <VEmptyState
+        v-if="!myBooking"
+        icon="warning"
+        title="Вы не записаны на это занятие"
+        description="Чтобы войти, сначала забронируйте практику"
+      />
+      <template v-else>
+        <!-- D3 ladder (ПРОМТ №541): the manual-link state must be visibly
+             distinct from a real personal link -- silent fall-through is the
+             defect being fixed, so this badge is never optional decoration. -->
+        <VBadge v-if="zoomLink.kind === 'manual'" variant="warning" class="live__zoom-note">
+          Ссылка от мастера — посещение не засчитается автоматически
+        </VBadge>
 
-      <!-- A4 V2 (ПРОМТ №572): honest permanent-failure state, distinct from
-           "still preparing" -- before this, create_failed rendered the
-           identical "Ссылка готовится" spinner forever. A participant has
-           no retry action (only the master does, MasterDashboardView) --
-           this just tells the truth instead of hiding it. -->
-      <VBadge v-if="zoomLink.kind === 'failed'" variant="error" class="live__zoom-note">
-        Не удалось создать встречу — обратитесь к мастеру
-      </VBadge>
+        <!-- A4 V2 (ПРОМТ №572): honest permanent-failure state, distinct from
+             "still preparing" -- before this, create_failed rendered the
+             identical "Ссылка готовится" spinner forever. A participant has
+             no retry action (only the master does, MasterDashboardView) --
+             this just tells the truth instead of hiding it. -->
+        <VBadge v-if="zoomLink.kind === 'failed'" variant="error" class="live__zoom-note">
+          Не удалось создать встречу — обратитесь к мастеру
+        </VBadge>
 
-      <VButton
-        variant="primary"
-        size="lg"
-        block
-        :disabled="!canJoin || joining"
-        :loading="joining"
-        @click="onEnter"
-      >
-        <template v-if="zoomLink.kind === 'failed'">Ссылка недоступна</template>
-        <template v-else-if="zoomLink.kind === 'pending'">Ссылка готовится</template>
-        <template v-else>Войти</template>
-      </VButton>
+        <VButton
+          variant="primary"
+          size="lg"
+          block
+          :disabled="!canJoin || joining"
+          :loading="joining"
+          @click="onEnter"
+        >
+          <template v-if="zoomLink.kind === 'failed'">Ссылка недоступна</template>
+          <template v-else-if="zoomLink.kind === 'pending'">Ссылка готовится</template>
+          <template v-else>Войти</template>
+        </VButton>
+      </template>
 
       <!-- One check-in per practice: once done, the button locks and shows
            why (so it does not read as a random disabled control). -->
@@ -107,7 +123,7 @@ import { usePracticesStore } from '@/stores/practices'
 import { useBookingsStore } from '@/stores/bookings'
 import { useToast } from '@/composables/useToast'
 import { platform } from '@/platform'
-import { VButton, VBackButton, VCard, VBadge } from '@/components/ui'
+import { VButton, VBackButton, VCard, VBadge, VEmptyState } from '@/components/ui'
 import PracticePlaceholder from '@/components/shared/PracticePlaceholder.vue'
 import { resolveZoomLink } from '@/utils/zoomLink'
 

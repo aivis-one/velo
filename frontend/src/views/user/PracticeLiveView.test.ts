@@ -19,15 +19,21 @@
 // getActivePinia().
 //
 // PROVEN ABSENT (do not cargo-cult onto this screen): NO loading/error ladder.
-// Grepped the template -- no VLoader, no VEmptyState import, no v-if on any
-// loading/error flag. Every field access goes through `practice?.x ?? fallback`
-// (.vue:47-48), so the screen renders its full shape immediately and swaps in
-// real values once the store resolves; there is nothing that "shows a loader"
-// to assert. NO status branching either: the "В эфире" badge (.vue:51) is
-// unconditional -- this screen trusts whatever navigated it here (only reached
-// from a dashboard/booking CTA gated on the practice actually being live) and
-// does not itself re-check practice.status. Both confirmed by reading the
-// full template, not assumed from the screen's name.
+// Grepped the template -- no VLoader, no v-if on any loading/error flag.
+// Every field access goes through `practice?.x ?? fallback` (.vue:47-48), so
+// the screen renders its full shape immediately and swaps in real values once
+// the store resolves; there is nothing that "shows a loader" to assert. NO
+// status branching either: the "В эфире" badge (.vue:51) is unconditional --
+// this screen trusts whatever navigated it here (only reached from a
+// dashboard/booking CTA gated on the practice actually being live) and does
+// not itself re-check practice.status. Both confirmed by reading the full
+// template, not assumed from the screen's name.
+//
+// N1 (ПРОМТ №587): VEmptyState WAS added, but only for one specific case --
+// no booking at all for this practice (`!myBooking`) -- replacing the
+// badges + "Войти" button block. It is not a general loading/error ladder;
+// Check-in and "Покинуть практику" stay rendered regardless (deliberately
+// out of this fix's scope, see the PROMPT).
 //
 // Because both stores are mocked getters (not reactive refs), state must be
 // set BEFORE mount() -- mutating bookingsState/practicesState mid-test does
@@ -214,6 +220,9 @@ function leaveBtn(): HTMLButtonElement | null {
 function backBtn(): HTMLButtonElement | null {
   return host?.querySelector<HTMLButtonElement>('.live__back') ?? null
 }
+function emptyState(): HTMLElement | null {
+  return host?.querySelector('.v-empty') ?? null
+}
 
 beforeEach(() => {
   pinia = createPinia()
@@ -279,6 +288,40 @@ describe('PracticeLiveView', () => {
   })
 
   // ===========================================================================
+  describe('N1 (ПРОМТ №587): honest "not booked" empty state', () => {
+    it('no matching booking: the empty state renders with the exact copy, and the join button/badges are absent -- Check-in and «Покинуть практику» stay', () => {
+      practicesState.selected = practice({ zoom_link: 'https://zoom.us/j/123456' })
+      bookingsState.bookings = []
+      mount()
+
+      expect(emptyState()).not.toBeNull()
+      expect(emptyState()?.textContent).toContain('Вы не записаны на это занятие')
+      expect(emptyState()?.textContent).toContain('Чтобы войти, сначала забронируйте практику')
+      expect(enterBtn()).toBeNull()
+      expect(checkinBtn()).not.toBeNull()
+      expect(leaveBtn()).not.toBeNull()
+    })
+
+    it('with an active booking: unchanged -- no empty state, the normal join button renders instead', () => {
+      practicesState.selected = practice({ zoom_link: 'https://zoom.us/j/123456' })
+      bookingsState.bookings = [booking()]
+      mount()
+
+      expect(emptyState()).toBeNull()
+      expect(enterBtn()).not.toBeNull()
+    })
+
+    it('does not auto-redirect -- no router.push/back is called just because there is no booking', () => {
+      practicesState.selected = practice()
+      bookingsState.bookings = []
+      mount()
+
+      expect(push).not.toHaveBeenCalled()
+      expect(back).not.toHaveBeenCalled()
+    })
+  })
+
+  // ===========================================================================
   describe('⭐ the security guard (AUDIT-0520-02): Войти only for a valid https Zoom link', () => {
     it('a valid https zoom_link + an active booking: Войти is enabled', () => {
       practicesState.selected = practice({ zoom_link: 'https://zoom.us/j/123456' })
@@ -337,20 +380,22 @@ describe('PracticeLiveView', () => {
       expect(enterBtn()?.disabled).toBe(true)
     })
 
-    it('a valid https link but NO booking still disables Войти -- both conditions are required, not either', () => {
+    it('a valid https link but NO booking: N1 (ПРОМТ №587) -- "Войти" is GONE, replaced by the not-booked empty state, not merely disabled', () => {
       practicesState.selected = practice({ zoom_link: 'https://zoom.us/j/123456' })
       bookingsState.bookings = []
       mount()
 
-      expect(enterBtn()?.disabled).toBe(true)
+      expect(enterBtn()).toBeNull()
+      expect(emptyState()).not.toBeNull()
     })
 
-    it('a CANCELLED booking for this practice does not count as "my booking" -- Войти stays disabled even with a valid link', () => {
+    it('a CANCELLED booking for this practice does not count as "my booking" -- N1: the not-booked empty state shows, same as no booking at all', () => {
       practicesState.selected = practice({ zoom_link: 'https://zoom.us/j/123456' })
       bookingsState.bookings = [booking({ status: 'cancelled' })]
       mount()
 
-      expect(enterBtn()?.disabled).toBe(true)
+      expect(enterBtn()).toBeNull()
+      expect(emptyState()).not.toBeNull()
     })
   })
 
