@@ -185,3 +185,30 @@ export function getMyTags(): Promise<DistinctTagsResponse> {
 export function getStudentGroups(studentUserId: string): Promise<StudentGroupsResponse> {
   return api.get<StudentGroupsResponse>(`/api/v1/masters/me/students/${studentUserId}/groups`)
 }
+
+/** POST /api/v1/masters/me/groups/{id}/invite (P4). */
+export interface GroupInviteResponse {
+  invite_url: string
+}
+
+/** POST /api/v1/masters/groups/join (P4). */
+export interface JoinGroupResponse {
+  group_id: string
+  group_name: string
+  master_name: string
+}
+
+/** POST /api/v1/masters/me/groups/{id}/invite (P4) -- create-or-return the
+ *  group's reusable invite link. CUSTOM groups only. Idempotent: repeat
+ *  calls return the SAME url. */
+export function createGroupInvite(id: string): Promise<GroupInviteResponse> {
+  return api.post<GroupInviteResponse>(`/api/v1/masters/me/groups/${id}/invite`)
+}
+
+/** POST /api/v1/masters/groups/join (P4) -- resolve a group-invite token
+ *  and join the CALLER (any authenticated user, not master-scoped) to that
+ *  group. 403 if the caller is blocked by that group's master, 404 on an
+ *  unknown/invalid token. */
+export function joinGroup(token: string): Promise<JoinGroupResponse> {
+  return api.post<JoinGroupResponse>('/api/v1/masters/groups/join', { token })
+}
