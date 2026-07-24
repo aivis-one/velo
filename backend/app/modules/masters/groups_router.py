@@ -20,14 +20,17 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_reader, get_db_session
-from app.modules.auth.dependencies import get_current_master
+from app.modules.auth.dependencies import get_current_master, get_current_user
 from app.modules.masters.groups_schemas import (
     AddGroupMemberRequest,
     CreateGroupRequest,
+    GroupInviteResponse,
     GroupListItem,
     GroupListResponse,
     GroupMemberItem,
     GroupResponse,
+    JoinGroupRequest,
+    JoinGroupResponse,
     PaginatedGroupMembersResponse,
     RenameGroupRequest,
 )
@@ -36,6 +39,8 @@ from app.modules.masters.groups_service import (
     count_group_members,
     create_group,
     delete_group,
+    get_or_create_group_invite,
+    join_group_by_token,
     list_group_members,
     list_master_groups,
     remove_group_member,
@@ -156,3 +161,40 @@ async def remove_group_member_endpoint(
     user, _profile = master_tuple
     await remove_group_member(user.id, group_id, student_user_id, session)
     await session.flush()
+
+
+# ===========================================================================
+# P4 addenda (ПРОМТ №593): group invite links
+# ===========================================================================
+
+
+@router.post("/me/groups/{group_id}/invite", response_model=GroupInviteResponse)
+async def create_group_invite_endpoint(
+    group_id: str,
+    master_tuple: tuple[User, MasterProfile] = Depends(get_current_master),
+    session: AsyncSession = Depends(get_db_session),
+) -> GroupInviteResponse:
+    """Create-or-return the group's reusable invite link. 400 on a system
+    slug, 404 if the group doesn't exist / isn't this master's. Idempotent
+    -- repeat calls return the SAME url."""
+    user, _profile = master_tuple
+    invite_url = await get_or_create_group_invite(user.id, group_id, session)
+    await session.flush()
+    return GroupInviteResponse(invite_url=invite_url)
+
+
+@router.post("/groups/join", response_model=JoinGroupResponse)
+async def join_group_endpoint(
+    body: JoinGroupRequest,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> JoinGroupResponse:
+    """Resolve a group-invite token and add the CALLER to that group.
+
+    Not master-scoped (get_current_user, not get_current_master) -- the
+    joiner is whoever opened the deeplink. 403 if the caller is currently
+    blocked by that group's master; 404 on an unknown/invalid token.
+    """
+    result = await join_group_by_token(user.id, body.token, session)
+    await session.flush()
+    return JoinGroupResponse(**result)

@@ -94,6 +94,41 @@ class MasterGroupMembership(UUIDMixin, Base):
         )
 
 
+class GroupInvite(UUIDMixin, Base):
+    """A CUSTOM group's reusable join link (P4, ПРОМТ №593).
+
+    REUSABLE + STABLE by design -- unlike the single-use, Redis-only,
+    sha256'd master_onboarding invite (admin/masters/service.py), the master
+    pastes this into a channel and taps «Пригласить» repeatedly expecting the
+    SAME link back every time, and it must still resolve on join whenever a
+    follower opens it days later. Storing the raw token (not a hash) is
+    acceptable here: a group invite only grants "join this contact group"
+    (low-sensitivity, and master-reversible any time by removing the member),
+    unlike the master_onboarding invite which grants a master-role
+    application slot.
+
+    UNIQUE group_id: ONE active invite per group -- create-or-return
+    (groups_service.get_or_create_group_invite) is a plain select-then-insert
+    against this constraint.
+    """
+
+    __tablename__ = "group_invite"
+
+    group_id: Mapped[UUID] = mapped_column(
+        ForeignKey("master_group.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    token: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<GroupInvite id={self.id} group_id={self.group_id}>"
+
+
 class MasterStudent(UUIDMixin, Base):
     """Per-(master, student) annotation: a single tag and/or a block.
 

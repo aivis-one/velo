@@ -16,6 +16,7 @@
 # SESSION RULES: no session.commit() here (P-01) -- the router flushes.
 # =============================================================================
 
+import secrets
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -24,10 +25,18 @@ from sqlalchemy import and_, delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import BadRequestError, ConflictError, NotFoundError
+from app.core.config import settings
+from app.core.exceptions import (
+    BadRequestError,
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    VeloError,
+)
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.bookings.service import recalculate_participants
 from app.modules.masters.groups_models import (
+    GroupInvite,
     MasterGroup,
     MasterGroupMembership,
     MasterStudent,
@@ -714,3 +723,126 @@ async def list_student_custom_groups(
         .order_by(MasterGroup.name)
     )
     return list((await session.execute(stmt)).scalars().all())
+
+
+# ===========================================================================
+# P4 addenda (ПРОМТ №593): group invite links
+# ===========================================================================
+
+
+async def get_or_create_group_invite(
+    master_id: UUID, group_id_str: str, session: AsyncSession,
+) -> str:
+    """Create-or-return the group's reusable invite link. CUSTOM groups
+    only (400 on a system slug, via _get_custom_group_or_404). Idempotent:
+    a repeat call for the same group returns the SAME url -- the master
+    tapping «Пригласить» again expects the link they already shared to
+    still work, not a fresh one that invalidates it.
+
+    Raises:
+        VeloError 503 (bot_url_not_configured): telegram_bot_url unset
+            (same guard/code as admin/masters/service.py's
+            issue_master_invite -- composing a link with an empty prefix
+            would be broken, not just unconfigured-looking).
+    """
+    if not settings.telegram_bot_url:
+        raise VeloError(
+            message="telegram_bot_url is not configured",
+            code="bot_url_not_configured",
+            status_code=503,
+        )
+
+    group = await _get_custom_group_or_404(master_id, group_id_str, session)
+
+    existing = (
+        await session.execute(
+            select(GroupInvite).where(GroupInvite.group_id == group.id)
+        )
+    ).scalar_one_or_none()
+
+    if existing is None:
+        token = secrets.token_urlsafe(32)
+        invite = GroupInvite(group_id=group.id, token=token)
+        try:
+            async with session.begin_nested():
+                session.add(invite)
+                await session.flush()
+        except IntegrityError:
+            # Lost a concurrent create race -- the winner's row is the
+            # answer, same discipline as create_group's dup-guard.
+            existing = (
+                await session.execute(
+                    select(GroupInvite).where(GroupInvite.group_id == group.id)
+                )
+            ).scalar_one()
+            token = existing.token
+    else:
+        token = existing.token
+
+    return f"{settings.telegram_bot_url}?startapp=group_invite__{token}"
+
+
+async def join_group_by_token(
+    joiner_id: UUID, token: str, session: AsyncSession,
+) -> dict:
+    """Resolve a group-invite token and add the joiner to that group.
+
+    403 if the joiner is currently blocked by that group's master
+    (master_student.blocked_at set) -- a block must not be bypassable by
+    re-joining through an old invite link the joiner already had open.
+    Idempotent: already-a-member re-joins as a silent success (same
+    discipline as add_group_member).
+
+    404 (never 403) for an unknown/garbage token -- same "don't reveal
+    which case it was" posture as _get_custom_group_or_404.
+    """
+    invite = (
+        await session.execute(select(GroupInvite).where(GroupInvite.token == token))
+    ).scalar_one_or_none()
+    if invite is None:
+        raise NotFoundError("Invite not found")
+
+    group = await session.get(MasterGroup, invite.group_id)
+    if group is None:
+        # Orphaned row -- impossible under ondelete=CASCADE, but treat
+        # exactly like an unknown token rather than 500ing.
+        raise NotFoundError("Invite not found")
+
+    master = await session.get(User, group.master_id)
+    if master is None:
+        raise NotFoundError("Invite not found")
+
+    blocked = (
+        await session.execute(
+            select(MasterStudent.blocked_at).where(
+                MasterStudent.master_id == group.master_id,
+                MasterStudent.student_user_id == joiner_id,
+                MasterStudent.blocked_at.is_not(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if blocked is not None:
+        raise ForbiddenError("This master has restricted your access")
+
+    existing = (
+        await session.execute(
+            select(MasterGroupMembership).where(
+                MasterGroupMembership.group_id == group.id,
+                MasterGroupMembership.student_user_id == joiner_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is None:
+        membership = MasterGroupMembership(group_id=group.id, student_user_id=joiner_id)
+        try:
+            async with session.begin_nested():
+                session.add(membership)
+                await session.flush()
+        except IntegrityError:
+            pass  # lost a concurrent join race -- already a member either way
+
+    return {
+        "group_id": group.id,
+        "group_name": group.name,
+        "master_name": display_name(master.first_name, master.last_name),
+    }

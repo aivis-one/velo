@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints
 
 # Matches practices/taxonomy_models.py's LabelStr precedent (admin/taxonomy/
 # schemas.py:19): non-empty, capped -- 422 on empty/too-long, NOT a custom
@@ -141,3 +141,32 @@ class StudentGroupsResponse(BaseModel):
     "Удалённые") are never listed here -- they aren't membership rows."""
 
     groups: list[StudentGroupItem]
+
+
+# ===========================================================================
+# P4 addenda (ПРОМТ №593): group invite links
+# ===========================================================================
+
+
+class GroupInviteResponse(BaseModel):
+    """POST /masters/me/groups/{id}/invite -- create-or-return the group's
+    reusable join link. Idempotent: repeat calls return the SAME url."""
+
+    invite_url: str
+
+
+class JoinGroupRequest(BaseModel):
+    """POST /masters/groups/join -- the token from the group_invite__{token}
+    deeplink. Same bound as ClaimMasterInviteRequest.token (masters/schemas.py)
+    -- both are secrets.token_urlsafe(32) outputs."""
+
+    token: str = Field(..., min_length=16, max_length=128)
+
+
+class JoinGroupResponse(BaseModel):
+    """POST /masters/groups/join -- the resolved group + its master, for the
+    join confirmation screen."""
+
+    group_id: UUID
+    group_name: str
+    master_name: str

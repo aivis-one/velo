@@ -58,6 +58,8 @@ TAG_URL = "/api/v1/masters/me/students/{student_id}/tag"
 BLOCK_URL = "/api/v1/masters/me/students/{student_id}/block"
 MY_TAGS_URL = "/api/v1/masters/me/tags"
 STUDENT_GROUPS_URL = "/api/v1/masters/me/students/{student_id}/groups"
+GROUP_INVITE_URL = "/api/v1/masters/me/groups/{group_id}/invite"
+JOIN_GROUP_URL = "/api/v1/masters/groups/join"
 
 _TID_MIN = 99700
 _TID_MAX = 99799
@@ -1085,3 +1087,176 @@ async def test_student_groups_empty_when_no_custom_membership(
 
     assert resp.status_code == 200
     assert resp.json()["groups"] == []
+
+
+# ===================================================================
+# P4 addenda (ПРОМТ №593): group invite links
+# ===================================================================
+#
+# BOT_URL is monkeypatched (same pattern as test_master_invite.py) so the
+# composed link is deterministic regardless of the ambient .env.
+
+_BOT_URL = "https://t.me/velo_testbot"
+
+
+@pytest.mark.asyncio
+async def test_group_invite_returns_stable_url_on_repeat_calls(
+    client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "telegram_bot_url", _BOT_URL)
+
+    master = await _make_verified_master(client, db_session, 99761)
+    headers = auth_headers(master["session_token"])
+    group = await client.post(GROUPS_URL, json={"name": "VIP"}, headers=headers)
+    group_id = group.json()["id"]
+
+    resp1 = await client.post(
+        GROUP_INVITE_URL.format(group_id=group_id), headers=headers,
+    )
+    resp2 = await client.post(
+        GROUP_INVITE_URL.format(group_id=group_id), headers=headers,
+    )
+
+    assert resp1.status_code == 200
+    assert resp2.status_code == 200
+    url1 = resp1.json()["invite_url"]
+    url2 = resp2.json()["invite_url"]
+    assert url1 == url2  # idempotent -- the master re-taps expecting the SAME link
+    assert url1.startswith(f"{_BOT_URL}?startapp=group_invite__")
+
+
+@pytest.mark.asyncio
+async def test_group_invite_system_slug_rejected_400(
+    client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "telegram_bot_url", _BOT_URL)
+
+    master = await _make_verified_master(client, db_session, 99762)
+    headers = auth_headers(master["session_token"])
+
+    resp = await client.post(
+        GROUP_INVITE_URL.format(group_id="students"), headers=headers,
+    )
+
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_group_invite_other_masters_group_404(
+    client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "telegram_bot_url", _BOT_URL)
+
+    master_a = await _make_verified_master(client, db_session, 99763)
+    headers_a = auth_headers(master_a["session_token"])
+    master_b = await _make_verified_master(client, db_session, 99764)
+    headers_b = auth_headers(master_b["session_token"])
+
+    group = await client.post(GROUPS_URL, json={"name": "Чужая"}, headers=headers_a)
+    group_id = group.json()["id"]
+
+    resp = await client.post(
+        GROUP_INVITE_URL.format(group_id=group_id), headers=headers_b,
+    )
+
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_join_group_adds_membership_and_is_idempotent(
+    client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "telegram_bot_url", _BOT_URL)
+
+    master = await _make_verified_master(client, db_session, 99765)
+    headers = auth_headers(master["session_token"])
+    group = await client.post(GROUPS_URL, json={"name": "VIP"}, headers=headers)
+    group_id = group.json()["id"]
+
+    invite_resp = await client.post(
+        GROUP_INVITE_URL.format(group_id=group_id), headers=headers,
+    )
+    token = invite_resp.json()["invite_url"].rsplit("group_invite__", 1)[1]
+
+    joiner_auth = await login_user(client, telegram_id=99766, first_name="Joiner")
+    joiner_id = joiner_auth["user"]["id"]
+    joiner_headers = auth_headers(joiner_auth["session_token"])
+
+    resp = await client.post(
+        JOIN_GROUP_URL, json={"token": token}, headers=joiner_headers,
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["group_id"] == group_id
+    assert body["group_name"] == "VIP"
+    assert "Master" in body["master_name"]
+
+    members = await client.get(
+        GROUP_MEMBERS_URL.format(group_id=group_id), headers=headers,
+    )
+    assert members.json()["total"] == 1
+    assert members.json()["items"][0]["id"] == joiner_id
+
+    # Re-joining via the same link is a no-op success, not a 409.
+    resp2 = await client.post(
+        JOIN_GROUP_URL, json={"token": token}, headers=joiner_headers,
+    )
+    assert resp2.status_code == 200
+    members2 = await client.get(
+        GROUP_MEMBERS_URL.format(group_id=group_id), headers=headers,
+    )
+    assert members2.json()["total"] == 1  # still just the one member
+
+
+@pytest.mark.asyncio
+async def test_join_group_blocked_joiner_gets_403(
+    client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "telegram_bot_url", _BOT_URL)
+
+    master = await _make_verified_master(client, db_session, 99767)
+    headers = auth_headers(master["session_token"])
+    group = await client.post(GROUPS_URL, json={"name": "VIP"}, headers=headers)
+    group_id = group.json()["id"]
+    invite_resp = await client.post(
+        GROUP_INVITE_URL.format(group_id=group_id), headers=headers,
+    )
+    token = invite_resp.json()["invite_url"].rsplit("group_invite__", 1)[1]
+
+    blocked_auth = await login_user(client, telegram_id=99768, first_name="Blocked")
+    blocked_id = blocked_auth["user"]["id"]
+    blocked_headers = auth_headers(blocked_auth["session_token"])
+    await client.post(BLOCK_URL.format(student_id=blocked_id), headers=headers)
+
+    resp = await client.post(
+        JOIN_GROUP_URL, json={"token": token}, headers=blocked_headers,
+    )
+
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_join_group_invalid_token_404(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    joiner_auth = await login_user(client, telegram_id=99769, first_name="Joiner")
+    joiner_headers = auth_headers(joiner_auth["session_token"])
+
+    resp = await client.post(
+        JOIN_GROUP_URL,
+        json={"token": "totally-unknown-token-0000000000"},
+        headers=joiner_headers,
+    )
+
+    assert resp.status_code == 404
