@@ -12,10 +12,11 @@ from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID
 
-from sqlalchemy import and_, extract, func, select
+from sqlalchemy import and_, extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.modules.practices.audience_service import viewer_audience_clause
 from app.modules.practices.enrichment_service import (
     attendance_counts_for_practices,
     attendance_counts_kwargs,
@@ -26,8 +27,8 @@ from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.practices.schemas import PaginatedPracticesResponse
 from app.modules.practices.service import (
     master_full_name,
-    user_flags_for_practices,
     practice_to_response,
+    user_flags_for_practices,
 )
 from app.modules.users.models import User
 
@@ -244,6 +245,17 @@ async def list_public_practices(
     """
     # FIX 5.3: Build filter list once, apply to both queries (DRY).
     filters: list = []
+
+    # Audience + block (Master GROUPS P5, ПРОМТ №594): applies regardless of
+    # the branch below (explicit status or the default time-gated feed) --
+    # a blocked/out-of-audience viewer must not see the practice either way.
+    # The owner always sees their OWN practice here too (same posture as
+    # get_practice's draft/deleted owner-bypass) -- audience targeting is
+    # a viewer-facing gate, not something that hides a practice from its
+    # own creator.
+    filters.append(
+        or_(Practice.master_id == user.id, viewer_audience_clause(user.id))
+    )
 
     if status is not None:
         # Explicit status request (e.g. internal/master tooling): exact match,
