@@ -1,20 +1,27 @@
 # =============================================================================
-# VELO Backend -- Master Students Router (E5)
+# VELO Backend -- Master Students Router (E5, tag/block P1 ПРОМТ №590)
 # =============================================================================
 #
-# Master-facing "my students" CRM aggregate.
+# Master-facing "my students" CRM aggregate + the per-student tag/block
+# annotation (groups feature P1).
 #
 # ENDPOINTS:
-#   GET /api/v1/masters/me/students        -- searchable, paginated list
-#   GET /api/v1/masters/me/students/{id}   -- per-student detail aggregate
+#   GET    /api/v1/masters/me/students             -- searchable, paginated list
+#   GET    /api/v1/masters/me/students/{id}         -- per-student detail aggregate
+#   PUT    /api/v1/masters/me/students/{id}/tag     -- upsert/clear the tag
+#   POST   /api/v1/masters/me/students/{id}/block   -- block, cancel/refund future
+#   DELETE /api/v1/masters/me/students/{id}/block   -- unblock
 #
 # Mounted as a SEPARATE router (like finance) so the dynamic /{user_id} route
 # on the main masters router (single-segment) never shadows these two-segment
 # /me/students* paths. The static /me/students is declared before the dynamic
-# /me/students/{student_id}.
+# /me/students/{student_id}; the /tag and /block sub-paths never collide with
+# the bare {student_id} route (different path shapes, matched by FastAPI on
+# path+method).
 #
 # AUTH: get_current_master on all endpoints (verified master only).
-# SESSION: get_db_reader -- read-only.
+# SESSION: get_db_reader for the two GETs (read-only), get_db_session for
+# the tag/block mutations (P-01 -- router flushes, service never commits).
 # =============================================================================
 
 from uuid import UUID
@@ -23,8 +30,18 @@ import structlog
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db_reader
+from app.core.database import get_db_reader, get_db_session
 from app.modules.auth.dependencies import get_current_master
+from app.modules.masters.groups_schemas import (
+    BlockStudentResponse,
+    SetStudentTagRequest,
+    StudentTagResponse,
+)
+from app.modules.masters.groups_service import (
+    block_student,
+    set_student_tag,
+    unblock_student,
+)
 from app.modules.masters.models import MasterProfile
 from app.modules.masters.students_schemas import (
     PaginatedStudentsResponse,
@@ -79,3 +96,57 @@ async def get_my_student_endpoint(
     user, _profile = master_tuple
     data = await get_master_student_detail(user.id, student_id, session)
     return StudentDetailResponse(**data)
+
+
+@router.put("/me/students/{student_id}/tag", response_model=StudentTagResponse)
+async def set_student_tag_endpoint(
+    student_id: UUID,
+    body: SetStudentTagRequest,
+    master_tuple: tuple[User, MasterProfile] = Depends(get_current_master),
+    session: AsyncSession = Depends(get_db_session),
+) -> StudentTagResponse:
+    """Upsert the single tag for this student (null clears it).
+
+    404 if student_id does not resolve to an existing user.
+    """
+    user, _profile = master_tuple
+    tag = await set_student_tag(user.id, student_id, body.tag, session)
+    await session.flush()
+    return StudentTagResponse(student_user_id=student_id, tag=tag)
+
+
+@router.post("/me/students/{student_id}/block", response_model=BlockStudentResponse)
+async def block_student_endpoint(
+    student_id: UUID,
+    master_tuple: tuple[User, MasterProfile] = Depends(get_current_master),
+    session: AsyncSession = Depends(get_db_session),
+) -> BlockStudentResponse:
+    """Block: sets blocked_at, drops the student from every custom group,
+    and cancels+refunds their FUTURE confirmed bookings on this master's
+    practices (refund via the existing refund_booking() path -- no new
+    money movement). 404 if student_id does not resolve to an existing
+    user.
+    """
+    user, _profile = master_tuple
+    result = await block_student(user.id, student_id, session)
+    await session.flush()
+    return BlockStudentResponse(
+        student_user_id=student_id,
+        blocked_at=result["blocked_at"],
+        cancelled_bookings_count=result["cancelled_bookings_count"],
+    )
+
+
+@router.delete("/me/students/{student_id}/block", status_code=204)
+async def unblock_student_endpoint(
+    student_id: UUID,
+    master_tuple: tuple[User, MasterProfile] = Depends(get_current_master),
+    session: AsyncSession = Depends(get_db_session),
+) -> None:
+    """Unblock: clears blocked_at. The student returns to «Ученики»
+    automatically (derived) -- custom-group memberships are NOT restored,
+    the tag is kept. 404 if the student isn't currently blocked.
+    """
+    user, _profile = master_tuple
+    await unblock_student(user.id, student_id, session)
+    await session.flush()
