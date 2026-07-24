@@ -10,8 +10,8 @@
 // at the next `velo update` regen -- do NOT add these to api/types.ts by
 // hand (that file's own header forbids it).
 //
-// Backend endpoints (masters/groups_router.py + students_router.py's tag
-// addition):
+// Backend endpoints (masters/groups_router.py + students_router.py's tag/
+// block/P3-addenda additions):
 //   GET    /api/v1/masters/me/groups                          -- list
 //   POST   /api/v1/masters/me/groups                          -- create custom
 //   PATCH  /api/v1/masters/me/groups/{id}                     -- rename custom
@@ -20,13 +20,14 @@
 //   POST   /api/v1/masters/me/groups/{id}/members             -- add member
 //   DELETE /api/v1/masters/me/groups/{id}/members/{studentId} -- remove member
 //   PUT    /api/v1/masters/me/students/{studentId}/tag        -- upsert/clear tag
+//   POST   /api/v1/masters/me/students/{studentId}/block      -- block (P3)
+//   DELETE /api/v1/masters/me/students/{studentId}/block      -- unblock (P3)
+//   GET    /api/v1/masters/me/tags                            -- tag palette (P3)
+//   GET    /api/v1/masters/me/students/{studentId}/groups     -- this student's groups (P3)
 //
 // {id} above is either a real group UUID or one of the two system slugs
 // "students" / "deleted" (GET .../members only -- every mutation on a
 // system slug is rejected server-side with 400).
-//
-// Block/unblock (POST|DELETE /masters/me/students/{id}/block) is OUT OF
-// SCOPE this phase (P3, reached from the profile) -- not wrapped here.
 // =============================================================================
 
 import { api } from '@/api/client'
@@ -71,6 +72,29 @@ export interface PaginatedGroupMembersResponse {
 export interface StudentTagResponse {
   student_user_id: string
   tag: string | null
+}
+
+export interface BlockStudentResponse {
+  student_user_id: string
+  blocked_at: string
+  /** How many FUTURE confirmed bookings were cancelled + refunded as a
+   *  side effect (payments/refund.py's existing refund_booking() path). */
+  cancelled_bookings_count: number
+}
+
+/** GET /api/v1/masters/me/tags (P3). */
+export interface DistinctTagsResponse {
+  tags: string[]
+}
+
+/** GET /api/v1/masters/me/students/{id}/groups (P3). */
+export interface StudentGroupItem {
+  id: string
+  name: string
+}
+
+export interface StudentGroupsResponse {
+  groups: StudentGroupItem[]
 }
 
 /** GET /api/v1/masters/me/groups -- «Ученики» first, custom by created_at,
@@ -132,4 +156,32 @@ export function setStudentTag(
   return api.put<StudentTagResponse>(`/api/v1/masters/me/students/${studentUserId}/tag`, {
     tag,
   })
+}
+
+/** POST /api/v1/masters/me/students/{studentUserId}/block (P3) -- sets
+ *  blocked_at, drops the student from every custom group, cancels+refunds
+ *  their FUTURE confirmed bookings on this master's practices. */
+export function blockStudent(studentUserId: string): Promise<BlockStudentResponse> {
+  return api.post<BlockStudentResponse>(`/api/v1/masters/me/students/${studentUserId}/block`)
+}
+
+/** DELETE /api/v1/masters/me/students/{studentUserId}/block (P3) -- unblock.
+ *  The student returns to «Ученики» automatically (derived); custom-group
+ *  memberships are NOT restored, the tag is kept. */
+export function unblockStudent(studentUserId: string): Promise<void> {
+  return api.delete(`/api/v1/masters/me/students/${studentUserId}/block`)
+}
+
+/** GET /api/v1/masters/me/tags (P3) -- every distinct tag this master has
+ *  used, alphabetical. Closes the P2 palette-source gap (AddTagSheet used
+ *  to derive its palette from whatever page of members happened to load). */
+export function getMyTags(): Promise<DistinctTagsResponse> {
+  return api.get<DistinctTagsResponse>('/api/v1/masters/me/tags')
+}
+
+/** GET /api/v1/masters/me/students/{studentUserId}/groups (P3) -- the
+ *  CUSTOM groups this student is in for this master (profile group chips).
+ *  Never the two virtuals -- they aren't membership rows. */
+export function getStudentGroups(studentUserId: string): Promise<StudentGroupsResponse> {
+  return api.get<StudentGroupsResponse>(`/api/v1/masters/me/students/${studentUserId}/groups`)
 }
