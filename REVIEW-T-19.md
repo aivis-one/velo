@@ -125,6 +125,53 @@ run mutates the state the next one starts from. Confirmed both directions:
 The red/green flip tracks what the *previous* run left in the 94xxx band, not
 which tests tree is checked out.
 
+### 4b-bis. The seed is not the variable — an 8-seed sweep
+
+Eight seeds run back-to-back on a carried-over DB, delivery tree throughout,
+which is what the executor's shared VPS database actually looks like:
+
+| seed | result |
+|---|---|
+| 375403175 | 993 passed *(clean DB)* |
+| 1 | 993 passed |
+| **42** | **2 failed**, 991 passed |
+| 12345 | 993 passed |
+| 999 | 993 passed |
+| 777777 | 993 passed |
+| 20260807 | 993 passed |
+| **5150** | **2 failed**, 991 passed |
+
+Two failing seeds out of the batch — the brief's own "2 of 5" rate, and always
+the same two test ids. Note the reported seed `375403175` passes here and seed
+`42` fails, which is the reverse of the brief. The seed is not the variable.
+
+Driven home by re-running seed **42** on its own afterwards, with nothing changed
+but the incoming band state:
+
+```
+band users now: 0
+993 passed, 3 skipped
+```
+
+Same seed, same tests tree, same everything — red in the sweep, green now, because
+the run before it happened to leave the band empty. A seed does not carry a
+verdict in this suite; the state it inherits does.
+
+Re-priming the band and running seed 42 once more turns it red again and prints
+the brief's own number:
+
+```
+band users left: 16
+E       assert (386 - 386) == 1
+E       assert (386 - 386) == 2
+FAILED tests/test_admin_stats_overview.py::test_new_users_counts - assert (38...
+```
+
+The `assert (38...` quoted in the brief is the **truncated one-line summary** of
+`assert (386 - 386) == 2`. It was read as "actual 38 against an expected 2"; it is
+386 minus 386, i.e. a delta of zero. That single misreading is what pointed the
+investigation at leakage (H1/H2) instead of at a count that never moved.
+
 ### 4c. Minimal reproducer — no `pytest-randomly` involved
 
 After priming the band once, ordering alone decides it. Runs in ~3 seconds:
