@@ -46,6 +46,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.bookings.models import Booking, BookingStatus
+from app.modules.diary.models import Checkin
 from app.modules.masters.groups_models import (
     MasterGroup,
     MasterGroupMembership,
@@ -61,7 +62,7 @@ from app.modules.practices.models import (
 )
 from app.modules.users.models import User, UserRole
 from app.modules.waitlist.models import Waitlist, WaitlistStatus
-from tests.helpers import auth_headers, full_cleanup_range, login_user
+from tests.helpers import auth_headers, fresh_execute, full_cleanup_range, login_user
 
 PRACTICES_URL = "/api/v1/practices"
 BOOKINGS_URL = "/api/v1/bookings"
@@ -328,9 +329,15 @@ async def test_blocked_viewer_sees_no_practices_of_that_master_regardless_of_aud
 
 
 @pytest.mark.asyncio
-async def test_checkin_rejects_a_viewer_no_longer_in_the_audience(
+async def test_checkin_grandfathers_a_viewer_no_longer_in_the_audience(
     client: AsyncClient, db_session: AsyncSession,
 ) -> None:
+    """H-R2-8, decision (B): flipped from its pre-(B) shape (was
+    test_checkin_rejects_...). A CONFIRMED booking grandfathers the
+    holder through audience narrowing at check-in -- the audience gate
+    stays alive for NEW acquisitions (create_booking tests below) and
+    the personal block still refuses check-in (blocked test above).
+    Full twin set: tests/test_checkin_audience_grandfather.py."""
     master = await _make_verified_master(client, db_session, 99311)
     master_id = master["user"]["id"]
     group = await _custom_group(db_session, master_id)
@@ -355,8 +362,16 @@ async def test_checkin_rejects_a_viewer_no_longer_in_the_audience(
         headers=auth_headers(outsider_auth["session_token"]),
     )
 
-    assert resp.status_code == 403
-    assert resp.json()["error"] == "not_in_audience"
+    assert resp.status_code in (200, 201)
+    checkin_row = (
+        await fresh_execute(
+            select(Checkin).where(
+                Checkin.practice_id == practice.id,
+                Checkin.user_id == outsider_id,
+            )
+        )
+    ).scalar_one_or_none()
+    assert checkin_row is not None
 
 
 # ===================================================================
@@ -764,6 +779,124 @@ async def test_rename_group_updates_targeting_practices_audience_group_names(
 
 
 # ===================================================================
+# Detail-view audience gate (GET /practices/{id}) -- disclosure, not
+# overbooking: a non-member must not read a groups practice's private
+# audience_group_names via a forwarded link.
+# ===================================================================
+@pytest.mark.asyncio
+async def test_detail_of_groups_practice_hidden_from_non_member(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    """A scheduled groups practice: owner and a group MEMBER get 200;
+    an authenticated NON-member gets 404 (P-08, same discipline as the
+    draft-hidden rule -- not 403, so the response is not an oracle)."""
+    master = await _make_verified_master(client, db_session, 99340)
+    headers = auth_headers(master["session_token"])
+    group = await _custom_group(db_session, master["user"]["id"], name="Тайная")
+    await db_session.commit()
+
+    created = await client.post(
+        PRACTICES_URL,
+        json=_practice_body(
+            audience_kind=AudienceKind.GROUPS.value,
+            group_ids=[str(group.id)],
+        ),
+        headers=headers,
+    )
+    assert created.status_code == 201
+    pid = created.json()["id"]
+    # Publish it (draft -> scheduled): draft is owner-only anyway, we
+    # need a public status so the ONLY thing hiding it is the audience.
+    pub = await client.patch(
+        f"{PRACTICES_URL}/{pid}",
+        json={"status": "scheduled"},
+        headers=headers,
+    )
+    assert pub.status_code == 200
+
+    member_id = await _login(client, 99341, "Member")
+    await _add_group_member(db_session, group.id, member_id)
+    await db_session.commit()
+    member = await login_user(client, telegram_id=99341, first_name="Member")
+
+    stranger = await login_user(client, telegram_id=99342, first_name="Stranger")
+
+    # Owner: 200, sees the private group name.
+    owner_detail = await client.get(
+        f"{PRACTICES_URL}/{pid}", headers=headers,
+    )
+    assert owner_detail.status_code == 200
+    assert owner_detail.json()["audience_group_names"] == ["Тайная"]
+
+    # Member: 200.
+    member_detail = await client.get(
+        f"{PRACTICES_URL}/{pid}",
+        headers=auth_headers(member["session_token"]),
+    )
+    assert member_detail.status_code == 200
+
+    # Stranger: 404 -- no leak of the practice OR its group names.
+    stranger_detail = await client.get(
+        f"{PRACTICES_URL}/{pid}",
+        headers=auth_headers(stranger["session_token"]),
+    )
+    assert stranger_detail.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_detail_still_visible_to_booked_non_member(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    """A non-member who ALREADY holds a booking keeps access to the
+    detail view even after the audience is narrowed against them -- the
+    endpoint feeds PracticeLiveView/CheckinView for a booked non-owner,
+    and access they paid for must not be revoked retroactively (R2)."""
+    from uuid import UUID as _UUID
+
+    from app.modules.bookings.models import Booking, BookingStatus
+
+    master = await _make_verified_master(client, db_session, 99343)
+    headers = auth_headers(master["session_token"])
+    group = await _custom_group(db_session, master["user"]["id"], name="Круг")
+    await db_session.commit()
+
+    created = await client.post(
+        PRACTICES_URL,
+        json=_practice_body(
+            audience_kind=AudienceKind.GROUPS.value,
+            group_ids=[str(group.id)],
+        ),
+        headers=headers,
+    )
+    assert created.status_code == 201
+    pid = created.json()["id"]
+    pub = await client.patch(
+        f"{PRACTICES_URL}/{pid}",
+        json={"status": "scheduled"},
+        headers=headers,
+    )
+    assert pub.status_code == 200
+
+    # A non-member who nonetheless holds a booking (e.g. booked while
+    # public, before the master narrowed the audience).
+    booked = await login_user(client, telegram_id=99344, first_name="Booked")
+    db_session.add(
+        Booking(
+            practice_id=_UUID(pid),
+            user_id=_UUID(booked["user"]["id"]),
+            status=BookingStatus.CONFIRMED.value,
+        )
+    )
+    await db_session.commit()
+
+    detail = await client.get(
+        f"{PRACTICES_URL}/{pid}",
+        headers=auth_headers(booked["session_token"]),
+    )
+    # 200, not 404 -- they keep the practice they paid for.
+    assert detail.status_code == 200
+
+
 # Owner Q15 (PROMPT №613): POST /practices/{id}/audience-preview -- read-only
 # dry-run, reuses this file's own predicates (count_stranded_active_bookings,
 # audience_service.py) rather than a second definition of "in the audience".

@@ -28,6 +28,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import AuditLog
 from app.core.config import settings
+from app.core.database import get_session_factory
+from app.core.events.models import OutboxEvent
 from app.modules.bookings.models import Booking
 from app.modules.diary.models import Checkin, DiaryEvent, Feedback
 from app.modules.masters.groups_models import (
@@ -37,7 +39,6 @@ from app.modules.masters.groups_models import (
     MasterStudent,
 )
 from app.modules.masters.models import MasterProfile
-from app.modules.notifications.models import Notification, NotificationDelivery
 from app.modules.payments.models import (
     CompanyLedger,
     MasterLedger,
@@ -178,6 +179,7 @@ async def full_cleanup_range(
     tid_max: int,
     *,
     delete_users: bool = False,
+    extra_ranges: list[tuple[int, int]] | None = None,
 ) -> None:
     """Delete all test data for a telegram_id range in FK-safe order.
 
@@ -196,13 +198,30 @@ async def full_cleanup_range(
         delete_users: If True, hard-delete users in the range.
                       Use for tests that count absolute user totals
                       (e.g. test_admin_stats). Default: False (role reset).
+        extra_ranges: Additional (tid_min, tid_max) ranges cleaned in the
+                      SAME pass. H-R2: two back-to-back calls silently
+                      undo each other -- the rollback below discards the
+                      first call's uncommitted deletes (the H-R1 trap).
+                      One call, N ranges, one rollback.
     """
+    # Defensive rollback, KEEP IT (H-R2 verdict): cleanup fixtures run
+    # first in a test, and the PREVIOUS test may have left the shared
+    # session dirty or in a failed transaction -- without this reset the
+    # very first DELETE below can blow up with PendingRollbackError
+    # across unrelated files (106 call sites depend on it). It has no
+    # documented origin (arrived wholesale with the helper, a1d6671),
+    # but the protective role stands on its own. Consequence: never call
+    # this helper twice without committing in between -- pass
+    # extra_ranges instead.
     await session.rollback()
 
-    # Reusable subqueries.
-    user_ids_subq = select(User.id).where(
-        User.telegram_id.between(tid_min, tid_max)
+    ranges = [(tid_min, tid_max), *(extra_ranges or [])]
+    tid_clause = or_(
+        *(User.telegram_id.between(lo, hi) for lo, hi in ranges)
     )
+
+    # Reusable subqueries.
+    user_ids_subq = select(User.id).where(tid_clause)
     practice_ids_subq = select(Practice.id).where(
         Practice.master_id.in_(user_ids_subq)
     )
@@ -217,36 +236,30 @@ async def full_cleanup_range(
     )
 
     # String-cast subqueries for JSONB / text-value comparisons.
-    user_ids_str_subq = select(cast(User.id, String)).where(
-        User.telegram_id.between(tid_min, tid_max)
-    )
+    user_ids_str_subq = select(cast(User.id, String)).where(tid_clause)
     practice_ids_str_subq = select(cast(Practice.id, String)).where(
         Practice.master_id.in_(user_ids_subq)
     )
 
     # -----------------------------------------------------------------------
-    # 1. notification_deliveries
-    #    FK -> notifications.id (CASCADE), FK -> users.id (CASCADE).
+    # 1. outbox_events (Phase 6 / T1: the notifications successor).
+    #    No FK to users -- the notification_request payload carries the
+    #    target as data->>'target_value' (string user UUID); sync events
+    #    carry data->>'recipient_id'. Delete rows referencing band users so
+    #    reruns do not accumulate unpublished test events.
     # -----------------------------------------------------------------------
     await session.execute(
-        delete(NotificationDelivery).where(
-            NotificationDelivery.user_id.in_(user_ids_subq)
-        )
-    )
-
-    # -----------------------------------------------------------------------
-    # 2. notifications
-    #    No direct FK to users. Linked via:
-    #      target_value              — string UUID of the target user
-    #      action_data->>'practice_id' — JSONB reference to a practice
-    # -----------------------------------------------------------------------
-    await session.execute(
-        delete(Notification).where(
+        delete(OutboxEvent).where(
             or_(
-                Notification.target_value.in_(user_ids_str_subq),
-                Notification.action_data["practice_id"].astext.in_(
-                    practice_ids_str_subq
+                OutboxEvent.payload["target_value"].astext.in_(
+                    user_ids_str_subq
                 ),
+                OutboxEvent.payload["recipient_id"].astext.in_(
+                    user_ids_str_subq
+                ),
+                OutboxEvent.payload["action_data"][
+                    "practice_id"
+                ].astext.in_(practice_ids_str_subq),
             )
         )
     )
@@ -410,10 +423,67 @@ async def full_cleanup_range(
     if not delete_users:
         await session.execute(
             update(User)
-            .where(User.telegram_id.between(tid_min, tid_max))
+            .where(tid_clause)
             .values(role=UserRole.USER.value, balance_cents=0)
         )
     else:
         await session.execute(
-            delete(User).where(User.telegram_id.between(tid_min, tid_max))
+            delete(User).where(tid_clause)
         )
+
+
+# ===========================================================================
+# T-19 CONVENTION -- reading the database AFTER an HTTP request
+# ===========================================================================
+
+
+async def fresh_get(model, pk):
+    """Read one row by primary key through a NEW session. USE THIS (or
+    fresh_execute below) FOR EVERY DB READ THAT FOLLOWS AN HTTP CALL.
+
+    Why the fixture session is the wrong tool after HTTP -- two distinct
+    failure modes, one of them silent:
+
+    1. FLAKE. The fixture session detaches its connection on commit; the
+       first read after the request checks a connection back out of the
+       pool, and the pre-ping that guards that checkout runs outside a
+       greenlet. If the pool's connection died meanwhile (CI restarts,
+       recycling), the read explodes with MissingGreenlet -- at a line
+       that has nothing to do with the failure.
+
+    2. LIE. `db_session.get(Model, pk)` after HTTP can skip the database
+       entirely: with expire_on_commit=False the identity map serves the
+       object AS IT WAS BEFORE THE REQUEST. The assert then verifies the
+       past and stays green no matter what the endpoint actually wrote.
+
+    A fresh session has neither problem: no pooled state to trip over, no
+    identity map to answer from. It sees exactly what the request
+    committed -- which is the only thing a post-request assert should be
+    looking at. Objects come back detached; read loaded columns, do not
+    lazy-load relationships through them.
+
+    First applied in test_review_suggestions_hr4.py (_reread) and
+    test_purchase.py; promoted here by the T-19 sweep.
+    """
+    factory = get_session_factory()
+    async with factory() as s:
+        return await s.get(model, pk)
+
+
+async def fresh_execute(stmt, params=None):
+    """Execute a SELECT through a NEW session -- see fresh_get for why.
+
+    The returned Result is fully buffered, so .scalar_one() / .scalars()
+    / .all() work after the session is gone. `params` exists for the
+    text() form (`fresh_execute(text(...), {...})`); ORM selects don't
+    need it.
+
+    SELECTs ONLY. A write through here would silently roll back: the
+    session closes without a commit -- by design, a reader has nothing to
+    commit. (The T-19 sweep hit exactly this: two audit positions turned
+    out to be backdating UPDATEs, and routing them through a fresh
+    session undid the test's own setup.)
+    """
+    factory = get_session_factory()
+    async with factory() as s:
+        return await s.execute(stmt, params)

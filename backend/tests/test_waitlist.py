@@ -14,12 +14,19 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.waitlist.models import Waitlist
 from app.modules.users.models import User, UserRole
-from tests.helpers import auth_headers, login_user, full_cleanup_range, switch_self_to_master
+from tests.helpers import (
+    auth_headers,
+    fresh_execute,
+    fresh_get,
+    full_cleanup_range,
+    login_user,
+    switch_self_to_master,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -44,8 +51,18 @@ async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
 
 
 async def _do_cleanup(session: AsyncSession) -> None:
-    """Full ORM cleanup for telegram_id 62000-62999."""
-    await full_cleanup_range(session, 62000, 62999, delete_users=False)
+    """Full ORM cleanup for telegram_id 62000-62999.
+
+    H-R1/H-R2: also cleans the 89600-89619 band issued for the
+    stuck-NOTIFIED regression tests, in the same pass via extra_ranges
+    (the legacy 62xxx ids in this file predate the band registry and are
+    left untouched).
+    """
+    await full_cleanup_range(
+        session, 62000, 62999,
+        delete_users=False,
+        extra_ranges=[(89600, 89619)],
+    )
     await session.commit()
 
 
@@ -209,6 +226,45 @@ async def test_join_waitlist_success(
     assert data["status"] == "waiting"
     assert data["position"] == 1
     assert data["practice_id"] == pid
+
+
+@pytest.mark.asyncio
+async def test_join_waitlist_blocked_user_rejected_at_entry(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A user blocked by the master must be rejected when JOINING the
+    queue (403), not allowed to hold a slot until confirm. Closes the
+    OTHER door into the waitlist (confirm_waitlist already gated)."""
+    from datetime import UTC, datetime as _dt
+    from uuid import UUID as _UUID
+
+    from app.modules.masters.groups_models import MasterStudent
+
+    master = await _make_verified_master(client, db_session)
+    master_id = master["user"]["id"]
+    pid = await _create_scheduled_practice(
+        client, master, max_participants=1,
+    )
+    await _fill_practice(client, pid, telegram_id=62150)
+
+    blocked = await login_user(
+        client, telegram_id=62151, first_name="Blocked",
+    )
+    db_session.add(
+        MasterStudent(
+            master_id=_UUID(master_id),
+            student_user_id=_UUID(blocked["user"]["id"]),
+            blocked_at=_dt.now(UTC),
+        )
+    )
+    await db_session.commit()
+
+    resp = await client.post(
+        WAITLIST_JOIN_URL.format(practice_id=pid),
+        headers=auth_headers(blocked["session_token"]),
+    )
+    assert resp.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -442,6 +498,205 @@ async def test_confirm_waitlist_success(
     assert data["booking_id"] is not None
 
 
+async def _notified_entry(client, db_session, master_tid, filler_tid, waiter_tid):
+    """Drive a waitlist entry to NOTIFIED: fill a 1-slot practice, join
+    the waitlist, cancel the filler (process_waitlist notifies the next).
+    Returns (pid, wid, waiter_headers)."""
+    master = await _make_verified_master(client, db_session, telegram_id=master_tid)
+    pid = await _create_scheduled_practice(client, master, max_participants=1)
+    filler = await _fill_practice(client, pid, telegram_id=filler_tid)
+    waiter = await login_user(client, telegram_id=waiter_tid, first_name="Waiter")
+    headers = auth_headers(waiter["session_token"])
+    wid = (
+        await client.post(
+            WAITLIST_JOIN_URL.format(practice_id=pid), headers=headers,
+        )
+    ).json()["id"]
+    await client.delete(
+        f"{BOOKINGS_URL}/{filler['booking_id']}",
+        headers=auth_headers(filler["session_token"]),
+    )
+    return pid, wid, headers
+
+
+@pytest.mark.asyncio
+async def test_confirm_waitlist_on_cancelled_practice_rejected(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A holder must not convert their offer into a charged booking on a
+    practice the master has since cancelled (C4)."""
+    from uuid import UUID as _UUID
+    from sqlalchemy import update as _update
+
+    from app.modules.practices.models import Practice, PracticeStatus
+
+    pid, wid, headers = await _notified_entry(
+        client, db_session, 62160, 62161, 62162,
+    )
+    await db_session.execute(
+        _update(Practice)
+        .where(Practice.id == _UUID(pid))
+        .values(status=PracticeStatus.CANCELLED.value)
+    )
+    await db_session.commit()
+
+    resp = await client.post(f"{WAITLIST_URL}/{wid}/confirm", headers=headers)
+    assert resp.status_code == 400
+
+    # H-R2 twin of the guard reorder, symmetric to the started test: an
+    # ALIVE (non-expired) hold on a CANCELLED practice must stay
+    # NOTIFIED -- the raise path (rollback) is still the one taken, not
+    # the expiry commit path.
+    db_session.expire_all()
+    entry = (
+        await fresh_execute(
+            select(Waitlist).where(Waitlist.id == wid)
+        )
+    ).scalar_one()
+    assert entry.status == "notified"
+
+    # Lesson 5.5: a guard test that only checks the code and the entry
+    # status leaves the expensive half unwatched. The refusal is about
+    # MONEY -- the whole point of C4 is that a holder must not be charged
+    # for a session that will not happen -- so the absence of the financial
+    # artifacts is what actually has to hold. confirm_waitlist creates a
+    # Booking AND a double-entry Purchase in one transaction
+    # (waitlist/service.py:466, :488); a rollback that left either behind
+    # would be invisible to the assertions above.
+    from app.modules.bookings.models import Booking as _Booking
+    from app.modules.payments.models import Purchase as _Purchase
+
+    user_id = (
+        await db_session.execute(
+            select(Waitlist.user_id).where(Waitlist.id == wid)
+        )
+    ).scalar_one()
+
+    bookings = (
+        await db_session.execute(
+            select(_Booking).where(
+                _Booking.practice_id == _UUID(pid),
+                _Booking.user_id == user_id,
+            )
+        )
+    ).scalars().all()
+    assert bookings == [], "refused confirm must not leave a booking behind"
+
+    purchases = (
+        await db_session.execute(
+            select(_Purchase).where(_Purchase.user_id == user_id)
+        )
+    ).scalars().all()
+    assert purchases == [], "refused confirm must not charge the holder"
+
+
+@pytest.mark.asyncio
+async def test_confirm_waitlist_on_started_practice_rejected(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A holder must not convert their offer once the practice has
+    already started (C4) -- same time guard as create_booking."""
+    from uuid import UUID as _UUID
+    from datetime import UTC, datetime, timedelta
+    from sqlalchemy import update as _update
+
+    from app.modules.practices.models import Practice
+
+    pid, wid, headers = await _notified_entry(
+        client, db_session, 62163, 62164, 62165,
+    )
+    await db_session.execute(
+        _update(Practice)
+        .where(Practice.id == _UUID(pid))
+        .values(scheduled_at=datetime.now(UTC) - timedelta(minutes=5))
+    )
+    await db_session.commit()
+
+    resp = await client.post(f"{WAITLIST_URL}/{wid}/confirm", headers=headers)
+    assert resp.status_code == 400
+
+    # H-R1 twin of the guard reorder: an ALIVE (non-expired) hold on a
+    # started practice must stay NOTIFIED -- the raise path (rollback)
+    # is still the one taken, not the expiry commit path.
+    db_session.expire_all()
+    entry = (
+        await fresh_execute(
+            select(Waitlist).where(Waitlist.id == wid)
+        )
+    ).scalar_one()
+    assert entry.status == "notified"
+
+
+@pytest.mark.asyncio
+async def test_confirm_waitlist_creates_zoom_registrant(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """C5: a user who gets in off the waitlist must be registered for
+    the Zoom meeting, exactly like the direct create_booking path --
+    otherwise they pay but never get a join link. With an ACTIVE
+    meeting the registrant lands 'registered'."""
+    from uuid import UUID as _UUID
+
+    from app.modules.zoom.models import (
+        ZoomMeeting,
+        ZoomMeetingStatus,
+        ZoomRegistrant,
+    )
+
+    master = await _make_verified_master(client, db_session)
+    pid = await _create_scheduled_practice(
+        client, master, max_participants=1,
+    )
+    # Publishing already created a ZoomMeeting row (E21 wiring), in a
+    # pre-active status since no real Zoom call runs in tests. Drive it
+    # to ACTIVE so the waitlist registrant lands 'registered' rather
+    # than queued 'pending'.
+    await db_session.execute(
+        update(ZoomMeeting)
+        .where(ZoomMeeting.practice_id == _UUID(pid))
+        .values(
+            status=ZoomMeetingStatus.ACTIVE.value,
+            zoom_meeting_id="99887766",
+        )
+    )
+    await db_session.commit()
+
+    filler = await _fill_practice(client, pid, telegram_id=62130)
+    user = await login_user(
+        client, telegram_id=62131, first_name="Waiter",
+    )
+    headers = auth_headers(user["session_token"])
+
+    wid = (
+        await client.post(
+            WAITLIST_JOIN_URL.format(practice_id=pid), headers=headers,
+        )
+    ).json()["id"]
+    await client.delete(
+        f"{BOOKINGS_URL}/{filler['booking_id']}",
+        headers=auth_headers(filler["session_token"]),
+    )
+    confirm_resp = await client.post(
+        f"{WAITLIST_URL}/{wid}/confirm", headers=headers,
+    )
+    assert confirm_resp.status_code == 201
+
+    # A registrant row now exists for the converted user's booking.
+    user_id = user["user"]["id"]
+    registrant = (
+        await fresh_execute(
+            select(ZoomRegistrant).where(
+                ZoomRegistrant.user_id == _UUID(user_id),
+            )
+        )
+    ).scalar_one_or_none()
+    assert registrant is not None
+    assert registrant.status == "registered"
+
+
 @pytest.mark.asyncio
 async def test_confirm_waitlist_not_notified(
     client: AsyncClient,
@@ -496,6 +751,20 @@ async def test_confirm_waitlist_expired(
     )
     wid = join_resp.json()["id"]
 
+    # H-R1 (twin of the dead-practice handoff gate): a SECOND waiter in
+    # the queue -- on a LIVE practice the expiry branch must hand the
+    # spot to them. Joins BEFORE the filler cancels (join_waitlist
+    # requires a full practice).
+    second = await login_user(
+        client, telegram_id=89600, first_name="SecondWaiter",
+    )
+    second_join = await client.post(
+        WAITLIST_JOIN_URL.format(practice_id=pid),
+        headers=auth_headers(second["session_token"]),
+    )
+    assert second_join.status_code == 201
+    second_id = second["user"]["id"]
+
     # Cancel filler -> waiter notified.
     await client.delete(
         f"{BOOKINGS_URL}/{filler['booking_id']}",
@@ -517,6 +786,197 @@ async def test_confirm_waitlist_expired(
         headers=headers,
     )
     assert confirm_resp.status_code == 400
+
+    # H-R1 post-state (not just the status code): the overdue hold is
+    # EXPIRED in the DB (the 400 came from the soft commit path, not a
+    # rollback) and the spot moved on to the next in line.
+    from app.core.events.models import OutboxEvent
+
+    db_session.expire_all()
+    entry = (
+        await fresh_execute(
+            select(Waitlist).where(Waitlist.id == wid)
+        )
+    ).scalar_one()
+    assert entry.status == "expired"
+
+    second_entry = (
+        await db_session.execute(
+            select(Waitlist).where(
+                Waitlist.practice_id == uuid.UUID(pid),
+                Waitlist.user_id == uuid.UUID(second_id),
+            )
+        )
+    ).scalar_one()
+    assert second_entry.status == "notified"
+
+    spot_events = (
+        await db_session.execute(
+            select(OutboxEvent).where(
+                OutboxEvent.payload["type"].astext
+                == "waitlist.spot_available",
+                OutboxEvent.payload["target_value"].astext == second_id,
+            )
+        )
+    ).scalars().all()
+    assert len(spot_events) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("dead_state", ["started", "cancelled"])
+async def test_confirm_waitlist_expired_on_dead_practice(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    dead_state: str,
+) -> None:
+    """H-R1 regression test (stuck NOTIFIED): an OVERDUE hold on a dead
+    practice (started or cancelled) must still expire and COMMIT.
+
+    Before the guard reorder the practice guards raised first, the
+    session rolled back, and the entry stayed NOTIFIED forever (the
+    NOTIFIED -> EXPIRED transition lives only in confirm_waitlist).
+
+    Post-state asserted, per the negative-twins methodology:
+    - entry is EXPIRED in the DB;
+    - no booking was created for the holder;
+    - the next in line STAYED WAITING (handoff gated on a dead practice);
+    - outbox: waitlist.expired to the holder, NO waitlist.spot_available
+      to the next in line.
+    """
+    from datetime import UTC
+    from uuid import UUID as _UUID
+
+    from sqlalchemy import update as _update
+
+    from app.core.events.models import OutboxEvent
+    from app.modules.bookings.models import Booking
+    from app.modules.practices.models import Practice, PracticeStatus
+
+    master = await _make_verified_master(
+        client, db_session, telegram_id=89601,
+    )
+    pid = await _create_scheduled_practice(
+        client, master, max_participants=1,
+    )
+    filler = await _fill_practice(client, pid, telegram_id=89602)
+
+    holder = await login_user(
+        client, telegram_id=89603, first_name="Holder",
+    )
+    holder_headers = auth_headers(holder["session_token"])
+    holder_id = holder["user"]["id"]
+    wid = (
+        await client.post(
+            WAITLIST_JOIN_URL.format(practice_id=pid),
+            headers=holder_headers,
+        )
+    ).json()["id"]
+
+    second = await login_user(
+        client, telegram_id=89604, first_name="NextInLine",
+    )
+    second_id = second["user"]["id"]
+    second_join = await client.post(
+        WAITLIST_JOIN_URL.format(practice_id=pid),
+        headers=auth_headers(second["session_token"]),
+    )
+    assert second_join.status_code == 201
+
+    # Cancel the filler -> holder becomes NOTIFIED with a window.
+    await client.delete(
+        f"{BOOKINGS_URL}/{filler['booking_id']}",
+        headers=auth_headers(filler["session_token"]),
+    )
+
+    # Overdue hold + dead practice. The dead state is set by DIRECT
+    # update (never via the cancellation flow -- that flow has its own
+    # waitlist side effects and the test must probe the guard, not the
+    # flow): started -> scheduled_at in the past; cancelled -> status.
+    await db_session.execute(
+        update(Waitlist)
+        .where(Waitlist.id == wid)
+        .values(
+            expires_at=datetime.now(UTC) - timedelta(hours=1),
+        )
+    )
+    if dead_state == "started":
+        await db_session.execute(
+            _update(Practice)
+            .where(Practice.id == _UUID(pid))
+            .values(
+                scheduled_at=(
+                    datetime.now(UTC) - timedelta(minutes=5)
+                ),
+            )
+        )
+    else:
+        await db_session.execute(
+            _update(Practice)
+            .where(Practice.id == _UUID(pid))
+            .values(status=PracticeStatus.CANCELLED.value)
+        )
+    await db_session.commit()
+
+    confirm_resp = await client.post(
+        f"{WAITLIST_URL}/{wid}/confirm",
+        headers=holder_headers,
+    )
+    assert confirm_resp.status_code == 400
+
+    db_session.expire_all()
+
+    # Holder's entry is EXPIRED and COMMITTED (the whole point of H-R1).
+    entry = (
+        await fresh_execute(
+            select(Waitlist).where(Waitlist.id == wid)
+        )
+    ).scalar_one()
+    assert entry.status == "expired"
+
+    # No booking materialized for the holder.
+    bookings = (
+        await db_session.execute(
+            select(Booking).where(
+                Booking.practice_id == _UUID(pid),
+                Booking.user_id == _UUID(holder_id),
+            )
+        )
+    ).scalars().all()
+    assert bookings == []
+
+    # Handoff gate: the next in line was NOT offered a dead practice.
+    second_entry = (
+        await db_session.execute(
+            select(Waitlist).where(
+                Waitlist.practice_id == _UUID(pid),
+                Waitlist.user_id == _UUID(second_id),
+            )
+        )
+    ).scalar_one()
+    assert second_entry.status == "waiting"
+
+    # Outbox: the holder's hold is honestly closed...
+    expired_events = (
+        await db_session.execute(
+            select(OutboxEvent).where(
+                OutboxEvent.payload["type"].astext == "waitlist.expired",
+                OutboxEvent.payload["target_value"].astext == holder_id,
+            )
+        )
+    ).scalars().all()
+    assert len(expired_events) == 1
+
+    # ...and NO spot_available went to the next in line.
+    spot_events = (
+        await db_session.execute(
+            select(OutboxEvent).where(
+                OutboxEvent.payload["type"].astext
+                == "waitlist.spot_available",
+                OutboxEvent.payload["target_value"].astext == second_id,
+            )
+        )
+    ).scalars().all()
+    assert spot_events == []
 
 
 @pytest.mark.asyncio
@@ -657,8 +1117,7 @@ async def test_cancel_booking_triggers_waitlist(
     )
 
     # Check waitlist entry is now notified.
-    entry = await db_session.get(Waitlist, wid)
-    await db_session.refresh(entry)
+    entry = await fresh_get(Waitlist, wid)
     assert entry.status == "notified"
     assert entry.notified_at is not None
     assert entry.expires_at is not None
@@ -711,8 +1170,7 @@ async def test_position_ordering(
         headers=auth_headers(filler["session_token"]),
     )
 
-    entry1 = await db_session.get(Waitlist, wid1)
-    await db_session.refresh(entry1)
+    entry1 = await fresh_get(Waitlist, wid1)
     assert entry1.status == "notified"
 
 
@@ -766,8 +1224,7 @@ async def test_decline_notifies_next(
     )
 
     # User2 should now be notified.
-    entry2 = await db_session.get(Waitlist, wid2)
-    await db_session.refresh(entry2)
+    entry2 = await fresh_get(Waitlist, wid2)
     assert entry2.status == "notified"
 
 
@@ -837,7 +1294,7 @@ async def test_confirm_spot_taken_returns_to_waiting(
 
     # Verify entry is back to WAITING (committed, not rolled back).
     db_session.expire_all()
-    entry = await db_session.get(Waitlist, wid)
+    entry = await fresh_get(Waitlist, wid)
     assert entry.status == "waiting"
     assert entry.notified_at is None
     assert entry.expires_at is None

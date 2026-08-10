@@ -1,7 +1,7 @@
 """add_description_to_master_group
 
-Revision ID: 8b9c0d1e2f3a
-Revises: 7a8b9c0d1e2f
+Revision ID: t24m10a1b2c3
+Revises: t2a1b2c3d4e5
 Create Date: 2026-07-28
 
 Owner Q4 (PROMPT №610): «Новая группа» gets a free-text description field.
@@ -18,8 +18,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "8b9c0d1e2f3a"
-down_revision: str | None = "7a8b9c0d1e2f"
+revision: str = "t24m10a1b2c3"
+down_revision: str | None = "t2a1b2c3d4e5"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

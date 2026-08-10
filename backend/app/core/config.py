@@ -294,19 +294,77 @@ class Settings(BaseSettings):
     # Validated in service layer when creating a promo.
     promo_allowed_discounts: list[int] = [5, 25, 50, 75, 100]
 
-    # -- Notifications (Phase 7.2) --
-    # Processor polling interval in seconds (resets on work found).
-    notification_poll_interval_seconds: int = 5
-    # Max backoff when queue is empty (exponential up to this).
-    notification_max_backoff_seconds: int = 60
-    # Max delivery attempts before marking as failed.
-    notification_max_delivery_attempts: int = 3
-    # Background processor toggle. True in prod (the lifespan task polls and
-    # delivers). Disabled in tests so the manual _stage_resolve/_stage_deliver/
-    # _stage_rollup calls in test_notifications.py are the only code touching
-    # the queue -- otherwise the background loop races them via
-    # FOR UPDATE SKIP LOCKED and a delivery can be skipped (attempts stays 0).
-    notification_processor_enabled: bool = True
+    # -- Comms integration: outbox relay (Phase 6 / T0) --
+    # The transactional-outbox relay ships domain events to the comms
+    # Redis Stream (core/events/relay.py). COMMS_REDIS_URL and friends
+    # are written into .env by the Phase 5 installer hand-over
+    # (comms-deploy.sh install, pass 2); an EMPTY url disables the
+    # relay with a log line -- local dev has no comms stack.
+    comms_redis_url: str = ""
+    # Stream name the relay XADDs into. The default MIRRORS the comms
+    # consumer default (comms app/core/config.py:66
+    # `comms_events_stream: str = "comms:events"`) -- mandatory review
+    # fix #2: a name mismatch means events silently land in a stream
+    # nobody reads. Override ONLY in lockstep with the comms .env.
+    comms_events_stream: str = "comms:events"
+    # Relay tick interval (seconds between passes over the outbox).
+    comms_relay_interval_seconds: float = 2.0
+    # Rows claimed per pass (FOR UPDATE SKIP LOCKED batch).
+    comms_relay_batch_size: int = 100
+    # A poison row logs WARNING every N failed publish attempts (info
+    # otherwise) -- loud enough for the operator, quiet enough not to
+    # drown the logs. Rows are never dropped.
+    comms_relay_warn_every_attempts: int = 10
+    # -- H-R3 relay hardening --
+    # Exponential backoff for poison rows: delay = min(base * 2**attempts,
+    # cap), computed from the POST-increment attempts (first failure ->
+    # base * 2). Infra failures never assign a backoff.
+    comms_relay_backoff_base_seconds: float = 2.0
+    comms_relay_backoff_cap_seconds: float = 300.0
+    # Dead-letter ceiling: at this many failed attempts the row gets
+    # dead_lettered_at, ONE error log, and leaves the relay's select.
+    # With base 2.0 / cap 300 the pure-backoff path to death is
+    # 4+8+16+32+64+128+256 + 4x300 ~= 28-35 min plus pass ticks.
+    comms_relay_max_attempts: int = 12
+    # Socket timeouts for the relay's Redis connection -- a hung TCP
+    # connection must not stall the loop forever. A timeout surfaces as
+    # redis TimeoutError, already classified as INFRA (pass aborted,
+    # attempts untouched).
+    comms_relay_socket_connect_timeout_seconds: float = 5.0
+    comms_relay_socket_timeout_seconds: float = 5.0
+    # Background relay toggle. True in prod (lifespan task). Disabled
+    # in tests so relay tests drive relay_pending_batch manually --
+    # same rationale as the worker toggles below (tests drive manually).
+    comms_relay_enabled: bool = True
+
+    # -- Comms integration: HTTP proxy (Phase 6 / T1) --
+    # The read path of ID-9: velo proxies inbox/badge/prefs to the
+    # comms HTTP API over aivis-shared. COMMS_API_URL and
+    # COMMS_SERVICE_TOKEN are written into .env by the Phase 5
+    # installer hand-over (comms-deploy.sh install, pass 2); an EMPTY
+    # url makes the proxy answer 502 -- local dev has no comms stack.
+    comms_api_url: str = ""
+    comms_service_token: str = ""
+    # Per-request timeout to comms. The proxy maps a timeout to 504
+    # and a connection failure to 502 -- comms being down must degrade
+    # the bell, never crash velo (T1 handoff constraint).
+    comms_http_timeout_seconds: float = 5.0
+
+    # -- Comms integration: reminder orchestration (Phase 6 / T1) --
+    # Booking reminders (ID-6): velo schedules the series product-side
+    # (comms engine/reminders.py left the domain orchestration to the
+    # product) as notification_request events with a future
+    # scheduled_at anchored at practice.scheduled_at, and cancels via
+    # the reminder_cancel event. Leads mirror the dead donor series
+    # (reminders.py: 24h / 1h / 10min, min lead 5 min).
+    booking_reminder_min_lead_seconds: int = 300
+    # Post-practice prompt (ID-6): practice_outcome schedules
+    # prompt.leave_feedback at outcome + delay, expiring after the
+    # window below (Master-chat 2026-07-28: feedback only in v1;
+    # prompt.leave_review is registered in the profile but not
+    # scheduled -- enabling it is a one-liner at the outcome site).
+    prompt_feedback_delay_seconds: int = 3600
+    prompt_feedback_expiry_seconds: int = 259200
 
     # -- Practice lifecycle automation (Batch 1, extended) --
     # Practices are driven entirely by the clock -- the master no longer starts
@@ -338,7 +396,7 @@ class Settings(BaseSettings):
     # auto_finalize_practice calls are the only code touching practices --
     # otherwise the background loop races them via FOR UPDATE SKIP LOCKED and a
     # test practice can be transitioned out from under an assertion. Same
-    # rationale as notification_processor_enabled above.
+    # rationale as the worker toggles here (tests drive manually).
     practice_autofinalize_enabled: bool = True
     # How many due practices to claim per poll cycle, per phase. Throttles each
     # tick so a large backlog is drained in batches rather than one giant locked
@@ -433,7 +491,7 @@ class Settings(BaseSettings):
     zoom_attendance_threshold_minutes: int = 10
     # Meeting-creation retry poller (mirrors practice_autofinalize_* above).
     # Background worker toggle -- same rationale as
-    # practice_autofinalize_enabled / notification_processor_enabled: tests
+    # practice_autofinalize_enabled and the other worker toggles: tests
     # disable it so the loop can't race manual test calls.
     zoom_retry_enabled: bool = True
     zoom_retry_poll_interval_seconds: int = 30
@@ -595,6 +653,66 @@ class Settings(BaseSettings):
                 "log_level DEBUG is not allowed in production. "
                 "Use INFO or higher."
             )
+
+        # COMMS integration (Phase 6): paired-secret gate. comms may not
+        # be installed on a given box (empty url = feature off, degrades
+        # cleanly), so we do NOT force comms config everywhere. But a
+        # PARTIAL config is a silent failure the operator cannot see,
+        # which is exactly what happened to notifications before: a set
+        # api_url with an empty token ships "Authorization: Bearer " as
+        # a valid header (comms 401 -> the bell breaks for everyone), and
+        # a relay enabled by flag with an empty redis_url just never
+        # starts (INFO log, no error). Enforce the pairing in production,
+        # but ONLY when comms is actually INTENDED on this box: a box with
+        # no comms config at all (every field empty) is the "comms not
+        # installed" case, which must degrade cleanly -- the relay simply
+        # never starts on an empty redis_url. Gating on the default
+        # comms_relay_enabled=True alone would stop every comms-less prod
+        # box from starting, including in-place upgrades of existing boxes
+        # whose .env has no COMMS_* keys yet. (Dev stays fully optional.)
+        comms_intended = bool(
+            self.comms_api_url
+            or self.comms_service_token
+            or self.comms_redis_url
+        )
+        if not is_dev and comms_intended:
+            if self.comms_api_url and not self.comms_service_token:
+                raise ValueError(
+                    "COMMS_API_URL is set but COMMS_SERVICE_TOKEN is "
+                    "empty: the proxy would send an empty Bearer token "
+                    "and comms would 401, logging out every user who "
+                    "opens the bell. Set the token or clear the URL."
+                )
+            if self.comms_service_token and not self.comms_api_url:
+                raise ValueError(
+                    "COMMS_SERVICE_TOKEN is set but COMMS_API_URL is "
+                    "empty: half-configured comms proxy. Set the URL or "
+                    "clear the token."
+                )
+            if self.comms_relay_enabled and not self.comms_redis_url:
+                raise ValueError(
+                    "comms is configured (api_url/token present) but "
+                    "COMMS_REDIS_URL is empty while the relay is enabled: "
+                    "domain events would pile up undelivered. Set "
+                    "COMMS_REDIS_URL or set COMMS_RELAY_ENABLED=false."
+                )
+            if (
+                self.comms_redis_url
+                and not self.comms_api_url
+                and not self.comms_service_token
+            ):
+                # The inverse half-integration of the branch above: the
+                # relay happily ships events into Redis, but with no
+                # api_url the bell proxy is off -- users never see a
+                # single notification and nothing errors anywhere.
+                raise ValueError(
+                    "COMMS_REDIS_URL is set but COMMS_API_URL and "
+                    "COMMS_SERVICE_TOKEN are both empty: the relay would "
+                    "ship events to comms while the bell proxy stays "
+                    "dead -- notifications pile up that no user can ever "
+                    "see. Set COMMS_API_URL + COMMS_SERVICE_TOKEN or "
+                    "clear COMMS_REDIS_URL."
+                )
 
         return self
 

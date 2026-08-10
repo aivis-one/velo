@@ -77,7 +77,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import structlog
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -176,6 +176,18 @@ ZOOM_VISIBLE_BOOKING_STATUSES = {
     BookingStatus.ATTENDED.value,
 }
 
+# S-c: statuses that let a NON-audience viewer through the detail read gate
+# (get_practice_detail). Same composition as the zoom set and deliberately
+# an ALIAS of it rather than a copy -- two literal sets drift, and the day
+# they do, one of them silently widens an access gate. The name exists
+# because "zoom_visible" says nothing about reading a restricted practice.
+#
+# Why not _BOOKED_STATUSES (which the is_booked BADGE uses): that set
+# includes PENDING, and a pending booking is an intent, not an entitlement
+# -- anyone able to create one would otherwise read practices their
+# audience excludes them from. The badge keeps PENDING; the gate does not.
+_ACCESS_GRANTING_STATUSES = ZOOM_VISIBLE_BOOKING_STATUSES
+
 # Calendar taxonomy facets -- stored in Practice.data.taxonomy (JSONB),
 # NOT as columns. Handled separately from setattr-based column updates.
 _TAXONOMY_FIELDS = ("direction", "style", "difficulty")
@@ -184,6 +196,32 @@ _TAXONOMY_FIELDS = ("direction", "style", "difficulty")
 # ===================================================================
 # Helpers
 # ===================================================================
+
+
+async def _owned_root_parent_or_400(
+    master_id: UUID, parent_id: UUID | None, session: AsyncSession,
+) -> None:
+    """H-R2 (3.4): a series occurrence may only attach to (a) an EXISTING
+    practice, (b) owned by THIS master, (c) that is itself a ROOT (no
+    grandchildren -- occurrences of occurrences are not a thing).
+
+    One 400 for all three refusals, deliberately not distinguishing
+    "someone else's" from "does not exist" -- same anti-enumeration
+    reflex as _owned_group_ids_or_400 below (a 400/404 split would leak
+    which foreign practice ids exist). Also converts what would be a raw
+    FK IntegrityError (-> 500) on a nonexistent id into a clean 400.
+    """
+    if parent_id is None:
+        return
+    parent = await session.get(Practice, parent_id)
+    if (
+        parent is None
+        or parent.master_id != master_id
+        or parent.parent_practice_id is not None
+    ):
+        raise BadRequestError(
+            "parent_practice_id must be your own root practice"
+        )
 
 
 async def _owned_group_ids_or_400(
@@ -594,6 +632,25 @@ async def _has_active_bookings(
     return result.scalar_one() > 0
 
 
+async def _active_booking_count(
+    practice_id: UUID,
+    session: AsyncSession,
+) -> int:
+    """Count active (pending/confirmed) bookings on a practice.
+
+    Used to forbid lowering max_participants below the number of people
+    already holding a slot -- otherwise current > max makes every
+    capacity check read "full" forever (new bookings and every waitlist
+    confirmation silently rejected).
+    """
+    stmt = select(func.count(Booking.id)).where(
+        Booking.practice_id == practice_id,
+        Booking.status.in_(_ACTIVE_BOOKING_STATUSES),
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one()
+
+
 def master_full_name(
     first_name: str | None,
     last_name: str | None,
@@ -917,6 +974,11 @@ async def create_practice(
     # custom groups (another master's group, an unknown id, or a system
     # slug) before anything is inserted.
     await _owned_group_ids_or_400(user.id, body.group_ids, session)
+    # H-R2 (3.4): validate parent_practice_id BEFORE anything is inserted
+    # -- same placement discipline as the group check above.
+    await _owned_root_parent_or_400(
+        user.id, body.parent_practice_id, session,
+    )
 
     practice = Practice(
         master_id=user.id,
@@ -1063,8 +1125,58 @@ async def get_practice_detail(
     practice, master_name, master_avatar_url, master_methods = (
         await get_practice(practice_id, user, session)
     )
+    # Per-user booking flags -- computed BEFORE the audience gate below
+    # because an existing booking is exactly what exempts a non-owner
+    # from it (see the gate).
     flags = await user_flags_for_practices(user.id, [practice.id], session)
     is_booked, is_paid = flags.get(practice.id, (False, False))
+
+    # Audience gate on the DETAIL view (C-audience): a scheduled
+    # groups/students practice must not be readable by an arbitrary
+    # authenticated stranger via a forwarded link (it leaks
+    # audience_group_names). 404 not 403, mirroring get_practice's P-08
+    # so the response is not an "exists but private" oracle.
+    #
+    # BUT a viewer who ALREADY holds a booking is exempt: this endpoint
+    # is also what PracticeLiveView / CheckinView read for a booked
+    # non-owner (zoom_link, zoom_meeting_status, and the
+    # audience_group_names that compose the "you are not in group X"
+    # message are all served BELOW for exactly this person). A master
+    # narrowing the audience or blocking a user must not retroactively
+    # 404 a practice they paid for -- their access already exists; the
+    # gate only guards access a stranger does NOT yet have. The owner
+    # always sees their own practice.
+    # Retroactive policy (B) (H-R2-8): this READ grandfather covers BOTH
+    # cases (the record stays visible); the check-in ACTION is
+    # grandfathered only through audience narrowing -- a blocked viewer
+    # still reads here but is refused at upsert_checkin
+    # (diary/checkins_service.py).
+    # S-c: the EXEMPTION uses the strict set, not is_booked. is_booked is a
+    # display flag and counts PENDING -- an intent, not an entitlement.
+    # Taking it as proof of access let anyone who can create a pending
+    # booking read a practice their audience excludes them from; the badge
+    # is unaffected and still shows PENDING as "yours".
+    holds_access_booking = (
+        await session.execute(
+            select(func.count(Booking.id)).where(
+                Booking.user_id == user.id,
+                Booking.practice_id == practice.id,
+                Booking.status.in_(_ACCESS_GRANTING_STATUSES),
+            )
+        )
+    ).scalar_one() > 0
+
+    if practice.master_id != user.id and not holds_access_booking:
+        from app.core.exceptions import ForbiddenError
+        from app.modules.practices.audience_service import (
+            assert_viewer_can_access_practice,
+        )
+        try:
+            await assert_viewer_can_access_practice(
+                user.id, practice, session,
+            )
+        except ForbiddenError:
+            raise NotFoundError("Practice not found") from None
     series_meta = await series_meta_for_practices([practice], session)
     # E12 + aggregate: OWNER-ONLY on this shared detail endpoint. no_show is
     # sensitive, so a non-owner viewer never sees these -- skip the query and
@@ -1174,6 +1286,27 @@ async def update_practice(
 
     update_data = body.model_dump(exclude_unset=True)
 
+    # S-a: a CHILD occurrence has no audience of its own to edit.
+    #
+    # The audience of a series lives on the root and is pushed down to the
+    # children (propagate_audience_to_children). Editing a child's audience
+    # per-occurrence therefore produces a state that looks applied and is
+    # not: the very next root edit overwrites it without a word. That is
+    # worse than a refusal -- the master believes one session is restricted
+    # while it is one root save away from being public again.
+    #
+    # Refused WHOLE, before anything is applied: a PATCH mixing an audience
+    # field with innocent ones would otherwise land half of itself and stay
+    # silent about the rest -- the exact class of quiet partial state this
+    # gate exists to kill.
+    if practice.parent_practice_id is not None and (
+        "audience_kind" in update_data or "group_ids" in update_data
+    ):
+        raise BadRequestError(
+            "Audience belongs to the series: edit it on the series root, "
+            "not on a single occurrence",
+        )
+
     # Separate Calendar taxonomy (JSONB) from plain column fields.
     # These are NOT columns: applying them via setattr would create dead
     # Python attributes that never persist (same trap as onboarding_completed
@@ -1219,6 +1352,29 @@ async def update_practice(
                 "group_ids must be non-empty when audience_kind='groups'"
             )
 
+    # S-b: does this request actually CHANGE the target-group set?
+    #
+    # EditPracticeView resends group_ids on every save (an empty list on a
+    # public practice), so without this the delete-then-insert below ran on
+    # every title edit -- and, worse, marked the audience as changed, which
+    # fanned the C1 propagation out over every child of the series. Same
+    # reasoning as the taxonomy comparison further down: presence in the
+    # payload is not change.
+    #
+    # Compared as SETS: order and duplicates carry no meaning here.
+    groups_unchanged = False
+    if group_ids_sent:
+        stored_group_ids = set(
+            (
+                await session.execute(
+                    select(PracticeAudienceGroup.group_id).where(
+                        PracticeAudienceGroup.practice_id == practice.id,
+                    )
+                )
+            ).scalars().all()
+        )
+        groups_unchanged = stored_group_ids == set(group_ids_value)
+
     # Guard NOT NULL fields against explicit null (P-02).
     for field in _NOT_NULL_FIELDS:
         if field in update_data and update_data[field] is None:
@@ -1251,6 +1407,27 @@ async def update_practice(
             "Cannot change price with active bookings"
         )
 
+    # Forbid lowering capacity below the people already holding a slot.
+    # max_participants has a ge=1 bound in the schema but no floor at the
+    # current headcount -- dropping 20 bookings to max=1 leaves
+    # current > max, and every capacity check ("< max_participants")
+    # then reads "full" forever: new bookings AND every waitlist
+    # confirmation are silently rejected (confirm_waitlist even quietly
+    # returns each holder to WAITING). Reject the shrink instead.
+    if "max_participants" in update_data:
+        new_cap = update_data["max_participants"]
+        # None means "no capacity limit" -- a RELAXATION, never a shrink,
+        # so it is always allowed (and `None < active` would be a
+        # TypeError -> 500). The frontend sends null on every save with
+        # an empty capacity field, so this path is hit routinely.
+        if new_cap is not None:
+            active = await _active_booking_count(practice.id, session)
+            if new_cap < active:
+                raise BadRequestError(
+                    f"Cannot set max_participants to {new_cap}: "
+                    f"{active} participant(s) already booked"
+                )
+
     # Enforce pricing invariant after applying updates.
     # Resolve final is_free and price_cents from mix of
     # existing values and incoming updates.
@@ -1275,11 +1452,17 @@ async def update_practice(
     # branch below can tell.
     old_audience_kind = practice.audience_kind
 
+    # H-R2 (3.3): capture the PRE-update capacity before the setattr loop
+    # overwrites it -- the "was capacity relaxed?" comparison at the end
+    # of this function must read the OLD value (mirror of old_scheduled_at
+    # / old_status above).
+    old_cap = practice.max_participants
+
     # Apply only provided column fields.
     for field, value in update_data.items():
         setattr(practice, field, value)
 
-    if group_ids_sent:
+    if group_ids_sent and not groups_unchanged:
         await _set_practice_audience_groups(practice.id, group_ids_value, session)
     elif (
         "audience_kind" in update_data
@@ -1291,6 +1474,29 @@ async def update_practice(
         # linger as stale state a later switch BACK to 'groups' would
         # silently resurrect.
         await _set_practice_audience_groups(practice.id, [], session)
+
+    # C1-propagation: if this is a SERIES ROOT and the audience changed,
+    # push the new audience onto the already-generated children -- a root
+    # published public and later switched to 'groups' would otherwise
+    # leave N public, bookable children exposing the restricted sessions
+    # (the original C1 hole, reachable via the ordinary edit path rather
+    # than at generation). Root-only: children are edited via their own
+    # root, not individually, and a per-occurrence audience change is not
+    # a supported operation, so a non-root update never fans out.
+    # An unchanged set is not a change -- otherwise every save propagated to
+    # every child. A KIND change still propagates even when the set is
+    # identical (public -> groups with the same rows already stored is a
+    # real audience change).
+    audience_changed = (
+        (group_ids_sent and not groups_unchanged)
+        or ("audience_kind" in update_data
+            and old_audience_kind != final_audience_kind)
+    )
+    if audience_changed and practice.parent_practice_id is None:
+        from app.modules.practices.series_service import (
+            propagate_audience_to_children,
+        )
+        await propagate_audience_to_children(practice, session)
 
     # Apply Calendar taxonomy updates into data.taxonomy (JSONB).
     # deepcopy + set_jsonb so SQLAlchemy detects the change. Only the keys
@@ -1388,6 +1594,65 @@ async def update_practice(
             occurred_at=datetime.now(UTC),
         )
 
+        # Comms (T1, dictionary §2): practice.rescheduled (ONLY a time
+        # move -- this branch already gates on scheduled_at actually
+        # changing) fanned out to every booked user (velo expands the
+        # domain audience, ID-4), and the reminder series is moved to
+        # the new anchor: cancel by practice_id correlation +
+        # re-schedule per active booking (donor rule: reschedule =
+        # cancel + schedule by the caller). Same transaction as the
+        # update (ID-2).
+        from app.core.events.notify import emit_notification
+        from app.core.events.reminders import (
+            cancel_practice_reminders,
+            format_event_time,
+            schedule_booking_reminders,
+        )
+        from app.modules.bookings.models import Booking, BookingStatus
+        booked_stmt = (
+            select(Booking)
+            .where(
+                Booking.practice_id == practice.id,
+                Booking.status == BookingStatus.CONFIRMED.value,
+            )
+        )
+        booked = (
+            await session.execute(booked_stmt)
+        ).scalars().all()
+        when_text = format_event_time(new_scheduled_at)
+        for booking in booked:
+            await emit_notification(
+                session,
+                type="practice.rescheduled",
+                target_type="user",
+                target_value=str(booking.user_id),
+                title="Практика перенесена",
+                body=(
+                    f"Практика «{practice.title}» перенесена. "
+                    f"Новое время: {when_text}. Мастер: {master_name}."
+                ),
+                action_data={
+                    "action": "open_practice",
+                    "params": {"practice_id": str(practice.id)},
+                    "practice_title": practice.title,
+                    "master_name": master_name,
+                    "scheduled_at": when_text,
+                },
+            )
+        await cancel_practice_reminders(
+            session, practice_id=str(practice.id),
+        )
+        for booking in booked:
+            await schedule_booking_reminders(
+                session,
+                booking_id=str(booking.id),
+                user_id=str(booking.user_id),
+                practice_id=str(practice.id),
+                practice_title=practice.title,
+                master_name=master_name,
+                scheduled_at=new_scheduled_at,
+            )
+
         # E21: keep the Zoom meeting's start time in sync, then re-fetch and
         # overwrite stored registrant join links -- self-healing regardless
         # of whether Zoom actually invalidates them on reschedule (unresolved
@@ -1423,6 +1688,81 @@ async def update_practice(
     ):
         from app.modules.zoom.service import create_meeting_for_practice
         await create_meeting_for_practice(practice, session)
+
+    # H-R2 (3.3): a capacity RELAXATION frees seats -- hand them to the
+    # waitlist NOW instead of leaving the queue to wait for someone
+    # else's cancellation. Relaxation = max_participants was updated AND
+    # (a numeric cap was lifted to None, or raised to a larger number);
+    # None -> number is a TIGHTENING and number -> smaller is refused by
+    # the shrink guard above, so neither reaches the loop. All decisions
+    # read the FINAL post-update state (status / scheduled_at / new cap)
+    # except the OLD cap, pre-captured above: a single PATCH may raise
+    # the cap AND cancel the practice, and the final picture decides.
+    # Gated on a confirmable practice -- mirror of the H-R1 handoff gate
+    # in confirm_waitlist's expiry branch (waitlist/service.py): offering
+    # seats on a dead practice would only walk the queue through
+    # pointless notify -> expire cycles.
+    if "max_participants" in update_data:
+        new_cap = practice.max_participants
+        relaxed = (new_cap is None and old_cap is not None) or (
+            new_cap is not None
+            and old_cap is not None
+            and new_cap > old_cap
+        )
+        now_utc = datetime.now(UTC)
+        confirmable = (
+            practice.status == PracticeStatus.SCHEDULED.value
+            and practice.scheduled_at > now_utc
+        )
+        if relaxed and confirmable:
+            # process_waitlist notifies EXACTLY ONE waiter per call
+            # (.limit(1)) and does NOT check capacity itself -- the
+            # boundary is the caller's job (verified fact, H-R2).
+            from app.modules.bookings.models import Booking, BookingStatus
+            from app.modules.waitlist.models import Waitlist, WaitlistStatus
+            from app.modules.waitlist.service import process_waitlist
+
+            if new_cap is None:
+                # No limit anymore: every WAITING entry gets its offer.
+                while await process_waitlist(practice.id, session):
+                    pass
+            else:
+                active = (
+                    await session.execute(
+                        select(func.count())
+                        .select_from(Booking)
+                        .where(
+                            Booking.practice_id == practice.id,
+                            Booking.status
+                            == BookingStatus.CONFIRMED.value,
+                        )
+                    )
+                ).scalar_one()
+                # Live holds keep their seat reserved: NOTIFIED with a
+                # window still open, or (defensively) with no window at
+                # all -- under-offering beats re-offering (re-offering
+                # existing holders is explicitly forbidden).
+                live_holds = (
+                    await session.execute(
+                        select(func.count())
+                        .select_from(Waitlist)
+                        .where(
+                            Waitlist.practice_id == practice.id,
+                            Waitlist.status
+                            == WaitlistStatus.NOTIFIED.value,
+                            or_(
+                                Waitlist.expires_at.is_(None),
+                                Waitlist.expires_at > now_utc,
+                            ),
+                        )
+                    )
+                ).scalar_one()
+                free_seats = new_cap - active - live_holds
+                for _ in range(max(free_seats, 0)):
+                    if await process_waitlist(
+                        practice.id, session,
+                    ) is None:
+                        break  # queue drained before the seats did
 
     return practice
 

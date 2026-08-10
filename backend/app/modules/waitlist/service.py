@@ -136,6 +136,14 @@ async def join_waitlist(
     if practice.master_id == user.id:
         raise BadRequestError("Cannot join waitlist for your own practice")
 
+    # Audience gate at ENTRY, not just at confirm (C-audience): a
+    # blocked or out-of-audience user otherwise takes a queue slot,
+    # gets promoted, and burns the hold window (locking out a real
+    # group member for its whole duration) before being rejected at
+    # confirm_waitlist. Same gate confirm_waitlist already applies --
+    # close the OTHER door into the queue here.
+    await assert_viewer_can_access_practice(user.id, practice, session)
+
     # Practice must be full -- otherwise user should book directly.
     if practice.max_participants is None:
         raise BadRequestError(
@@ -342,12 +350,56 @@ async def confirm_waitlist(
     if entry.status != WaitlistStatus.NOTIFIED.value:
         raise BadRequestError("Can only confirm a notified waitlist entry")
 
-    # Lazy expiration check.
-    # Returns (entry, None) instead of raising -- changes must commit.
     now = datetime.now(UTC)
+
+    # Lazy expiration check -- MUST run before the practice guards below.
+    # This is the ONLY place in the codebase that performs the
+    # NOTIFIED -> EXPIRED transition (lazy design: no background sweeper).
+    # The guards raise, and a raise means the request session rolls back;
+    # if they ran first, an overdue NOTIFIED entry on a cancelled/started
+    # practice would hit the raise before ever expiring and stay NOTIFIED
+    # forever ("stuck NOTIFIED" regression). Expiry instead returns
+    # (entry, None) precisely so the router commits the state change.
     if entry.expires_at and entry.expires_at < now:
         entry.status = WaitlistStatus.EXPIRED.value
-        await process_waitlist(entry.practice_id, session)
+
+        # Comms (T1, dictionary §2): waitlist.expired to the holder --
+        # the held spot lapsed. Emitted UNCONDITIONALLY: the holder's
+        # hold is honestly closed regardless of what happened to the
+        # practice.
+        from app.core.events.notify import emit_notification
+        await emit_notification(
+            session,
+            type="waitlist.expired",
+            target_type="user",
+            target_value=str(entry.user_id),
+            title="Бронь по листу ожидания истекла",
+            body=(
+                # Neutral for BOTH exit paths: the handoff to the next
+                # in line is gated on a confirmable practice (below), so
+                # "passed to the next" would be a lie on a dead one.
+                f"Вы не подтвердили место на практику "
+                f"«{practice.title}» вовремя -- бронь истекла."
+            ),
+            action_data={
+                "action": "open_practice",
+                "params": {"practice_id": str(entry.practice_id)},
+                "practice_title": practice.title,
+            },
+        )
+
+        # Hand the spot to the next in line ONLY if the practice is still
+        # confirmable. process_waitlist has no practice-state guard of its
+        # own: on a cancelled/started practice it would blindly NOTIFY the
+        # next waiter (spot_available + 30-min window), who would then hit
+        # the guards below, expire, and the chain would walk the whole
+        # queue with pointless pings. `practice` is already loaded and
+        # locked above.
+        if (
+            practice.status == PracticeStatus.SCHEDULED.value
+            and practice.scheduled_at > now
+        ):
+            await process_waitlist(entry.practice_id, session)
 
         logger.info(
             "waitlist_confirm_expired",
@@ -356,6 +408,26 @@ async def confirm_waitlist(
             expires_at=entry.expires_at.isoformat(),
         )
         return entry, None
+
+    # Practice guards -- confirm_waitlist is the OTHER path that creates a
+    # CONFIRMED booking with a real charge, so it must refuse the same
+    # states create_booking refuses (bookings/service.py). Without these,
+    # a holder could convert their offer on a CANCELLED / COMPLETED
+    # practice, or one that has already started -- taking money for a
+    # slot that no longer exists. Scheduled-only (not LIVE): the waitlist
+    # is a pre-start queue -- join_waitlist itself requires SCHEDULED.
+    # Placed AFTER lazy expiry (expiry must commit; these raise ->
+    # rollback) and BEFORE the access/capacity checks (a dead practice
+    # must 400 outright -- if capacity ran first, an alive holder on a
+    # full started practice would be soft-returned to WAITING instead).
+    if practice.status != PracticeStatus.SCHEDULED.value:
+        raise BadRequestError(
+            "Practice is no longer available for confirmation"
+        )
+    if practice.scheduled_at <= now:
+        raise BadRequestError(
+            "Cannot confirm a spot on a practice that has already started"
+        )
 
     # P5 (PROMPT №594, the carried seam from P1): reject a viewer blocked by
     # this practice's master, or outside its configured audience. This is
@@ -420,7 +492,59 @@ async def confirm_waitlist(
         session=session,
     )
 
+    # Zoom registrant (C5): confirm_waitlist is the OTHER booking-
+    # creation path besides create_booking, which registers its booker
+    # for the meeting (bookings/service.py). Without this, a user who
+    # got in off the waitlist pays but never gets a join link -> shows
+    # up and cannot enter. create_registrant_for_booking NEVER RAISES,
+    # is idempotent, and self-handles the series-child (no meeting yet
+    # -> None) and pending-meeting (queued for the retry poller) cases,
+    # so it is safe to call unconditionally here.
+    from app.modules.zoom.service import create_registrant_for_booking
+    await create_registrant_for_booking(booking, user_obj, session)
+
     entry.status = WaitlistStatus.CONVERTED.value
+
+    # Comms (T1): this is the OTHER booking-creation path besides
+    # create_booking (which emits for itself) -- the converted hold is
+    # a confirmed booking, so it gets the same booking.confirmed +
+    # reminder series in the same transaction (dictionary §2, ID-2).
+    from app.core.events.notify import emit_notification
+    from app.core.events.reminders import (
+        format_event_time,
+        schedule_booking_reminders,
+    )
+    master_name = await get_master_display_name(
+        practice.master_id, session,
+    )
+    when_text = format_event_time(practice.scheduled_at)
+    await emit_notification(
+        session,
+        type="booking.confirmed",
+        target_type="user",
+        target_value=str(user.id),
+        title="Бронирование подтверждено",
+        body=(
+            f"Вы записаны на практику «{practice.title}». "
+            f"Начало: {when_text}. Мастер: {master_name}."
+        ),
+        action_data={
+            "action": "open_practice",
+            "params": {"practice_id": str(entry.practice_id)},
+            "practice_title": practice.title,
+            "master_name": master_name,
+            "scheduled_at": when_text,
+        },
+    )
+    await schedule_booking_reminders(
+        session,
+        booking_id=str(booking.id),
+        user_id=str(user.id),
+        practice_id=str(entry.practice_id),
+        practice_title=practice.title,
+        master_name=master_name,
+        scheduled_at=practice.scheduled_at,
+    )
 
     # Update cached participant count (Frontend Backlog A-03).
     await recalculate_participants(entry.practice_id, session)
@@ -481,13 +605,12 @@ async def process_waitlist(
     entry.notified_at = now
     entry.expires_at = now + _CONFIRM_WINDOW
 
-    # FIX 3.1: Create real notification instead of stub logger.
-    # Lazy imports to avoid circular dependencies.
-    from app.modules.notifications.models import (
-        NotificationType,
-        TargetType,
-    )
-    from app.modules.notifications.service import create_notification
+    # Comms (T1): the live donor emit, switched from the old engine's
+    # create_notification to the outbox (dictionary §2:
+    # waitlist.spot_available -> the head of the queue; velo picks the
+    # holder, ID-4). Lazy import mirrors the old pattern.
+    from app.core.events.notify import emit_notification
+    from app.core.events.reminders import format_event_time
 
     # Load practice for template variables.
     practice = await session.get(Practice, practice_id)
@@ -495,21 +618,27 @@ async def process_waitlist(
         practice.master_id, session,
     )
 
-    await create_notification(
-        type=NotificationType.WAITLIST_SPOT_AVAILABLE.value,
-        title="Spot available",
-        body="A spot opened up",
-        target_type=TargetType.USER.value,
+    when_text = format_event_time(practice.scheduled_at)
+    expires_text = format_event_time(entry.expires_at)
+    await emit_notification(
+        session,
+        type="waitlist.spot_available",
+        target_type="user",
         target_value=str(entry.user_id),
-        session=session,
+        title="Освободилось место",
+        body=(
+            f"Освободилось место на практику «{practice.title}» "
+            f"({when_text}, мастер: {master_name}). Подтвердите "
+            f"участие до {expires_text}."
+        ),
         action_data={
             "action": "confirm_waitlist",
             "params": {"waitlist_id": str(entry.id)},
             "practice_id": str(practice_id),
             "practice_title": practice.title,
-            "scheduled_at": practice.scheduled_at.isoformat(),
+            "scheduled_at": when_text,
             "master_name": master_name,
-            "expires_at": entry.expires_at.isoformat(),
+            "expires_at": expires_text,
         },
         priority=2,
         expiry_at=entry.expires_at,

@@ -46,6 +46,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
+from app.core.events import GROUP_MASTERS, sync_membership_delta  # Phase 6 / T0
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError
 from app.core.redis import get_redis
 from app.modules.diary.models import Feedback
@@ -192,6 +193,12 @@ async def apply_for_master(
             raise ConflictError(
                 message="Already a master", code="already_master"
             )
+        # Phase 6 / T0: self-provision creates a VERIFIED profile out
+        # of nothing -- a master-capability gain (had none: the guard
+        # above 409s when a profile exists). Same transaction (ID-2).
+        await sync_membership_delta(
+            session, user, group_key=GROUP_MASTERS, had=False, has=True
+        )
         logger.info("master_self_provisioned", user_id=str(user.id))
         return profile
 
@@ -224,6 +231,7 @@ async def apply_for_master(
         # Status is "rejected" -- allow reapplication.
         # Uses set_jsonb() to ensure SQLAlchemy detects the JSONB change.
         existing.set_jsonb("data", _build_reapply_data(existing.data, body))
+        await _emit_application_received(session, user)
         logger.info(
             "master_reapplication_submitted",
             user_id=str(user.id),
@@ -246,12 +254,48 @@ async def apply_for_master(
     except IntegrityError:
         raise ConflictError("Application already pending")
 
+    await _emit_application_received(session, user)
+
     logger.info(
         "master_application_submitted",
         user_id=str(user.id),
     )
 
     return profile
+
+
+async def _emit_application_received(
+    session: AsyncSession, user: User,
+) -> None:
+    """Comms (T1, dictionary §2): master.application_received to
+    group:admins -- a COMMUNICATION audience, so it goes as ONE emit
+    and comms expands it over its synced contact book (C-boundary
+    ID-4; the admins group is maintained by the T0 sync). Category-
+    less (decision A): admins always hear about new applications."""
+    from app.core.events.notify import (
+        TARGET_GROUP_ADMINS,
+        emit_notification,
+    )
+    applicant = " ".join(
+        part for part in (user.first_name, user.last_name) if part
+    ) or "Пользователь"
+    target_type, target_value = TARGET_GROUP_ADMINS
+    await emit_notification(
+        session,
+        type="master.application_received",
+        target_type=target_type,
+        target_value=target_value,
+        title="Новая заявка мастера",
+        body=(
+            f"{applicant} подал(а) заявку на профиль мастера -- "
+            f"требуется проверка."
+        ),
+        action_data={
+            "action": "open_admin_masters",
+            "params": {"user_id": str(user.id)},
+            "applicant_name": applicant,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------

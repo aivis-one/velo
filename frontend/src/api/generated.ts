@@ -287,6 +287,13 @@ export interface AdminZoomUnmatchedRow {
   duration_seconds: number | null
 }
 
+/** Admin announcement: pre-rendered title/body + audience pick. */
+export interface AnnouncementRequest {
+  title: string
+  body: string
+  audience?: 'all' | 'masters'
+}
+
 /** POST /admin/masters/{user_id}/method-change-request/approve -- body. R5 stage 4 (operator decision 3=Б): promote is OPTIONAL and defaults to empty, so a bare `{}` body (every caller before this stage, and every approval where the admin didn't pick "add to catalog") behaves exactly as before -- no catalog write. Each entry becomes a new custom direction in the taxonomy catalog (deduped against existing rows). */
 export interface ApproveMethodChangeRequest {
   promote?: string[]
@@ -417,6 +424,11 @@ export interface CancelBookingRequest {
 /** POST /api/v1/practices/{id}/cancel -- optional request body. `scope` selects how far a cancellation reaches for a SERIES practice: "this" -- cancel only this occurrence (the default, and the behavior when no body is sent -- preserving the pre-series contract for existing callers). "this_and_future" -- cancel this occurrence and every later occurrence of the same series. A non-series practice has no siblings, so it behaves like "this". Closed, by-design vocabulary -> Literal (no config indirection), matching the feed's duration_bucket / time_of_day. */
 export interface CancelPracticeRequest {
   scope?: 'this' | 'this_and_future'
+}
+
+/** Open (or reopen) the conversation with one master. */
+export interface ChatCreate {
+  master_id: string
 }
 
 /** GET /api/v1/admin/metrics/check-in. */
@@ -846,6 +858,10 @@ export interface MasterTransactionItem {
   amount_cents: number
 }
 
+export interface MessageCreate {
+  body: string
+}
+
 /** Response for approve/reject method-change actions. status is the resulting request state: "approved" (methods updated, request cleared) or "rejected". */
 export interface MethodChangeActionResponse {
   user_id: string
@@ -1172,6 +1188,12 @@ export interface PracticeSummary {
   zoom_meeting_status?: string | null
 }
 
+/** Partial update: only supplied parts change (mirrors comms PATCH). Unknown keys are rejected -- silently swallowing a field the client believed it set is how settings screens lie (frozen 3b wording). */
+export interface PrefsUpdate {
+  categories?: Record<string, unknown> | null
+  schedule?: ScheduleIn | null
+}
+
 /** POST /api/v1/practices/{id}/preview-purchase -- request body. Optional promo_code for pricing preview. */
 export interface PreviewPurchaseRequest {
   promo_code?: string | null
@@ -1343,6 +1365,13 @@ export interface RoleSwitchRequest {
   role: UserRole
 }
 
+/** The UI's DELIVERY window ("deliver from X to Y", day picks). */
+export interface ScheduleIn {
+  from: string
+  to: string
+  days: string[]
+}
+
 /** One bar in the check-in weekly chart (label = bucket date, value = %). */
 export interface SeriesPoint {
   label: string
@@ -1484,7 +1513,6 @@ export interface UpdatePracticeRequest {
   timezone?: string | null
   max_participants?: number | null
   zoom_link?: string | null
-  parent_practice_id?: string | null
   status?: string | null
   is_free?: boolean | null
   price_cents?: number | null

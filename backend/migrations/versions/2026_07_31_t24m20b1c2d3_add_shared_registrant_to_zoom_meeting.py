@@ -1,7 +1,7 @@
 """add_shared_registrant_to_zoom_meeting
 
-Revision ID: 9c0d1e2f3a4b
-Revises: 8b9c0d1e2f3a
+Revision ID: t24m20b1c2d3
+Revises: t24m10a1b2c3
 Create Date: 2026-07-31
 
 T24-38 (PROMPT №642): the shared, registration-free Zoom link. Two NEW
@@ -24,8 +24,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "9c0d1e2f3a4b"
-down_revision: str | None = "8b9c0d1e2f3a"
+revision: str = "t24m20b1c2d3"
+down_revision: str | None = "t24m10a1b2c3"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

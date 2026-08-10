@@ -10,15 +10,22 @@
 
 import copy
 from datetime import UTC, date, datetime, timedelta
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
 import structlog
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.exceptions import BadRequestError
-from app.modules.practices.models import Practice, PracticeStatus, PracticeType
+from app.modules.practices.models import (
+    AudienceKind,
+    Practice,
+    PracticeAudienceGroup,
+    PracticeStatus,
+    PracticeType,
+)
 
 logger = structlog.get_logger()
 
@@ -146,6 +153,13 @@ def _build_child_occurrence(
         is_free=root.is_free,
         price_cents=root.price_cents,
         currency=root.currency,
+        # SECURITY (C1): the audience gate is per-occurrence. Without
+        # copying this, a child defaults to PUBLIC (column default), so
+        # a private/groups series would publish public children --
+        # anyone could see and book what the master restricted. The
+        # target GROUP rows live in a separate table and are copied
+        # after flush in generate_series_occurrences.
+        audience_kind=root.audience_kind,
     )
     taxonomy = (root.data or {}).get("taxonomy")
     if taxonomy is not None:
@@ -239,12 +253,39 @@ async def generate_series_occurrences(
     # queues the registrant as pending until the meeting goes active.
     from app.modules.zoom.models import ZoomMeeting, ZoomMeetingStatus
 
+    # SECURITY (C1): a 'groups' series restricts its audience to the
+    # root's target custom groups, stored in PracticeAudienceGroup
+    # (separate table, not copied by _build_child_occurrence). Load the
+    # root's group ids ONCE; each child gets its own copy after flush so
+    # the audience gate (assert_viewer_can_access_practice) resolves the
+    # same restriction per occurrence. Without this, children of a
+    # groups series would have NO group rows -> visible/bookable by
+    # anyone.
+    root_group_ids: list[UUID] = []
+    if root.audience_kind == AudienceKind.GROUPS.value:
+        root_group_ids = list(
+            (
+                await session.execute(
+                    select(PracticeAudienceGroup.group_id).where(
+                        PracticeAudienceGroup.practice_id == root.id,
+                    )
+                )
+            ).scalars().all()
+        )
+
     children: list[Practice] = []
     for start_utc in starts:
         child = _build_child_occurrence(root, start_utc)
         session.add(child)
         await session.flush()
         children.append(child)
+        for group_id in root_group_ids:
+            session.add(
+                PracticeAudienceGroup(
+                    practice_id=child.id,
+                    group_id=group_id,
+                )
+            )
         session.add(
             ZoomMeeting(
                 practice_id=child.id,
@@ -262,3 +303,97 @@ async def generate_series_occurrences(
     )
 
     return len(starts)
+
+
+# S-d: statuses whose audience is history, not policy. A child in one of
+# these is never rewritten by a root edit.
+_TERMINAL_CHILD_STATUSES = (
+    PracticeStatus.COMPLETED.value,
+    PracticeStatus.CANCELLED.value,
+    PracticeStatus.DELETED.value,
+)
+
+
+async def propagate_audience_to_children(
+    root: Practice,
+    session: AsyncSession,
+) -> int:
+    """Push a series root's CURRENT audience (audience_kind + its target
+    PracticeAudienceGroup rows) onto every child occurrence.
+
+    C1-propagation: _build_child_occurrence copies the audience at
+    GENERATION time, but a root published as public and later switched to
+    'groups' (or re-targeted) via update_practice would leave its already
+    -generated children on the OLD audience -- public, bookable, leaking
+    the restricted sessions. update_practice calls this after applying an
+    audience change to a ROOT so the children track the root.
+
+    Only meaningful for a root (parent_practice_id is None) that actually
+    has children; callers gate on that. Returns the number of children
+    updated. Idempotent: re-running with the same audience is a no-op in
+    effect (same rows rewritten).
+    """
+    # S-d: NON-TERMINAL children only. A completed session already happened
+    # in front of whoever was allowed in at the time, and a cancelled or
+    # deleted one is not going to happen at all -- rewriting their audience
+    # edits history to match a decision taken afterwards. Only sessions that
+    # can still be attended (draft / scheduled / live) track the root.
+    #
+    # The SAME filter must gate BOTH writes below. Applied to only one of
+    # them, a terminal child would end up with the old audience_kind and the
+    # new group rows (or the reverse) -- a state worse than either, and one
+    # no read path expects.
+    child_ids = list(
+        (
+            await session.execute(
+                select(Practice.id).where(
+                    Practice.parent_practice_id == root.id,
+                    Practice.status.notin_(_TERMINAL_CHILD_STATUSES),
+                )
+            )
+        ).scalars().all()
+    )
+    if not child_ids:
+        return 0
+
+    # 1. audience_kind column on every non-terminal child.
+    await session.execute(
+        update(Practice)
+        .where(Practice.id.in_(child_ids))
+        .values(audience_kind=root.audience_kind)
+    )
+
+    # 2. Replace each child's target-group rows with a copy of the root's
+    #    (delete-then-insert -- the same shape _set_practice_audience_groups
+    #    uses for a single practice, applied per child).
+    await session.execute(
+        delete(PracticeAudienceGroup).where(
+            PracticeAudienceGroup.practice_id.in_(child_ids),
+        )
+    )
+    if root.audience_kind == AudienceKind.GROUPS.value:
+        root_group_ids = list(
+            (
+                await session.execute(
+                    select(PracticeAudienceGroup.group_id).where(
+                        PracticeAudienceGroup.practice_id == root.id,
+                    )
+                )
+            ).scalars().all()
+        )
+        for child_id in child_ids:
+            for group_id in root_group_ids:
+                session.add(
+                    PracticeAudienceGroup(
+                        practice_id=child_id,
+                        group_id=group_id,
+                    )
+                )
+
+    logger.info(
+        "series_audience_propagated",
+        root_practice_id=str(root.id),
+        children=len(child_ids),
+        audience_kind=root.audience_kind,
+    )
+    return len(child_ids)

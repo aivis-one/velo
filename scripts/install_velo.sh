@@ -12,14 +12,21 @@ set -uo pipefail
 #      (branch, domains, Stripe key) -- see ask_config() below
 #   2. Installs system dependencies (Docker, Nginx, Certbot, UFW)
 #   3. Creates a deploy user (not root)
-#   4. Sets up SSH deploy key for GitHub
+#   4. Sets up SSH deploy keys for GitHub -- one per repo (velo: write;
+#      comms: read-only). ALL repo access goes through private deploy
+#      keys, always -- no anonymous-HTTPS path exists in this script
 #   5. Clones the repository
 #   6. Generates secure .env with random passwords (skips if one already
 #      exists -- re-running this installer must never mint new database
 #      secrets against a volume that still holds the old ones)
 #   7. Configures Nginx reverse proxy + SSL
-#   8. Starts the Docker stack (app + postgres + redis + frontend)
-#   9. Installs the "velo" command as a thin shim onto the tracked
+#   8. Brings up the comms stack NEXT TO velo (orchestration only: clones
+#      aivis-one/comms and calls its own deploy/comms-deploy.sh -- the
+#      comms deploy mechanics stay in the comms repo, nothing is duplicated
+#      here) and wires the token seam: COMMS_* land in backend/.env
+#      BEFORE the velo stack ever starts, so no backend restart is needed
+#   9. Starts the Docker stack (app + postgres + redis + frontend)
+#  10. Installs the "velo" command as a thin shim onto the tracked
 #      scripts/velo-manage.sh -- see that file for why
 #
 # ONE installer, not three (2026-07-17, owner ruling: "тестовый и
@@ -37,6 +44,11 @@ set -uo pipefail
 # USAGE:
 #   First time:   sudo bash install_velo.sh
 #   After that:   velo status | velo logs | velo update | velo version | ...
+#
+#   `velo update` updates EVERY service this installer put on the box --
+#   services first, the product last -- each through its OWN lifecycle
+#   script. No second command to remember, no manual step on a server.
+#   comms-deploy.sh stays callable directly for debugging; nothing needs it.
 #
 # REQUIREMENTS:
 #   - Ubuntu 22.04+ (fresh VPS), root access
@@ -63,6 +75,30 @@ REPO_URL=""  # set after SSH key setup
 # TLD, outside the Montenegrin .me registry.
 TELEGRAM_LINK_DOMAIN="telegram.me"
 
+# === Comms stack (orchestrated, NOT merged -- see setup_comms below) ===
+# This installer only ORCHESTRATES the comms bring-up: it clones the comms
+# repo and calls the deploy CLI that ships inside it. The comms deploy
+# mechanics live in comms/deploy/ (comms repo) and are never duplicated here.
+COMMS_INSTALL_BASE="/opt/comms"
+COMMS_REPO_DIR="$COMMS_INSTALL_BASE/repo"
+COMMS_GITHUB_REPO="aivis-one/comms"
+# SSH via a DEDICATED deploy key, ALWAYS (owner ruling: all keys strictly
+# private -- no anonymous-HTTPS assumption, even while the repo happens to
+# be public today). One code path regardless of repo visibility, so closing
+# the repo later is a non-event. A separate key is not a choice: GitHub
+# refuses to attach one deploy key to two repositories. READ-ONLY is enough
+# for comms -- comms-deploy.sh only ever pulls (velo's own key needs write
+# because `velo update` pushes generated.ts).
+COMMS_REPO_URL=""  # set after comms SSH key setup (setup_comms_ssh)
+# NOTE: the comms branch is NOT a knob here any more (H-D1, 2026-08-04).
+# It is declared once, for every server of this product, in the service
+# registry (repo/scripts/services.conf) and read from there below --
+# "remember to export COMMS_BRANCH" was a manual step, i.e. exactly what
+# an installer must never require, and forgetting it produced servers
+# whose two stacks silently tracked different branches.
+# Shared external docker network joining the velo and comms stacks.
+SHARED_NETWORK="aivis-shared"
+
 # === Per-server configuration -- filled in by ask_config(), not hardcoded ===
 VELO_ROLE=""
 GIT_BRANCH=""
@@ -84,6 +120,18 @@ warn()    { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error()   { echo -e "${RED}[ERROR]${NC} $1"; }
 info()    { echo -e "${BLUE}[INFO]${NC} $1"; }
 success() { echo -e "${GREEN}✓${NC} $1"; }
+
+# NOTE (2026-08-06): a tmux wrapper was tried here to survive dropped ssh
+# sessions and REJECTED by the owner after seeing it run. Recording why, so
+# nobody re-invents it: inside a tmux pane the terminal's colour scheme is
+# replaced by tmux's own, mouse wheel turns into arrow keys the pane echoes
+# into the output, and any transcript taken by piping this script (tee) hides
+# the tty from docker, which then degrades to a wall of plain text. This file
+# is the ONE artefact the customer runs -- how it looks outweighs surviving a
+# disconnect, and a dropped install is simply re-run (idempotent by design:
+# secrets and profile are guarded). If durability is ever wanted again, it
+# belongs OUTSIDE the script: `ssh -t ... tmux new -s install` on the
+# operator's side, or systemd-run, neither of which touches this file.
 
 # === Error handler ===
 handle_error() {
@@ -168,12 +216,24 @@ preflight_checks() {
         warn "Detected $ID, expected Ubuntu/Debian. Proceeding anyway..."
     fi
 
-    # Check memory (warn if < 2GB)
+    # Check memory (warn if < 3GB -- this server now carries TWO stacks:
+    # velo + comms; comms adds ~0.5-0.7Gi idle on top of velo)
     local TOTAL_MEM=$(free -m | awk '/Mem:/ {print $2}')
-    if [ "$TOTAL_MEM" -lt 2000 ]; then
-        warn "Only ${TOTAL_MEM}MB RAM detected. Recommended: 2GB+"
+    if [ "$TOTAL_MEM" -lt 3000 ]; then
+        warn "Only ${TOTAL_MEM}MB RAM detected. Recommended: 3GB+ (velo + comms)"
     else
         success "Memory: ${TOTAL_MEM}MB ✓"
+    fi
+
+    # Check swap (informational only -- ensure_swap below auto-adds a 4G
+    # swap file when none exists; swap absorbs the image-build peaks of
+    # both stacks, without it a 4G-class VPS risks OOM mid-build)
+    local SWAP_TOTAL
+    SWAP_TOTAL=$(free -m | awk '/Swap:/ {print $2}')
+    if [ "$SWAP_TOTAL" -eq 0 ]; then
+        warn "Swap: 0 -- a 4G swap file will be added automatically"
+    else
+        success "Swap: ${SWAP_TOTAL}MB ✓"
     fi
 
     # Check disk (warn if < 10GB free)
@@ -226,18 +286,39 @@ echo ""
 read -p "Press ENTER when DNS records are configured..."
 echo ""
 
-# Check for previous installation
-if [ -d "$INSTALL_BASE/repo" ]; then
-    warn "Found existing installation at $INSTALL_BASE"
+# Check for previous installation. "Previous installation" now means EITHER
+# stack: velo (this checkout) or comms (orchestrated below) -- an orphaned
+# comms stack surviving a "fresh" reinstall would silently carry old secrets
+# and old data volumes into the new install.
+if [ -d "$INSTALL_BASE/repo" ] || [ -d "$COMMS_REPO_DIR" ]; then
+    warn "Found existing installation ($INSTALL_BASE and/or $COMMS_INSTALL_BASE)"
     echo ""
     read -p "Remove existing installation and start fresh? (y/n): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         log "Stopping existing services and removing volumes..."
         cd "$INSTALL_BASE/repo" 2>/dev/null && docker compose down -v 2>/dev/null || true
-        cd "$INSTALL_BASE"
+        # Tear down the comms stack the same way (containers + volumes).
+        # Runs from the comms compose dir: the deploy/.env symlink is still
+        # alive at this point (removed together with /opt/comms below).
+        # `|| true` mirrors the velo line above -- a half-dead stack must
+        # not abort the wipe. Accepted residual risk: if this `down` fails,
+        # comms VOLUMES survive the reinstall and the fresh stack would
+        # silently adopt them; chasing them by name here would mean
+        # duplicating comms topology knowledge in velo, which is banned.
+        if [ -f "$COMMS_REPO_DIR/deploy/docker-compose.yml" ]; then
+            cd "$COMMS_REPO_DIR/deploy" 2>/dev/null && docker compose down -v 2>/dev/null || true
+        fi
+        # cd out of the directories being removed; `cd /` is the fallback
+        # for the comms-orphan case where $INSTALL_BASE does not exist.
+        cd "$INSTALL_BASE" 2>/dev/null || cd /
         log "Removing existing installation..."
         rm -rf "$INSTALL_BASE/repo"
+        # Reinstall = clean server (owner ruling): the WHOLE comms state
+        # goes -- checkout, master .env (secrets re-minted on install),
+        # profile (smoke profile re-seeded), backups. Backing up before a
+        # reinstall is the operator's responsibility, same as velo data.
+        rm -rf "$COMMS_INSTALL_BASE"
         rm -f /usr/local/bin/velo
         success "Previous installation removed (including Docker volumes)"
     else
@@ -325,6 +406,59 @@ install_docker() {
 }
 
 install_docker
+
+# ==============================================================================
+# SWAP
+# ==============================================================================
+# The server carries TWO stacks now (velo + comms, ~7 extra containers
+# total); swap absorbs the image-build peaks of both. Without it a
+# 4G-class VPS risks OOM in the middle of a build. Placed here, right
+# after Docker: per-VPS prep of the same class, and it MUST be active
+# before the first `docker build` (comms builds images before velo does).
+
+ensure_swap() {
+    # Auto-add ONLY when there is no swap at all. Existing swap of any
+    # size is operator territory -- left untouched.
+    if [ -n "$(swapon --show --noheadings 2>/dev/null)" ]; then
+        success "Swap already active -- left untouched"
+        return 0
+    fi
+
+    log "No swap detected -- adding a 4G swap file..."
+
+    # Each step explicitly checked: the ERR trap would abort anyway, but
+    # these need actionable messages. Proceeding without swap would be a
+    # hidden OOM risk that surfaces mid-build, far from its cause.
+    # An existing /swapfile (partial previous run: created, never
+    # activated) is reused as-is -- mkswap/swapon below re-run on it.
+    if [ ! -f /swapfile ]; then
+        if ! fallocate -l 4G /swapfile; then
+            error "fallocate failed -- could not create /swapfile"
+            exit 1
+        fi
+    fi
+    if ! chmod 600 /swapfile; then
+        error "chmod 600 /swapfile failed"
+        exit 1
+    fi
+    if ! mkswap /swapfile > /dev/null; then
+        error "mkswap /swapfile failed"
+        exit 1
+    fi
+    if ! swapon /swapfile; then
+        error "swapon /swapfile failed"
+        exit 1
+    fi
+
+    # Survive reboot -- idempotent fstab entry.
+    if ! grep -q '^/swapfile ' /etc/fstab 2>/dev/null; then
+        echo '/swapfile none swap sw 0 0' >> /etc/fstab
+    fi
+
+    success "4G swap file added (/swapfile, persisted in fstab)"
+}
+
+ensure_swap
 
 # ==============================================================================
 # NGINX + CERTBOT
@@ -455,9 +589,20 @@ EOF
 
     REPO_URL="git@github.com-velo:$GITHUB_REPO.git"
 
-    # Test connection
+    # Test connection.
+    # ssh -T against GitHub exits 1 even on SUCCESS ("does not provide
+    # shell access"), and under `set -o pipefail` (top of file) the old
+    # `ssh | grep -q` form propagated that 1 through a matching grep --
+    # the test failed on a perfectly good key, every time, on every
+    # machine. Found live 2026-07-27, first fresh-box run of this path
+    # since the three installers merged (the pre-merge test-server
+    # variant had no pipefail, which is why it never fired before).
+    # The banner is captured instead; `|| true` keeps the assignment
+    # from tripping the ERR trap.
     log "Testing GitHub connection..."
-    if ssh -T git@github.com-velo 2>&1 | grep -q "successfully authenticated"; then
+    local SSH_BANNER
+    SSH_BANNER=$(ssh -T git@github.com-velo 2>&1 || true)
+    if echo "$SSH_BANNER" | grep -q "successfully authenticated"; then
         success "GitHub connection OK"
     else
         error "Cannot connect to GitHub"
@@ -467,6 +612,77 @@ EOF
 }
 
 setup_ssh
+
+# ==============================================================================
+# SSH SETUP FOR THE COMMS REPO
+# ==============================================================================
+# Mirror of setup_ssh above, for the SECOND repo this installer clones.
+# Sits right behind it in the linear flow so the operator handles both
+# GitHub-key steps in one sitting; github.com is already in known_hosts
+# by the time this runs.
+
+setup_comms_ssh() {
+    log "Setting up SSH for the comms repo..."
+
+    COMMS_DEPLOY_KEY="/root/.ssh/id_ed25519_comms_deploy"
+
+    # Generate the comms deploy key if not exists (guard mirrors setup_ssh:
+    # a reinstall reuses the key already known to GitHub).
+    if [ ! -f "$COMMS_DEPLOY_KEY" ]; then
+        ssh-keygen -t ed25519 -C "comms-deploy@$(hostname)" -f "$COMMS_DEPLOY_KEY" -N ""
+        success "comms deploy key generated"
+    else
+        success "comms deploy key already exists"
+    fi
+
+    echo ""
+    echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}  GitHub Deploy Key -- COMMS repo${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
+    echo ""
+    cat "${COMMS_DEPLOY_KEY}.pub"
+    echo ""
+    echo -e "${YELLOW}Go to: https://github.com/$COMMS_GITHUB_REPO/settings/keys${NC}"
+    echo -e "${YELLOW}Click 'Add deploy key', paste the key above.${NC}"
+    echo -e "${GREEN}READ-ONLY is enough: do NOT tick 'Allow write access'.${NC}"
+    echo -e "${YELLOW}(comms-deploy.sh only pulls -- unlike velo, nothing ever pushes to comms.)${NC}"
+    echo ""
+    read -r -p "Press ENTER after adding the deploy key to GitHub..."
+
+    # Configure SSH to use this key for the comms remote (host alias --
+    # same mechanism as github.com-velo above; one key per repo, GitHub
+    # does not allow sharing a deploy key across repositories).
+    if ! grep -q "Host github.com-comms" /root/.ssh/config 2>/dev/null; then
+        cat >> /root/.ssh/config << EOF
+
+# COMMS Deploy Key (read-only)
+Host github.com-comms
+    HostName github.com
+    User git
+    IdentityFile $COMMS_DEPLOY_KEY
+    IdentitiesOnly yes
+EOF
+        chmod 600 /root/.ssh/config
+    fi
+
+    COMMS_REPO_URL="git@github.com-comms:$COMMS_GITHUB_REPO.git"
+
+    # Test connection -- same shape as the velo test above: the banner is
+    # captured because ssh -T exits 1 on success and pipefail would sink
+    # a piped grep (see the comment there).
+    log "Testing GitHub connection (comms key)..."
+    local SSH_BANNER
+    SSH_BANNER=$(ssh -T git@github.com-comms 2>&1 || true)
+    if echo "$SSH_BANNER" | grep -q "successfully authenticated"; then
+        success "GitHub connection OK (comms)"
+    else
+        error "Cannot connect to GitHub with the comms deploy key"
+        error "Make sure the key is added to: https://github.com/$COMMS_GITHUB_REPO/settings/keys"
+        return 1
+    fi
+}
+
+setup_comms_ssh
 
 # ==============================================================================
 # CLONE REPOSITORY
@@ -748,6 +964,184 @@ setup_nginx
 setup_ssl
 
 # ==============================================================================
+# SHARED DOCKER NETWORK
+# ==============================================================================
+# velo and comms are separate stacks joined by ONE external network;
+# compose requires it to EXIST before either `up`. Idempotent, and
+# comms-deploy.sh carries the same guard on its side -- either side may
+# win the race, the result is identical. Runs before setup_comms AND
+# before start_stack: both stacks join it.
+
+ensure_shared_network() {
+    if docker network inspect "$SHARED_NETWORK" > /dev/null 2>&1; then
+        success "Docker network '$SHARED_NETWORK' already exists"
+        return 0
+    fi
+    if ! docker network create "$SHARED_NETWORK" > /dev/null; then
+        error "Failed to create docker network '$SHARED_NETWORK'"
+        exit 1
+    fi
+    success "Docker network '$SHARED_NETWORK' created"
+}
+
+ensure_shared_network
+
+# ==============================================================================
+# COMMS STACK (orchestration only)
+# ==============================================================================
+# This installer does NOT deploy comms itself: it clones the comms repo and
+# calls the deploy CLI that ships INSIDE it (comms/deploy/ is the single
+# source of the comms deploy mechanics -- nothing of it is duplicated here).
+#
+# Token seam -- the documented two-pass flow from comms/deploy/INTEGRATION.md:
+#   pass 1:  mints comms secrets, seeds the generic smoke profile, brings
+#            the comms stack up (PRODUCT_ENV_PATH is empty on a fresh
+#            install -- the COMMS_* block is only printed);
+#   knob:    PRODUCT_ENV_PATH=<velo backend .env> is written into
+#            /opt/comms/.env. Per-product CONFIG, not deploy logic --
+#            INTEGRATION.md puts exactly this line on the product side;
+#   pass 2:  install re-runs (idempotent: secrets and profile are guarded,
+#            `up -d --build` is a cached no-op) -- the hand-over upserts
+#            COMMS_SERVICE_TOKEN / COMMS_API_URL / COMMS_REDIS_URL into
+#            the velo backend .env.
+# NOTE: PRODUCT_ENV_PATH can NOT be passed as a process env var: the CLI
+# sources /opt/comms/.env (where the knob is empty on a fresh install),
+# which overrides the process environment. Hence the two passes.
+#
+# Placed BEFORE start_stack on purpose: velo then starts with COMMS_*
+# already in its env_file -- no backend restart needed. The smoke profile
+# is the deliberate default; the real product profile is a parallel track
+# and is dropped into /opt/comms/profile later.
+
+# Idempotent KEY=VALUE write into an env file: update in place when the
+# key exists, append when it does not. Values here are absolute paths
+# without '|', which is the sed delimiter.
+upsert_env_var() {
+    local file="$1" key="$2" value="$3"
+    if grep -q "^${key}=" "$file"; then
+        if ! sed -i "s|^${key}=.*|${key}=${value}|" "$file"; then
+            error "Failed to update ${key} in ${file}"
+            exit 1
+        fi
+    else
+        if ! printf '%s=%s\n' "$key" "$value" >> "$file"; then
+            error "Failed to append ${key} to ${file}"
+            exit 1
+        fi
+    fi
+}
+
+# Read one service's branch out of the registry that ships in the velo
+# checkout (repo/scripts/services.conf). Kept tiny on purpose: install
+# provisions ONE service specially (deploy key, env hand-over), and that
+# part is not generic yet -- what IS shared is the declaration.
+registry_branch_for() {
+    local wanted="$1" conf="$INSTALL_BASE/repo/scripts/services.conf"
+    if [ ! -f "$conf" ]; then
+        error "Service registry not found at $conf"
+        return 1
+    fi
+    # VELO_ROLE is in scope for `role:` expressions; VELO_BRANCH for `conf:`
+    # -- both are read by svc_branch through indirect expansion, which is
+    # why shellcheck cannot see the use.
+    # shellcheck disable=SC2034
+    local VELO_BRANCH="$GIT_BRANCH"
+    # shellcheck source=/dev/null
+    source "$conf" || return 1
+    local record
+    for record in "${VELO_SERVICES[@]}"; do
+        if [ "$(svc_field "$record" 1)" = "$wanted" ]; then
+            svc_branch "$(svc_field "$record" 4)" "$wanted" || return 1
+            return 0
+        fi
+    done
+    error "Service '$wanted' is not declared in $conf"
+    return 1
+}
+
+setup_comms() {
+    log "Setting up the comms stack (orchestrated)..."
+
+    local COMMS_DEPLOY="$COMMS_REPO_DIR/deploy/comms-deploy.sh"
+    local VELO_ENV="$INSTALL_BASE/repo/backend/.env"
+    local COMMS_ENV="$COMMS_INSTALL_BASE/.env"
+
+    # The branch comes from the SERVICE REGISTRY in the checkout we just
+    # cloned -- the same file `velo update` reads, so the install and every
+    # later update can never disagree about what this server tracks.
+    local comms_branch
+    if ! comms_branch=$(registry_branch_for comms); then
+        error "Could not resolve the comms branch from the service registry"
+        exit 1
+    fi
+
+    # -- 1. Clone the comms repo (SSH, dedicated READ-ONLY deploy key --
+    # set up in setup_comms_ssh; all keys strictly private, always) --
+    if [ -d "$COMMS_REPO_DIR" ]; then
+        # Practically unreachable after the cleanup block wiped /opt/comms,
+        # but a partial re-run must reuse state, not re-clone over it.
+        warn "comms checkout already present at $COMMS_REPO_DIR -- reusing it"
+    else
+        mkdir -p "$COMMS_INSTALL_BASE"
+        if ! git clone -b "$comms_branch" "$COMMS_REPO_URL" "$COMMS_REPO_DIR"; then
+            error "Failed to clone $COMMS_REPO_URL (branch: $comms_branch)"
+            exit 1
+        fi
+        success "comms cloned to $COMMS_REPO_DIR (branch: $comms_branch)"
+    fi
+
+    if [ ! -f "$COMMS_DEPLOY" ]; then
+        error "comms deploy CLI not found at $COMMS_DEPLOY"
+        error "Does branch '$comms_branch' carry comms/deploy/ (Phase 5)?"
+        exit 1
+    fi
+
+    # -- 2. Pass 1: mint secrets + seed smoke profile + bring the stack up --
+    # Every failure below is a HARD abort: a "successful" install that
+    # brought up velo without a linked comms would be hidden breakage.
+    log "comms-deploy install, pass 1 (secrets + smoke profile + bring-up)..."
+    if ! bash "$COMMS_DEPLOY" install; then
+        error "comms-deploy.sh install (pass 1) FAILED -- aborting."
+        error "Logs: bash $COMMS_DEPLOY logs"
+        exit 1
+    fi
+
+    # -- 3. Point the token hand-over at the velo backend .env --
+    if [ ! -f "$COMMS_ENV" ]; then
+        error "$COMMS_ENV not found after pass 1 -- comms install did not mint its env"
+        exit 1
+    fi
+    upsert_env_var "$COMMS_ENV" "PRODUCT_ENV_PATH" "$VELO_ENV"
+    success "PRODUCT_ENV_PATH=$VELO_ENV written into $COMMS_ENV"
+
+    # -- 4. Pass 2: idempotent re-run -- executes the token hand-over --
+    log "comms-deploy install, pass 2 (COMMS_* hand-over into velo .env)..."
+    if ! bash "$COMMS_DEPLOY" install; then
+        error "comms-deploy.sh install (pass 2) FAILED -- aborting."
+        exit 1
+    fi
+
+    # -- 5. Verify the seam actually closed --
+    # The hand-over deliberately degrades to PRINTING the block when its
+    # target is unusable, without failing. Fine for the manual flow; for
+    # orchestration that would be a silent failure -- velo would start
+    # unlinked while the installer reports success. So: every key must be
+    # present with a non-empty value, or the install dies here.
+    local key
+    for key in COMMS_SERVICE_TOKEN COMMS_API_URL COMMS_REDIS_URL; do
+        if ! grep -Eq "^${key}=.+" "$VELO_ENV"; then
+            error "$key missing (or empty) in $VELO_ENV after the hand-over."
+            error "The token seam did not close -- velo would start unlinked."
+            exit 1
+        fi
+    done
+    success "COMMS_* variables verified in $VELO_ENV"
+    success "comms stack is up and linked (smoke profile; drop the real product profile into $COMMS_INSTALL_BASE/profile later)"
+}
+
+setup_comms
+
+# ==============================================================================
 # START DOCKER STACK
 # ==============================================================================
 
@@ -857,11 +1251,24 @@ exec "$INSTALL_BASE/repo/scripts/velo-manage.sh" "\$@"
 EOF
     chmod +x "$INSTALL_BASE/scripts/manage.sh"
 
-    # The two values velo-manage.sh cannot get from the repo, because they
-    # are not code -- they are what makes this server THIS server.
+    # The values velo-manage.sh cannot get from the repo, because they are
+    # not code -- they are what makes this server THIS server.
+    # VELO_BRANCH joined them (H-D1, 2026-08-04): `velo update` used to read
+    # the branch off the live checkout, so DRIFT was the source of truth and
+    # a checkout nudged sideways stayed sideways. Recorded here, it is what
+    # every later update reconciles the checkout to -- no question asked, no
+    # hand fix on the server. Service branches are NOT here: they are policy,
+    # identical on every server of this product, and live in the registry.
+    # Phase 6 / T0 finding #2: VELO_ROLE joined them -- the role fork used
+    # to die at install time (it only picked the branch), while `velo
+    # update` stayed role-blind and ran the pytest suite against the live
+    # DB on ANY server. Now the role persists and velo-manage.sh gates the
+    # test-only phases (pytest + comms projection resync) on it.
     cat > "$INSTALL_BASE/velo.conf" << EOF
 DOMAIN_FRONTEND=${DOMAIN_FRONTEND}
 DOMAIN_API=${DOMAIN_API}
+VELO_ROLE=${VELO_ROLE}
+VELO_BRANCH=${GIT_BRANCH}
 EOF
 
     ln -sf "$INSTALL_BASE/scripts/manage.sh" /usr/local/bin/velo
@@ -886,6 +1293,47 @@ setup_backup_cron() {
 setup_backup_cron
 
 # ==============================================================================
+# HOUSEKEEPING -- leave the box tidy, not just working
+# ==============================================================================
+
+# The install builds both stacks with --no-cache, which is correct (a fresh
+# box must not inherit a stale layer) and expensive: it leaves gigabytes of
+# buildkit cache behind. `velo update` reaps leftovers older than a day; that
+# filter deliberately does not fit HERE, where everything was made minutes ago
+# and none of it is needed again. Volumes are never touched.
+cleanup_build_leftovers() {
+    log "Reclaiming build leftovers..."
+    docker image prune -f > /dev/null 2>&1 || true
+    docker builder prune -f > /dev/null 2>&1 || true
+    success "Build cache and dangling images reclaimed"
+}
+
+cleanup_build_leftovers
+
+# Cap the systemd journal. Unbounded, it grows to 10% of the filesystem by
+# default -- on a 30G VPS shared with two docker stacks that is gigabytes of
+# logs nobody reads, discovered only when a build dies out of disk space. A
+# server's own limits are the installer's job, not something to fix by hand
+# later (which is banned anyway).
+cap_journal_size() {
+    local conf=/etc/systemd/journald.conf
+    [ -f "$conf" ] || return 0
+    if grep -qE '^\s*SystemMaxUse=' "$conf"; then
+        success "journald size cap already configured -- left untouched"
+        return 0
+    fi
+    if printf '\n# Capped by install_velo.sh: a VPS journal has no business\n# growing past a few hundred megabytes.\nSystemMaxUse=200M\n' >> "$conf"; then
+        systemctl restart systemd-journald > /dev/null 2>&1 || true
+        journalctl --vacuum-size=200M > /dev/null 2>&1 || true
+        success "journald capped at 200M"
+    else
+        warn "Could not cap journald size -- check $conf by hand"
+    fi
+}
+
+cap_journal_size
+
+# ==============================================================================
 # POST-INSTALLATION
 # ==============================================================================
 
@@ -899,6 +1347,7 @@ info "Server: $SERVER_IP ($VELO_ROLE, branch $GIT_BRANCH)"
 info "Frontend: https://$DOMAIN_FRONTEND"
 info "API:      https://$DOMAIN_API"
 info "Health:   https://$DOMAIN_API/health"
+info "Comms:    up on '$SHARED_NETWORK' (internal API, no public port; smoke profile; branch per scripts/services.conf)"
 echo ""
 
 info "Directory structure:"
@@ -907,6 +1356,11 @@ echo "  ├── repo/              # Git repository (scripts/velo-manage.sh li
 echo "  ├── scripts/manage.sh  # thin shim -- do not hand-edit, see the file"
 echo "  ├── velo.conf          # this server's domains"
 echo "  └── backups/           # daily backups"
+echo "  $COMMS_INSTALL_BASE/"
+echo "  ├── repo/              # comms checkout (CLI: repo/deploy/comms-deploy.sh)"
+echo "  ├── .env               # comms master env (secrets, minted once)"
+echo "  ├── profile/           # per-product profile (smoke seeded -- drop the real one on top)"
+echo "  └── backups/           # comms db dumps"
 
 log "Management commands:"
 echo -e "  ${CYAN}velo status${NC}          — Check everything"
@@ -918,6 +1372,7 @@ echo -e "  ${CYAN}velo restart${NC}         — Restart all services"
 echo -e "  ${CYAN}velo db connect${NC}      — Open psql"
 echo -e "  ${CYAN}velo backup${NC}          — Manual backup"
 echo -e "  ${CYAN}velo seed${NC}            — Populate DB with test data"
+echo -e "  ${CYAN}bash $COMMS_REPO_DIR/deploy/comms-deploy.sh status${NC} — comms stack (lifecycle is decoupled from velo)"
 echo ""
 
 warn "Next steps:"

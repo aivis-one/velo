@@ -2,51 +2,24 @@
 // VELO Frontend -- MasterNotificationsView Screen Tests (probekit-screen-test)
 // =============================================================================
 //
-// 309 lines. PATTERN = pure local-reactive-state screen -- NO api import, NO
-// store import at all, confirmed by reading every import (.vue:79-83: vue,
-// vue-router, @/components/layout, @/components/ui, @/components/shared/
-// TimePickerSheet.vue -- nothing else). No seam to mock, no vi.mock('@/api/...')
-// needed anywhere in this file.
+// Phase 6 / T1 REWIRE (the SC-10 changelog-as-red moment the previous
+// banner promised): the screen now PERSISTS its category toggles and the
+// delivery schedule through the comms proxy
+// (GET/PUT /api/v1/notifications/prefs, @/api/notifications) -- so the old
+// honest-stub assertions went red exactly as designed, and this file was
+// updated with them. The seam is mocked below (vi.mock('@/api/notifications')).
 //
-// ⚠ THE CROWN CHECK -- THE PERSISTENCE ANSWER, MEASURED END TO END, NOT
-// ASSUMED: onToggle (.vue:186-189) and onScheduleDays (.vue:190-193) and
-// onTimePicked (.vue:176-180) each mutate ONLY the local `toggles`/`schedule`
-// reactive objects -- `toggles[key] = value`, `schedule.days = days`,
-// `schedule[edge] = value` -- and NOTHING ELSE. No api call, no store write,
-// no localStorage/sessionStorage touch anywhere in this script.
-//
-// THIS IS CASE (a): A DOCUMENTED, HONEST STUB -- NOT AN UNDOCUMENTED GAP.
-// Evidence, file:line:
-//   - The file's own header comment (.vue:13-20): "BACKEND (stub → Zod): the
-//     typed contract NotificationSettings carries only the four USER keys
-//     ... NONE of the master keys, and no schedule. So this screen holds its
-//     state LOCALLY and does NOT persist yet (we don't fake a save). Zod
-//     task: extend NotificationSettings(+Update) with the master keys + a
-//     schedule{from,to,days} object ... then wire persistence (a one-line
-//     updateProfile in each handler below)."
-//   - onToggle's own comment (.vue:183-185): "Local-only until the backend
-//     contract is extended ... We do NOT call updateProfile with master
-//     keys: they are not in NotificationSettingsUpdate and would be a
-//     contract violation."
-//   - Every handler ends with an explicit `// TODO(Zod): persist ...` line
-//     (.vue:188,192,179).
-// This is the SAME shape as SupportView's honest-submit stub, and a sharp
-// contrast with the USER-side equivalent (UserNotificationsView, №469),
-// which DOES persist -- optimistic toggle + authStore.updateProfile + revert
-// + error toast on failure. The master zone's contract genuinely doesn't
-// carry these keys yet (documented), so the gap is conscious, not an
-// oversight -- but the CONSEQUENCE for a real master is exactly what the
-// operator named: a changed preference is lost the moment they navigate
-// away, because nothing anywhere holds it past this component instance.
-//
-// Asserted below as the REAL, current, honest-stub behaviour -- not a
-// wishful "it saves" assertion: a toggle/schedule change updates the local
-// UI immediately (looks optimistic), and a fresh remount (nothing to read
-// state back from -- no api, no store, no storage was ever written) returns
-// to the hardcoded defaults. This test is DELIBERATELY written to go RED the
-// day Zod wires real persistence (SC-10 changelog-as-red), which is the
-// correct outcome -- it should force an update to this file at that point,
-// not silently keep passing against stale expectations.
+// WHAT PERSISTS WHERE (mirror of the .vue header):
+//   new_booking + booking_cancelled -> comms category `bookings` (ONE
+//       category behind TWO rows: they flip together BY DESIGN -- the
+//       locked grid §3 has a single bookings category; splitting it is a
+//       profile edit later, not a UI bug)
+//   reminder / msg_participants / msg_support -> their own categories
+//   schedule {from,to,days} -> comms quiet hours (proxy converts semantics)
+//   new_checkin / new_feedback / ai_summary / monthly_report -> STILL LOCAL
+//       stubs (no comms types yet; explicit disposition, Master-chat
+//       2026-07-28) -- their remount-loss behaviour is asserted below as the
+//       real, current, honest state of those four rows.
 //
 // TimePickerSheet (.vue:68-74) wraps VBottomSheet, teleported to
 // document.body, `v-if="open"` -- absent from the DOM entirely when closed,
@@ -71,6 +44,33 @@ const back = vi.fn()
 vi.mock('vue-router', () => ({
   useRouter: () => ({ back, push: vi.fn() }),
 }))
+
+// The comms proxy seam. GET resolves the profile's five categories all-on
+// with no schedule (screen keeps its defaults); PUT echoes a facade-shaped
+// body. Individual tests override per-case via mockResolvedValueOnce.
+const prefsGet = vi.fn()
+const prefsPut = vi.fn()
+vi.mock('@/api/notifications', () => ({
+  getNotificationPrefs: (...a: unknown[]) => prefsGet(...a),
+  updateNotificationPrefs: (...a: unknown[]) => prefsPut(...a),
+}))
+
+const toastError = vi.fn()
+vi.mock('@/composables/useToast', () => ({
+  useToast: () => ({ error: toastError, success: vi.fn(), info: vi.fn() }),
+}))
+
+const FACADE = {
+  categories: {
+    bookings: true,
+    reminders: true,
+    finance: true,
+    msg_participants: true,
+    msg_support: true,
+  },
+  schedule: null,
+  timezone: null,
+}
 
 // -----------------------------------------------------------------------------
 // Mount
@@ -147,6 +147,11 @@ function sheetSaveBtn(): HTMLButtonElement | null {
 
 beforeEach(() => {
   back.mockReset()
+  prefsGet.mockReset()
+  prefsPut.mockReset()
+  prefsGet.mockResolvedValue(structuredClone(FACADE))
+  prefsPut.mockResolvedValue(structuredClone(FACADE))
+  toastError.mockReset()
 })
 
 afterEach(() => {
@@ -157,45 +162,127 @@ afterEach(() => {
 
 describe('MasterNotificationsView', () => {
   // ===========================================================================
-  describe('THE PERSISTENCE ANSWER -- a documented honest stub, see banner', () => {
-    it('toggling updates the LOCAL state immediately (looks optimistic)', async () => {
+  describe('THE PERSISTENCE ANSWER -- comms via the proxy for categories/schedule; four rows still local stubs', () => {
+    it('mount loads prefs from the proxy and merges categories over the defaults', async () => {
+      prefsGet.mockResolvedValueOnce({
+        ...structuredClone(FACADE),
+        categories: { ...FACADE.categories, bookings: false },
+      })
       mount()
       await flush()
 
-      expect(isOn('Новое бронирование')).toBe(true) // default
+      // ONE category behind TWO rows: both render the server value.
+      expect(isOn('Новое бронирование')).toBe(false)
+      expect(isOn('Отмена бронирования')).toBe(false)
+      // Stub rows keep their hardcoded defaults -- nothing to load.
+      expect(isOn('Ежемесячный отчет')).toBe(false)
+      expect(prefsGet).toHaveBeenCalledTimes(1)
+    })
+
+    it('toggling a CATEGORY row writes the category patch through the proxy', async () => {
+      mount()
+      await flush()
+
+      switchByRow('Напоминание').click()
+      await flush()
+
+      expect(isOn('Напоминание')).toBe(false)
+      expect(prefsPut).toHaveBeenCalledWith({ categories: { reminders: false } })
+    })
+
+    it('the bookings PAIR flips together -- one grid category behind two rows (by design, see banner)', async () => {
+      mount()
+      await flush()
+
       switchByRow('Новое бронирование').click()
       await flush()
 
       expect(isOn('Новое бронирование')).toBe(false)
+      expect(isOn('Отмена бронирования')).toBe(false)
+      expect(prefsPut).toHaveBeenCalledWith({ categories: { bookings: false } })
     })
 
-    it('a changed toggle is LOST on remount -- nothing anywhere holds it past this component instance', async () => {
+    it('reverts the toggle and toasts when the save FAILS', async () => {
+      prefsPut.mockRejectedValueOnce(new Error('500'))
       mount()
       await flush()
+      expect(isOn('Напоминание')).toBe(true) // default on
+
+      switchByRow('Напоминание').click()
+      await flush()
+
+      // Optimistic flip is rolled back to the accepted value; the user is
+      // told, rather than left looking at a state the server refused.
+      expect(isOn('Напоминание')).toBe(true)
+      expect(toastError).toHaveBeenCalledWith('Не удалось сохранить настройку')
+    })
+
+    it('reverts BOTH bookings rows together when their save fails', async () => {
+      prefsPut.mockRejectedValueOnce(new Error('500'))
+      mount()
+      await flush()
+
       switchByRow('Новое бронирование').click()
       await flush()
-      expect(isOn('Новое бронирование')).toBe(false)
 
-      unmountOnly()
-      mount() // fresh instance -- no api, no store, no storage to read back from
-      await flush()
-
-      expect(isOn('Новое бронирование')).toBe(true) // back to the hardcoded default
+      expect(isOn('Новое бронирование')).toBe(true)
+      expect(isOn('Отмена бронирования')).toBe(true)
+      expect(toastError).toHaveBeenCalledWith('Не удалось сохранить настройку')
     })
 
-    it('a changed schedule day is ALSO lost on remount, same as the toggles', async () => {
+    // H-R2 (3.6): the two formerly-silent catches now surface.
+    it('toasts when the initial prefs LOAD fails (was a silent console.warn)', async () => {
+      prefsGet.mockRejectedValueOnce(new Error('500'))
       mount()
       await flush()
-      expect(dayOn('ПН')).toBe(true) // default includes Monday
+
+      expect(toastError).toHaveBeenCalledWith('Не удалось загрузить настройки уведомлений')
+    })
+
+    it('toasts when the schedule SAVE fails (was a silent console.warn)', async () => {
+      prefsPut.mockRejectedValueOnce(new Error('500'))
+      mount()
+      await flush()
+
       dayBtn('ПН').click()
       await flush()
-      expect(dayOn('ПН')).toBe(false)
 
-      unmountOnly()
+      expect(toastError).toHaveBeenCalledWith('Не удалось сохранить расписание')
+    })
+
+    it('happy path shows NO toasts -- load and schedule save both succeed', async () => {
       mount()
       await flush()
 
-      expect(dayOn('ПН')).toBe(true) // back to the default
+      dayBtn('ПН').click()
+      await flush()
+
+      expect(prefsPut).toHaveBeenCalled()
+      expect(toastError).not.toHaveBeenCalled()
+    })
+
+    it('a STUB row (Ежемесячный отчет) writes NOTHING and is lost on remount -- still the honest local stub', async () => {
+      mount()
+      await flush()
+      switchByRow('Ежемесячный отчет').click()
+      await flush()
+      expect(isOn('Ежемесячный отчет')).toBe(true)
+      expect(prefsPut).not.toHaveBeenCalled()
+
+      unmountOnly()
+      mount() // fresh instance -- stub keys have no store behind them
+      await flush()
+
+      expect(isOn('Ежемесячный отчет')).toBe(false) // hardcoded default
+    })
+
+    it('a failed load (comms down / recipient unsynced) leaves the defaults on screen -- degrade, never crash', async () => {
+      prefsGet.mockRejectedValueOnce(new Error('502'))
+      mount()
+      await flush()
+
+      expect(isOn('Новое бронирование')).toBe(true) // defaults intact
+      expect(dayOn('ПН')).toBe(true)
     })
   })
 
@@ -222,16 +309,45 @@ describe('MasterNotificationsView', () => {
       expect(isOn('Ежемесячный отчет')).toBe(true)
     })
 
-    it('toggling one row does not affect a sibling row (each key is independent)', async () => {
+    it('toggling one row does not affect a sibling row with its OWN category (msg_* are independent)', async () => {
       mount()
       await flush()
 
-      switchByRow('От участников').click() // msg_participants
+      switchByRow('Ответы в ваших обращениях').click() // msg_participants
       await flush()
 
-      expect(isOn('От участников')).toBe(false)
-      expect(isOn('От поддержки')).toBe(true) // msg_support, untouched
+      expect(isOn('Ответы в ваших обращениях')).toBe(false)
+      expect(isOn('Сообщения учеников')).toBe(true) // msg_support, untouched
       expect(isOn('Новое бронирование')).toBe(true) // unrelated group, untouched
+    })
+
+    // P-2 (H-T2-UI): the RECEIVER side of the msg.* axis (comms
+    // notifier.py:214-232) -- a master receives students' chat messages as
+    // msg.support_message -> category msg_support. The label must SAY so,
+    // and flipping that label must WRITE that category: wording and wiring
+    // asserted together, so neither can silently flip back to the old
+    // inverted pair («От участников»/«От поддержки») without going red.
+    it('P-2: the msg_support row is worded «сообщения учеников» AND writes msg_support', async () => {
+      mount()
+      await flush()
+
+      const row = switchByRow('Сообщения учеников')
+      expect(row.getAttribute('aria-label')?.toLowerCase()).toContain('учеников')
+
+      row.click()
+      await flush()
+
+      expect(prefsPut).toHaveBeenCalledWith({ categories: { msg_support: false } })
+    })
+
+    it('P-2 twin: the msg_participants row is worded as one\'s OWN threads AND writes msg_participants', async () => {
+      mount()
+      await flush()
+
+      switchByRow('Ответы в ваших обращениях').click()
+      await flush()
+
+      expect(prefsPut).toHaveBeenCalledWith({ categories: { msg_participants: false } })
     })
   })
 
@@ -259,6 +375,14 @@ describe('MasterNotificationsView', () => {
       expect(dayOn('ПН')).toBe(false)
       expect(dayOn('СБ')).toBe(true)
       expect(dayOn('ВТ')).toBe(true) // the rest of the default set is untouched
+      // T1: every day change persists the FULL schedule through the proxy.
+      expect(prefsPut).toHaveBeenLastCalledWith({
+        schedule: {
+          from: '08:00',
+          to: '22:00',
+          days: ['tue', 'wed', 'thu', 'fri', 'sat'],
+        },
+      })
     })
   })
 
