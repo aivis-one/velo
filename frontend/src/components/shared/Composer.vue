@@ -117,6 +117,18 @@ const props = withDefaults(
     /** Preserves the `chat-send` test hook without a caller needing to know
      *  this component's internal class names. */
     sendTestId?: string
+    /** (e) B56: focus the field as soon as it is available, so arriving at the
+     *  screen IS arriving in the field. Flipping false->true refocuses; the
+     *  caller owns the one-shot semantics.
+     *
+     *  ⚠ THIS RAISES THE CARET, NOT NECESSARILY THE KEYBOARD. Mobile WebViews
+     *  commonly ignore a programmatic focus that is not inside a user-gesture
+     *  call stack, and arriving here via a route change is several ticks and a
+     *  lazy import away from the tap that started it. Accepted knowingly: the
+     *  synchronous-focus workaround has no precedent in this codebase and is
+     *  not being invented here. If a device shows the keyboard staying down,
+     *  that is a known next task, not a defect in this wiring. */
+    autofocus?: boolean
   }>(),
   {
     maxLength: 4000,
@@ -124,6 +136,7 @@ const props = withDefaults(
     growCap: undefined,
     showDraftPreview: false,
     sendTestId: undefined,
+    autofocus: false,
   },
 )
 
@@ -207,6 +220,21 @@ function focusField(): void {
   if (composing.value) return
   void nextTick(() => inputEl.value?.focus())
 }
+
+/** (e) B56: the autofocus path. Deliberately NOT `focusField` -- that one
+ *  early-returns while composing, which is right for a tap on an already-open
+ *  field and wrong here. */
+function requestFocus(): void {
+  void nextTick(() => inputEl.value?.focus())
+}
+
+watch(
+  () => props.autofocus,
+  (on) => {
+    if (on) requestFocus()
+  },
+  { immediate: true },
+)
 
 // B40: bounded growth, then internal scroll -- the CSS max-height (either the
 // `growCap` inline style or the --velo-textarea-autogrow-max token) is the

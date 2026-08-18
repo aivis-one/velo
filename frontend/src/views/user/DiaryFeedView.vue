@@ -230,8 +230,9 @@
       <DiaryComposer
         v-if="writeTarget"
         :entry-type="writeTarget"
+        :autofocus="composeRequested"
         @created="onComposerCreated"
-        @composing-change="composing = $event"
+        @composing-change="onComposingChange"
       />
     </div>
 
@@ -414,9 +415,61 @@ const writeTarget = computed(() => diaryWriteTarget(activeCategories.value))
 
 // Composer unmounts on blocked filters -- drop any lingering composing state
 // (the tap-catcher and the composer's own compose-time styling key off it).
+// Also drop a pending B56 compose request: a stale ?compose=1 that arrived
+// while a read-only filter was active must NOT resurrect and steal focus
+// later, whenever the user happens to clear that filter for an unrelated
+// reason (found in verification -- the composer.vue watcher fires on
+// whatever `autofocus` reads AT MOUNT time, so a flag left armed here would
+// pop the keyboard open on a filter-clear the user never asked to compose in).
 watch(writeTarget, (target) => {
-  if (!target) composing.value = false
+  if (!target) {
+    composing.value = false
+    composeRequested.value = false
+  }
 })
+
+// -- B56: arrive already writing -------------------------------------------
+//
+// The Dashboard's «Добавить запись» pushes /user/diary?compose=1. Same shape as
+// the ?deleted= watcher below: read it, act, strip the param with `replace` so
+// no history entry is added and a back-navigation cannot re-fire it.
+//
+// One-shot by construction: the flag is cleared the moment the composer reports
+// it is focused, so a later filter change that remounts the composer does not
+// silently steal focus again.
+const composeRequested = ref(false)
+
+function stripComposeQuery(): void {
+  if (route.query.compose !== undefined) {
+    const query = { ...route.query }
+    delete query.compose
+    void router.replace({ query })
+  }
+}
+
+watch(
+  () => route.query.compose,
+  (val) => {
+    const flag = Array.isArray(val) ? val[0] : val
+    if (!flag) return
+    stripComposeQuery()
+    // Arm only when writable NOW. A blocked filter means DiaryComposer never
+    // mounts, so composing-change (the normal one-shot consumer, below) can
+    // never fire to disarm it -- arming anyway would leave the flag live
+    // until the filter is cleared for some unrelated reason later, at which
+    // point the composer would mount and steal focus the user never asked
+    // for at THAT moment (found in verification -- the original fix cleared
+    // the flag on the wrong transition, going INTO blocked rather than
+    // guarding at the moment of arming).
+    if (writeTarget.value) composeRequested.value = true
+  },
+  { immediate: true },
+)
+
+function onComposingChange(value: boolean): void {
+  composing.value = value
+  if (value) composeRequested.value = false
+}
 
 function openFilter(): void {
   showFilter.value = true

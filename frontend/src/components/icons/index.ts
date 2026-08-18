@@ -48,6 +48,7 @@ export { default as IconClose } from './IconClose.vue'
 export { default as IconMoodLow } from './IconMoodLow.vue'
 export { default as IconMoodMid } from './IconMoodMid.vue'
 export { default as IconMoodHigh } from './IconMoodHigh.vue'
+export { default as IconActivityMood } from './IconActivityMood.vue'
 
 // -- Diary feed (Diary redesign): monochrome glyphs (currentColor) --
 export { default as IconPen } from './IconPen.vue'

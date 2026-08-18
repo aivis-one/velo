@@ -29,6 +29,7 @@
     :send="handleSend"
     :draft-key="draftKey"
     :grow-cap="growCap"
+    :autofocus="autofocus"
     show-draft-preview
     @sent="emit('created')"
     @composing-change="onComposingChange"
@@ -47,8 +48,12 @@ const props = withDefaults(
   defineProps<{
     /** Target diary entry type, decided by the parent from the active filter. */
     entryType?: 'note' | 'dream'
+    /** B56: arrive with the field already focused. Passed straight through --
+     *  this wrapper adds nothing to it; see Composer.vue for what it does and
+     *  does not promise about the soft keyboard. */
+    autofocus?: boolean
   }>(),
-  { entryType: 'note' },
+  { entryType: 'note', autofocus: false },
 )
 
 const emit = defineEmits<{

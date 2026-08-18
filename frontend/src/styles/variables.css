@@ -221,9 +221,11 @@
   --velo-write-blur: 10px; /* diary write-mode glass blur (scrim + composer field) */
 
   /* === VELΘ: Primitive palette === */
+  --velo-teal-100: #d6f5f8; /* pale cyan — quick-access "Добавить запись" fill (owner SVG 08/09, B55) */
   --velo-teal-400: #76dde6;
   --velo-teal-600: #2f9ea8;
   --velo-teal-700: #26767d;
+  --velo-peach-200: #ffe4ca; /* pale peach — quick-access "Внести активность" fill (owner SVG 08/09, B55) */
   --velo-peach-300: #fbc088;
   --velo-peach-500: #d4863c;
   --velo-peach-700: #a16124;

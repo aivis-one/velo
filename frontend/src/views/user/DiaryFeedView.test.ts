@@ -107,7 +107,7 @@ const back = vi.fn()
 
 // The `deleted` query drives the undo bar through a watcher with immediate:true
 // (.vue:500-511), so it must be REACTIVE and seeded BEFORE mount for that rung.
-const routeQuery = reactive<{ deleted?: string | string[] }>({})
+const routeQuery = reactive<{ deleted?: string | string[]; compose?: string | string[] }>({})
 
 // PROMPT №657: real() kept via importOriginal -- DiaryFeedView now transitively
 // imports the real @/router singleton (DiaryComposer -> useViewportGeometry ->
@@ -726,6 +726,33 @@ describe('DiaryFeedView', () => {
       expect(headerTitle()).toBe('Практики')
     })
 
+    it('REGRESSION: a ?compose=1 that arrives during a blocked filter does not resurrect and steal focus once the filter clears', async () => {
+      // Found in adversarial verification of the B56 build: the compose watcher
+      // fires (immediate:true) and sets composeRequested regardless of
+      // writeTarget, because the composer that would normally clear it via
+      // composing-change never mounts while a read-only filter is active. The
+      // fix drops composeRequested in the SAME watch(writeTarget) that already
+      // clears `composing` for blocked filters.
+      routeQuery.compose = '1'
+      vi.mocked(diaryApi.listDiaryFeed).mockResolvedValue(page([NOTE]))
+      const store = useDiaryStore()
+      await store.setFeedFilters({ categories: ['practices'] })
+      mount()
+      await flush()
+
+      // Blocked from the start: no composer, so no field was ever focused.
+      expect(host?.querySelector('.composer')).toBeNull()
+
+      // Clearing the filter for an unrelated reason must NOT resurrect the
+      // stale compose intent -- the composer mounts unfocused.
+      await store.clearFeedFilters()
+      await flush()
+
+      const field = host?.querySelector('.composer__input')
+      expect(field).not.toBeNull()
+      expect(document.activeElement).not.toBe(field)
+    })
+
     it('the composer switches target with the filter: Сонник writes dreams', async () => {
       vi.mocked(diaryApi.listDiaryFeed).mockResolvedValue(page([NOTE]))
       mount()
@@ -934,6 +961,33 @@ describe('DiaryFeedView', () => {
       expect(host?.querySelector('.diary-feed__undo')).not.toBeNull()
       expect(host?.textContent).toContain('Запись удалена')
       expect(replace).toHaveBeenCalledWith({ query: {} })
+    })
+
+    it('arrive-writing (?compose=) focuses the composer and strips the param', async () => {
+      // B56. Same shape as ?deleted= above: the watcher is immediate:true, so
+      // the query must be seeded BEFORE mount or the only firing is missed.
+      routeQuery.compose = '1'
+      vi.mocked(diaryApi.listDiaryFeed).mockResolvedValue(page([NOTE]))
+      mount()
+      await flush()
+
+      const field = host?.querySelector('.composer__input')
+      expect(field).not.toBeNull()
+      expect(document.activeElement).toBe(field)
+      // `replace`, not `push` -- a back-navigation must not re-fire the watcher.
+      expect(replace).toHaveBeenCalledWith({ query: {} })
+    })
+
+    it('no ?compose query leaves the composer unfocused', async () => {
+      // The must-fire half of the pair: without this the assertion above could
+      // pass on a field that happens to be focused for some unrelated reason.
+      vi.mocked(diaryApi.listDiaryFeed).mockResolvedValue(page([NOTE]))
+      mount()
+      await flush()
+
+      const field = host?.querySelector('.composer__input')
+      expect(field).not.toBeNull()
+      expect(document.activeElement).not.toBe(field)
     })
 
     it('no ?deleted query means no undo bar', async () => {

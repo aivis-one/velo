@@ -80,6 +80,14 @@ const router = createRouter({
           component: () => import('@/views/user/DiaryFeedView.vue'),
         },
         {
+          // B57 -- capture a past activity. A focused create flow, so the tab
+          // bar is hidden like every other create screen.
+          path: 'activity/new',
+          name: 'user-activity-new',
+          meta: { hideTabBar: true },
+          component: () => import('@/views/user/ActivityEntryView.vue'),
+        },
+        {
           path: 'diary/entry/:id',
           name: 'user-diary-entry',
           component: () => import('@/views/user/EntryView.vue'),

@@ -156,6 +156,36 @@
     </section>
 
     <!-- ================================================================
+         QUICK ACCESS (B55)
+         Two stacked entries into the diary. Sits ABOVE «Ваш прогресс» in BOTH
+         dashboard states -- measured off the owner's own files by <tspan> y
+         (08.svg 290.259 vs 455.259; 09.svg 165.259 vs 330.259), NOT off
+         document order, which in 09.svg is inverted and gives the opposite
+         answer. Order within the block is the design's too: activity first.
+         ================================================================ -->
+    <section class="dashboard__section">
+      <h3 class="dashboard__section-title">Быстрый доступ</h3>
+      <button
+        type="button"
+        class="dashboard__quick dashboard__quick--activity"
+        @click="router.push({ name: 'user-activity-new' })"
+      >
+        <IconPlus class="dashboard__quick-icon" :size="20" />
+        <span class="dashboard__quick-label">Внести активность</span>
+        <IconArrowRight class="dashboard__quick-chevron" :size="16" />
+      </button>
+      <button
+        type="button"
+        class="dashboard__quick dashboard__quick--note"
+        @click="router.push({ name: 'user-diary', query: { compose: '1' } })"
+      >
+        <IconEdit class="dashboard__quick-icon" :size="20" />
+        <span class="dashboard__quick-label">Добавить запись</span>
+        <IconArrowRight class="dashboard__quick-chevron" :size="16" />
+      </button>
+    </section>
+
+    <!-- ================================================================
          PROGRESS
          ================================================================ -->
     <section class="dashboard__section">
@@ -212,6 +242,8 @@ import {
   IconArrowRight,
   IconMoodMid,
   IconMoodHigh,
+  IconPlus,
+  IconEdit,
 } from '@/components/icons'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import Banner from '@/components/shared/Banner.vue'
@@ -366,10 +398,7 @@ function practiceTitle(b: BookingWithPracticeResponse): string {
  * the caller may hold no booking at all.
  */
 function zoomLinkFor(b: BookingWithPracticeResponse): ZoomLinkResolution {
-  return resolveZoomLink(
-    b.zoom_registrant_join_url,
-    b.practice.zoom_meeting_status,
-  )
+  return resolveZoomLink(b.zoom_registrant_join_url, b.practice.zoom_meeting_status)
 }
 
 function onZoomClick(b: BookingWithPracticeResponse): void {
@@ -515,6 +544,63 @@ onUnmounted(() => {
  * здесь остаётся только spacing вокруг actions row под карточкой. */
 
 /* Live pulse dot inside the «В эфире» badge (matches BookingCard's live dot). */
+/* -- Quick access (B55) --
+   Two matched buttons, NOT a primary/secondary pair: both use the same
+   light-tint fill + 2px accent border recipe, differing only in hue. Geometry
+   measured off 08/09.svg: 336x47 r23.5, 10px apart, 18px on all three internal
+   gaps. Height rounds to the existing --velo-size-... ladder via a literal 47
+   because no token carries it and inventing one for a single control is the
+   token sprawl variables.css already deleted --radius-sm/lg for. */
+.dashboard__quick {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  height: 47px;
+  padding: 0 18px;
+  border-radius: 23.5px;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  cursor: pointer;
+  transition: filter var(--transition-fast);
+}
+
+.dashboard__quick + .dashboard__quick {
+  margin-top: 10px;
+}
+
+.dashboard__quick:hover {
+  filter: brightness(0.97);
+}
+
+.dashboard__quick-icon,
+.dashboard__quick-chevron {
+  flex-shrink: 0;
+}
+
+.dashboard__quick-label {
+  flex: 1;
+  text-align: left;
+}
+
+.dashboard__quick--activity {
+  background: var(--velo-peach-200);
+  border: 2px solid var(--velo-peach-500);
+  color: var(--velo-peach-500);
+}
+
+.dashboard__quick--note {
+  background: var(--velo-teal-100);
+  border: 2px solid var(--velo-teal-600);
+  color: var(--velo-teal-700);
+}
+
+/* The design draws this one chevron neutral rather than in the button's own
+   hue -- kept as drawn rather than "corrected" into symmetry. */
+.dashboard__quick--note .dashboard__quick-chevron {
+  color: var(--velo-text-primary);
+}
+
 .dashboard__live-dot {
   width: 7px;
   height: 7px;
